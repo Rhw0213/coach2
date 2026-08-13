@@ -10,7 +10,7 @@
 <div class="wrap">
 
 	<header class="topbar">
-		<p class="mark">상담 예약</p>
+		<p class="mark">취업박람회 부스 예약</p>
 		<nav>
 			<a href="index.html">예약하기</a>
 			<a href="my.html" aria-current="page">내 예약</a>
@@ -19,7 +19,7 @@
 
 	<p class="eyebrow">확인 · 취소</p>
 	<h1>내 예약</h1>
-	<p class="lede">예약할 때 받은 확인 번호를 넣으면 예약을 보고 취소할 수 있습니다.</p>
+	<p class="lede">예약할 때 받은 확인 번호를 넣으면 잡아둔 부스와 시간을 보고 취소할 수 있습니다.</p>
 
 	<form id="lookup">
 		<label>
@@ -103,7 +103,7 @@ function render(token, list) {
 
 		const who = document.createElement('div');
 		who.className = 'stub-who';
-		who.textContent = r.coachName;
+		who.textContent = r.boothNo + ' ' + r.companyName;
 
 		const meta = document.createElement('div');
 		meta.className = 'stub-meta';

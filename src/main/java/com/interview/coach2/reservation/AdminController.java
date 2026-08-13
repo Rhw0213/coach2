@@ -6,11 +6,11 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.util.*;
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -22,72 +22,75 @@ import java.util.stream.Collectors;
 public class AdminController {
 
 	private final ReservationService service;
-	private final CoachRepository coaches;
-	private final CustomerRepository customers;
+	private final BoothRepository booths;
+	private final VisitorRepository visitors;
 
-	public AdminController(ReservationService service, CoachRepository coaches,
-	                       CustomerRepository customers) {
+	public AdminController(ReservationService service, BoothRepository booths,
+	                       VisitorRepository visitors) {
 		this.service = service;
-		this.coaches = coaches;
-		this.customers = customers;
+		this.booths = booths;
+		this.visitors = visitors;
 	}
 
-	public record CoachRequest(String name, String title,
-	                           @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime availableFrom,
-	                           @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime availableTo,
-	                           Integer slotMinutes, List<String> availableDays) {
+	public record BoothRequest(String companyName, String boothNo, String note,
+	                           @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate eventDate,
+	                           @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime openFrom,
+	                           @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime openTo,
+	                           Integer slotMinutes) {
 	}
 
-	public record CoachView(Long id, String name, String title, LocalTime availableFrom,
-	                        LocalTime availableTo, int slotMinutes, List<String> availableDays,
-	                        boolean active) {
+	public record AdminBoothView(Long id, String companyName, String boothNo, String note,
+	                             LocalDate eventDate, LocalTime openFrom, LocalTime openTo,
+	                             int slotMinutes, boolean active) {
 	}
 
-	public record AdminReservationView(Long id, Long coachId, String coachName, Instant startTime,
-	                                   int slotMinutes, String customerName, String customerPhone) {
+	public record AdminReservationView(Long id, Long boothId, String companyName, String boothNo,
+	                                   Instant startTime, int slotMinutes,
+	                                   String visitorName, String visitorPhone) {
 	}
 
-	@GetMapping("/coaches")
-	public List<CoachView> listCoaches() {
-		return coaches.findAll().stream().map(AdminController::toView).toList();
+	@GetMapping("/booths")
+	public List<AdminBoothView> listBooths() {
+		return booths.findAll().stream().map(AdminController::toView).toList();
 	}
 
-	@PostMapping("/coaches")
+	@PostMapping("/booths")
 	@ResponseStatus(HttpStatus.CREATED)
-	public CoachView createCoach(@RequestBody CoachRequest request) {
-		Coach coach = new Coach(request.name(), request.title(),
-			required(request.availableFrom(), "availableFrom"),
-			required(request.availableTo(), "availableTo"),
-			required(request.slotMinutes(), "slotMinutes"),
-			parseDays(request.availableDays()));
-		return toView(coaches.save(coach));
+	public AdminBoothView createBooth(@RequestBody BoothRequest request) {
+		Booth booth = new Booth(request.companyName(), request.boothNo(), request.note(),
+			required(request.eventDate(), "행사일"),
+			required(request.openFrom(), "운영 시작"),
+			required(request.openTo(), "운영 종료"),
+			required(request.slotMinutes(), "슬롯 길이"));
+		return toView(booths.save(booth));
 	}
 
-	@PatchMapping("/coaches/{coachId}")
+	@PatchMapping("/booths/{boothId}")
 	@Transactional
-	public CoachView updateCoach(@PathVariable Long coachId, @RequestBody CoachRequest request) {
-		Coach coach = coaches.findById(coachId)
-			.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "코치를 찾을 수 없습니다"));
-		coach.updateSchedule(
-			required(request.availableFrom(), "availableFrom"),
-			required(request.availableTo(), "availableTo"),
-			required(request.slotMinutes(), "slotMinutes"),
-			parseDays(request.availableDays()));
-		return toView(coach);
+	public AdminBoothView updateBooth(@PathVariable Long boothId, @RequestBody BoothRequest request) {
+		Booth booth = booths.findById(boothId)
+			.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "부스를 찾을 수 없습니다"));
+		booth.updateInfo(request.companyName(), request.boothNo(), request.note());
+		booth.updateSchedule(
+			required(request.eventDate(), "행사일"),
+			required(request.openFrom(), "운영 시작"),
+			required(request.openTo(), "운영 종료"),
+			required(request.slotMinutes(), "슬롯 길이"));
+		return toView(booth);
 	}
 
-	@PatchMapping("/coaches/{coachId}/active")
+	@PatchMapping("/booths/{boothId}/active")
 	@Transactional
-	public CoachView setActive(@PathVariable Long coachId, @RequestParam boolean active) {
-		Coach coach = coaches.findById(coachId)
-			.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "코치를 찾을 수 없습니다"));
-		// 비활성화해도 이미 잡힌 예약은 그대로 둔다. 새 예약만 막힌다.
+	public AdminBoothView setActive(@PathVariable Long boothId, @RequestParam boolean active) {
+		Booth booth = booths.findById(boothId)
+			.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "부스를 찾을 수 없습니다"));
+		// 중지해도 이미 잡힌 예약은 그대로 둔다. 새 예약만 막힌다.
 		if (active) {
-			coach.activate();
+			booth.activate();
 		} else {
-			coach.deactivate();
+			booth.deactivate();
 		}
-		return toView(coach);
+		return toView(booth);
 	}
 
 	@GetMapping("/reservations")
@@ -95,41 +98,29 @@ public class AdminController {
 			@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
 		List<Reservation> list = service.reservationsOn(date);
 
-		Map<Long, Coach> coachById = coaches.findAllById(
-				list.stream().map(Reservation::getCoachId).distinct().toList())
-			.stream().collect(Collectors.toMap(Coach::getId, c -> c, (a, b) -> a));
-		Map<Long, Customer> customerById = customers.findAllById(
-				list.stream().map(Reservation::getCustomerId).distinct().toList())
-			.stream().collect(Collectors.toMap(Customer::getId, c -> c, (a, b) -> a));
+		Map<Long, Booth> boothById = booths.findAllById(
+				list.stream().map(Reservation::getBoothId).distinct().toList())
+			.stream().collect(Collectors.toMap(Booth::getId, b -> b, (a, b) -> a));
+		Map<Long, Visitor> visitorById = visitors.findAllById(
+				list.stream().map(Reservation::getVisitorId).distinct().toList())
+			.stream().collect(Collectors.toMap(Visitor::getId, v -> v, (a, b) -> a));
 
 		return list.stream().map(r -> {
-			Coach coach = coachById.get(r.getCoachId());
-			Customer customer = customerById.get(r.getCustomerId());
+			Booth booth = boothById.get(r.getBoothId());
+			Visitor visitor = visitorById.get(r.getVisitorId());
 			return new AdminReservationView(
-				r.getId(), r.getCoachId(), coach == null ? "-" : coach.getName(),
+				r.getId(), r.getBoothId(),
+				booth == null ? "-" : booth.getCompanyName(),
+				booth == null ? "-" : booth.getBoothNo(),
 				r.getStartTime(), r.getSlotMinutes(),
-				customer == null ? "-" : customer.getName(),
-				customer == null ? "-" : customer.getPhone());
+				visitor == null ? "-" : visitor.getName(),
+				visitor == null ? "-" : visitor.getPhone());
 		}).toList();
 	}
 
-	private static CoachView toView(Coach c) {
-		return new CoachView(c.getId(), c.getName(), c.getTitle(), c.getAvailableFrom(),
-			c.getAvailableTo(), c.getSlotMinutes(),
-			c.availableDaySet().stream().map(Enum::name).toList(), c.isActive());
-	}
-
-	private static Set<DayOfWeek> parseDays(List<String> days) {
-		if (days == null || days.isEmpty()) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "availableDays는 하루 이상이어야 합니다");
-		}
-		try {
-			return days.stream().map(d -> DayOfWeek.valueOf(d.trim().toUpperCase(Locale.ROOT)))
-				.collect(Collectors.toCollection(() -> EnumSet.noneOf(DayOfWeek.class)));
-		} catch (IllegalArgumentException e) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-				"availableDays는 MONDAY..SUNDAY 여야 합니다");
-		}
+	private static AdminBoothView toView(Booth b) {
+		return new AdminBoothView(b.getId(), b.getCompanyName(), b.getBoothNo(), b.getNote(),
+			b.getEventDate(), b.getOpenFrom(), b.getOpenTo(), b.getSlotMinutes(), b.isActive());
 	}
 
 	private static <T> T required(T value, String field) {

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>관리자 · 상담 예약</title>
+<title>관리자 · 부스 예약</title>
 <link rel="stylesheet" href="app.css">
 </head>
 <body>
@@ -41,32 +41,30 @@
 		</div>
 		<div id="bookings"></div>
 
-		<h2>코치</h2>
-		<div id="coachList"></div>
+		<h2>부스</h2>
+		<div id="boothList"></div>
 
-		<h2 id="formTitle">코치 추가</h2>
-		<form id="coachForm">
+		<h2 id="formTitle">부스 추가</h2>
+		<form id="boothForm">
 			<input type="hidden" name="id">
 			<div class="row">
-				<label><span>이름</span><input name="name" required maxlength="40"></label>
-				<label><span>직함</span><input name="title" maxlength="40" placeholder="선택"></label>
+				<label><span>회사명</span><input name="companyName" required maxlength="60"></label>
+				<label><span>부스번호</span><input name="boothNo" required maxlength="20" placeholder="A-12"></label>
+			</div>
+			<label><span>모집 분야 · 한 줄 소개</span><input name="note" maxlength="80" placeholder="선택"></label>
+			<div class="row">
+				<label><span>행사일</span><input name="eventDate" type="date" required></label>
+				<label><span>상담 길이 (분)</span>
+					<input name="slotMinutes" type="number" required min="5" max="480" step="5" value="30"></label>
 			</div>
 			<div class="row">
-				<label><span>근무 시작</span><input name="availableFrom" type="time" required value="09:00"></label>
-				<label><span>근무 종료</span><input name="availableTo" type="time" required value="18:00"></label>
+				<label><span>운영 시작</span><input name="openFrom" type="time" required value="10:00"></label>
+				<label><span>운영 종료</span><input name="openTo" type="time" required value="17:00"></label>
 			</div>
-			<label style="max-width:12rem">
-				<span>세션 길이 (분)</span>
-				<input name="slotMinutes" type="number" required min="5" max="480" step="5" value="60">
-			</label>
-			<label>
-				<span>상담 요일</span>
-				<span class="days" id="days"></span>
-			</label>
 			<div id="formError"></div>
 			<div class="actions">
 				<button class="btn btn--ghost" type="button" id="resetForm" hidden>새로 추가</button>
-				<button class="btn" type="submit" id="save">코치 추가</button>
+				<button class="btn" type="submit" id="save">부스 추가</button>
 			</div>
 		</form>
 
@@ -75,23 +73,18 @@
 
 <script src="app.js"></script>
 <script>
-const DAYS = [
-	['MONDAY', '월'], ['TUESDAY', '화'], ['WEDNESDAY', '수'], ['THURSDAY', '목'],
-	['FRIDAY', '금'], ['SATURDAY', '토'], ['SUNDAY', '일'],
-];
-
 const gate = document.getElementById('gate');
 const panel = document.getElementById('panel');
-const coachForm = document.getElementById('coachForm');
+const boothForm = document.getElementById('boothForm');
 const bookings = document.getElementById('bookings');
-const coachList = document.getElementById('coachList');
+const boothList = document.getElementById('boothList');
 const dayLabelEl = document.getElementById('dayLabel');
 const formTitle = document.getElementById('formTitle');
 const saveBtn = document.getElementById('save');
 const resetBtn = document.getElementById('resetForm');
 const signout = document.getElementById('signout');
 
-let offset = 0;
+let viewDate = ymd(0);
 
 /* 시크릿은 sessionStorage에만 둔다 — 탭을 닫으면 사라진다. */
 const secretKey = 'coach2.admin';
@@ -101,14 +94,14 @@ function adminApi(path, options = {}) {
 	return api(path, { ...options, headers: { 'X-Admin-Secret': secret, ...(options.headers || {}) } });
 }
 
-renderDayCheckboxes();
+boothForm.eventDate.value = ymd(0);
 if (secret) open();
 
 gate.addEventListener('submit', async (event) => {
 	event.preventDefault();
 	secret = gate.secret.value;
 	try {
-		await adminApi('api/admin/coaches');
+		await adminApi('api/admin/booths');
 		sessionStorage.setItem(secretKey, secret);
 		open();
 	} catch (e) {
@@ -127,19 +120,25 @@ function open() {
 	gate.hidden = true;
 	panel.hidden = false;
 	signout.hidden = false;
+	loadBooths();
 	loadDay();
-	loadCoaches();
 }
 
-document.getElementById('prev').addEventListener('click', () => { offset--; loadDay(); });
-document.getElementById('next').addEventListener('click', () => { offset++; loadDay(); });
+document.getElementById('prev').addEventListener('click', () => shiftDay(-1));
+document.getElementById('next').addEventListener('click', () => shiftDay(1));
+
+function shiftDay(delta) {
+	const d = new Date(viewDate + 'T00:00:00+09:00');
+	d.setDate(d.getDate() + delta);
+	viewDate = d.toISOString().slice(0, 10);
+	loadDay();
+}
 
 async function loadDay() {
-	const date = ymd(offset);
-	dayLabelEl.textContent = dayLabel(date) + (offset === 0 ? ' · 오늘' : '');
+	dayLabelEl.textContent = dayLabel(viewDate) + (viewDate === ymd(0) ? ' · 오늘' : '');
 	bookings.innerHTML = '<p class="empty">불러오는 중…</p>';
 	try {
-		render(await adminApi('api/admin/reservations?date=' + date));
+		render(await adminApi('api/admin/reservations?date=' + viewDate));
 	} catch (e) {
 		showError(bookings, e.message);
 	}
@@ -152,15 +151,16 @@ function render(list) {
 	}
 	const table = document.createElement('table');
 	table.className = 'admin-table';
-	table.innerHTML = '<thead><tr><th>시각</th><th>코치</th><th>예약자</th><th>연락처</th></tr></thead>';
+	table.innerHTML = '<thead><tr><th>시각</th><th>부스</th><th>기업</th><th>예약자</th><th>연락처</th></tr></thead>';
 	const tbody = document.createElement('tbody');
 	for (const r of list) {
 		const tr = document.createElement('tr');
 		tr.append(
 			cell(hhmm(r.startTime) + ' · ' + r.slotMinutes + '분', 'num'),
-			cell(r.coachName),
-			cell(r.customerName),
-			cell(r.customerPhone, 'num'));
+			cell(r.boothNo, 'num'),
+			cell(r.companyName),
+			cell(r.visitorName),
+			cell(r.visitorPhone, 'num'));
 		tbody.append(tr);
 	}
 	table.append(tbody);
@@ -174,91 +174,82 @@ function cell(text, cls) {
 	return td;
 }
 
-async function loadCoaches() {
-	coachList.innerHTML = '<p class="empty">불러오는 중…</p>';
+async function loadBooths() {
+	boothList.innerHTML = '<p class="empty">불러오는 중…</p>';
 	let list;
 	try {
-		list = await adminApi('api/admin/coaches');
+		list = await adminApi('api/admin/booths');
 	} catch (e) {
-		showError(coachList, e.message);
+		showError(boothList, e.message);
 		return;
 	}
 	if (!list.length) {
-		coachList.innerHTML = '<p class="empty">등록된 코치가 없습니다. 아래에서 추가하세요.</p>';
+		boothList.innerHTML = '<p class="empty">등록된 부스가 없습니다. 아래에서 추가하세요.</p>';
 		return;
+	}
+
+	// 예약 현황은 행사일을 보는 게 기본이다. 오늘이 아니라 첫 부스의 행사일로 맞춘다.
+	if (viewDate === ymd(0) && list[0].eventDate !== ymd(0)) {
+		viewDate = list[0].eventDate;
+		loadDay();
 	}
 
 	const table = document.createElement('table');
 	table.className = 'admin-table';
-	table.innerHTML = '<thead><tr><th>이름</th><th>근무</th><th>요일</th><th>상태</th><th></th></tr></thead>';
+	table.innerHTML = '<thead><tr><th>부스</th><th>기업</th><th>행사일</th><th>운영</th><th>상태</th><th></th></tr></thead>';
 	const tbody = document.createElement('tbody');
 
-	for (const c of list) {
+	for (const b of list) {
 		const tr = document.createElement('tr');
-		const name = cell(c.name + (c.title ? ' · ' + c.title : ''));
-		const hours = cell(`${c.availableFrom.slice(0, 5)}–${c.availableTo.slice(0, 5)} · ${c.slotMinutes}분`, 'num');
-		const days = cell(DAYS.filter(([k]) => c.availableDays.includes(k)).map(([, ko]) => ko).join(''));
-		const state = cell(c.active ? '운영중' : '중지');
-
 		const td = document.createElement('td');
+
 		const edit = document.createElement('button');
 		edit.type = 'button';
 		edit.className = 'btn btn--ghost';
 		edit.style.cssText = 'flex:none;padding:.375rem .75rem;font-size:.8125rem;margin-right:.375rem';
 		edit.textContent = '수정';
-		edit.addEventListener('click', () => fillForm(c));
+		edit.addEventListener('click', () => fillForm(b));
 
 		const toggle = document.createElement('button');
 		toggle.type = 'button';
 		toggle.className = 'btn btn--ghost';
 		toggle.style.cssText = 'flex:none;padding:.375rem .75rem;font-size:.8125rem';
-		toggle.textContent = c.active ? '중지' : '재개';
+		toggle.textContent = b.active ? '중지' : '재개';
 		toggle.addEventListener('click', async () => {
 			toggle.disabled = true;
 			try {
 				// 중지해도 이미 잡힌 예약은 유지된다. 새 예약만 막힌다.
-				await adminApi(`api/admin/coaches/${c.id}/active?active=${!c.active}`, { method: 'PATCH' });
-				loadCoaches();
+				await adminApi(`api/admin/booths/${b.id}/active?active=${!b.active}`, { method: 'PATCH' });
+				loadBooths();
 			} catch (e) {
-				showError(coachList, e.message);
+				showError(boothList, e.message);
 			}
 		});
 
 		td.append(edit, toggle);
-		tr.append(name, hours, days, state, td);
+		tr.append(
+			cell(b.boothNo, 'num'),
+			cell(b.companyName + (b.note ? ' · ' + b.note : '')),
+			cell(b.eventDate, 'num'),
+			cell(`${b.openFrom.slice(0, 5)}–${b.openTo.slice(0, 5)} · ${b.slotMinutes}분`, 'num'),
+			cell(b.active ? '운영중' : '중지'),
+			td);
 		tbody.append(tr);
 	}
 	table.append(tbody);
-	coachList.replaceChildren(table);
+	boothList.replaceChildren(table);
 }
 
-function renderDayCheckboxes() {
-	const box = document.getElementById('days');
-	for (const [key, ko] of DAYS) {
-		const label = document.createElement('label');
-		const input = document.createElement('input');
-		input.type = 'checkbox';
-		input.name = 'day';
-		input.value = key;
-		if (key !== 'SATURDAY' && key !== 'SUNDAY') input.checked = true;
-		const span = document.createElement('span');
-		span.textContent = ko;
-		label.append(input, span);
-		box.append(label);
-	}
-}
-
-function fillForm(c) {
-	coachForm.id.value = c.id;
-	coachForm.name.value = c.name;
-	coachForm.title.value = c.title || '';
-	coachForm.availableFrom.value = c.availableFrom.slice(0, 5);
-	coachForm.availableTo.value = c.availableTo.slice(0, 5);
-	coachForm.slotMinutes.value = c.slotMinutes;
-	for (const input of coachForm.querySelectorAll('input[name=day]')) {
-		input.checked = c.availableDays.includes(input.value);
-	}
-	formTitle.textContent = c.name + ' 수정';
+function fillForm(b) {
+	boothForm.id.value = b.id;
+	boothForm.companyName.value = b.companyName;
+	boothForm.boothNo.value = b.boothNo;
+	boothForm.note.value = b.note || '';
+	boothForm.eventDate.value = b.eventDate;
+	boothForm.openFrom.value = b.openFrom.slice(0, 5);
+	boothForm.openTo.value = b.openTo.slice(0, 5);
+	boothForm.slotMinutes.value = b.slotMinutes;
+	formTitle.textContent = `${b.boothNo} ${b.companyName} 수정`;
 	saveBtn.textContent = '변경 저장';
 	resetBtn.hidden = false;
 	formTitle.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -267,40 +258,36 @@ function fillForm(c) {
 resetBtn.addEventListener('click', clearForm);
 
 function clearForm() {
-	coachForm.reset();
-	coachForm.id.value = '';
-	formTitle.textContent = '코치 추가';
-	saveBtn.textContent = '코치 추가';
+	boothForm.reset();
+	boothForm.id.value = '';
+	boothForm.eventDate.value = viewDate;
+	formTitle.textContent = '부스 추가';
+	saveBtn.textContent = '부스 추가';
 	resetBtn.hidden = true;
 }
 
-coachForm.addEventListener('submit', async (event) => {
+boothForm.addEventListener('submit', async (event) => {
 	event.preventDefault();
-	const days = [...coachForm.querySelectorAll('input[name=day]:checked')].map(i => i.value);
 	const errorBox = document.getElementById('formError');
 	errorBox.innerHTML = '';
-	if (!days.length) {
-		showError(errorBox, '상담 요일을 하나 이상 선택하세요.');
-		return;
-	}
 
-	const id = coachForm.id.value;
+	const id = boothForm.id.value;
 	const body = JSON.stringify({
-		name: coachForm.name.value,
-		title: coachForm.title.value || null,
-		availableFrom: coachForm.availableFrom.value + ':00',
-		availableTo: coachForm.availableTo.value + ':00',
-		slotMinutes: Number(coachForm.slotMinutes.value),
-		availableDays: days,
+		companyName: boothForm.companyName.value,
+		boothNo: boothForm.boothNo.value,
+		note: boothForm.note.value || null,
+		eventDate: boothForm.eventDate.value,
+		openFrom: boothForm.openFrom.value + ':00',
+		openTo: boothForm.openTo.value + ':00',
+		slotMinutes: Number(boothForm.slotMinutes.value),
 	});
 
 	saveBtn.disabled = true;
 	try {
-		// 수정은 근무 일정만 바꾼다(이름은 생성 시 확정). 서버 계약과 같다.
-		await adminApi(id ? `api/admin/coaches/${id}` : 'api/admin/coaches',
+		await adminApi(id ? `api/admin/booths/${id}` : 'api/admin/booths',
 			{ method: id ? 'PATCH' : 'POST', body });
 		clearForm();
-		loadCoaches();
+		loadBooths();
 		loadDay();
 	} catch (e) {
 		showError(errorBox, e.message);

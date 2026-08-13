@@ -3,35 +3,31 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>상담 예약</title>
+<title>부스 예약 · 취업박람회</title>
 <link rel="stylesheet" href="app.css">
 </head>
 <body>
 <div class="wrap">
 
 	<header class="topbar">
-		<p class="mark">상담 예약</p>
+		<p class="mark">취업박람회 부스 예약</p>
 		<nav>
 			<a href="index.html" aria-current="page">예약하기</a>
 			<a href="my.html">내 예약</a>
 		</nav>
 	</header>
 
-	<p class="eyebrow">1:1 코칭</p>
-	<h1>한 시간을<br>비워 두세요</h1>
-	<p class="lede">코치를 고르고 남은 시간을 선택하면 예약이 끝납니다. 회원가입은 없습니다.</p>
+	<p class="eyebrow" id="eventDate">1:1 상담</p>
+	<h1>부스를 고르고<br>시간을 잡으세요</h1>
+	<p class="lede">기업 부스마다 상담 시간이 정해져 있습니다. 한 시간대에 한 명씩만 배정되니 원하는 시간을 먼저 확보하세요. 회원가입은 없습니다.</p>
 
 	<div id="ticket"></div>
 
-	<h2>코치</h2>
-	<div id="coaches"><p class="empty">불러오는 중…</p></div>
+	<h2>참가 기업</h2>
+	<div id="booths"><p class="empty">불러오는 중…</p></div>
 
 	<section id="day" hidden>
-		<div class="datebar">
-			<button class="step" id="prev" type="button" aria-label="이전 날">‹</button>
-			<h2 id="dayLabel"></h2>
-			<button class="step" id="next" type="button" aria-label="다음 날">›</button>
-		</div>
+		<h2 id="dayTitle"></h2>
 		<div id="rail"><p class="empty">불러오는 중…</p></div>
 	</section>
 
@@ -39,7 +35,7 @@
 
 <dialog id="sheet">
 	<form method="dialog" id="bookForm">
-		<h2>예약하기</h2>
+		<h2>상담 예약</h2>
 		<p class="when" id="sheetWhen"></p>
 
 		<label>
@@ -64,12 +60,11 @@
 <script src="app.js"></script>
 <script>
 const el = {
-	coaches: document.getElementById('coaches'),
+	eventDate: document.getElementById('eventDate'),
+	booths: document.getElementById('booths'),
 	day: document.getElementById('day'),
-	dayLabel: document.getElementById('dayLabel'),
+	dayTitle: document.getElementById('dayTitle'),
 	rail: document.getElementById('rail'),
-	prev: document.getElementById('prev'),
-	next: document.getElementById('next'),
 	ticket: document.getElementById('ticket'),
 	sheet: document.getElementById('sheet'),
 	sheetWhen: document.getElementById('sheetWhen'),
@@ -78,130 +73,122 @@ const el = {
 	form: document.getElementById('bookForm'),
 };
 
-const MAX_AHEAD = 60;
-let coaches = [];
-let coach = null;
-let offset = 0;
+let booths = [];
+let booth = null;
 let picked = null;
 
 init();
 
 async function init() {
 	try {
-		coaches = await api('api/coaches');
+		booths = await api('api/booths');
 	} catch (e) {
-		showError(el.coaches, e.message);
+		showError(el.booths, e.message);
 		return;
 	}
-	if (!coaches.length) {
-		el.coaches.innerHTML = '<p class="empty">아직 등록된 코치가 없습니다.</p>';
+	if (!booths.length) {
+		el.booths.innerHTML = '<p class="empty">아직 등록된 부스가 없습니다.</p>';
 		return;
 	}
-	renderCoaches();
-	select(coaches[0]);
+	// 하루짜리 행사다. 부스들이 같은 날이면 날짜를 한 번만 크게 말해준다.
+	const dates = [...new Set(booths.map(b => b.eventDate))];
+	el.eventDate.textContent = dates.length === 1
+		? dayLabel(dates[0]) + ' · 1:1 상담'
+		: '1:1 상담';
+
+	renderBooths();
+	select(booths[0]);
 }
 
-function renderCoaches() {
+function renderBooths() {
 	const list = document.createElement('ul');
-	list.className = 'coaches';
-	for (const c of coaches) {
+	list.className = 'booth-grid';
+	for (const b of booths) {
 		const li = document.createElement('li');
 		const btn = document.createElement('button');
 		btn.type = 'button';
-		btn.className = 'coach';
-		btn.dataset.id = c.id;
+		btn.className = 'booth-card';
+		btn.dataset.id = b.id;
 		btn.setAttribute('aria-pressed', 'false');
 
+		// 부스번호를 먼저 읽는다 — 현장에서 찾아갈 때 쓰는 표식이다.
+		const no = document.createElement('div');
+		no.className = 'booth-meta';
+		no.style.margin = '0 0 .25rem';
+		no.textContent = b.boothNo;
+		btn.append(no);
+
 		const name = document.createElement('div');
-		name.className = 'coach-name';
-		name.textContent = c.name;
+		name.className = 'booth-company';
+		name.textContent = b.companyName;
 		btn.append(name);
 
-		if (c.title) {
+		if (b.note) {
 			const t = document.createElement('div');
-			t.className = 'coach-title';
-			t.textContent = c.title;
+			t.className = 'booth-note';
+			t.textContent = b.note;
 			btn.append(t);
 		}
 
 		const hours = document.createElement('div');
-		hours.className = 'coach-hours';
-		hours.textContent = `${c.availableFrom.slice(0, 5)}–${c.availableTo.slice(0, 5)} · ${c.slotMinutes}분 · ${koDays(c.availableDays)}`;
+		hours.className = 'booth-meta';
+		hours.textContent = `${b.openFrom.slice(0, 5)}–${b.openTo.slice(0, 5)} · ${b.slotMinutes}분`;
 		btn.append(hours);
 
-		btn.addEventListener('click', () => select(c));
+		btn.addEventListener('click', () => select(b));
 		li.append(btn);
 		list.append(li);
 	}
-	el.coaches.replaceChildren(list);
+	el.booths.replaceChildren(list);
 }
 
-const KO_DAY = {
-	MONDAY: '월', TUESDAY: '화', WEDNESDAY: '수', THURSDAY: '목',
-	FRIDAY: '금', SATURDAY: '토', SUNDAY: '일',
-};
-const DAY_ORDER = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
-
-function koDays(days) {
-	return DAY_ORDER.filter(d => days.includes(d)).map(d => KO_DAY[d]).join('');
-}
-
-function select(c) {
-	coach = c;
-	offset = 0;
-	for (const btn of el.coaches.querySelectorAll('.coach')) {
-		btn.setAttribute('aria-pressed', String(Number(btn.dataset.id) === c.id));
+function select(b) {
+	booth = b;
+	for (const btn of el.booths.querySelectorAll('.booth-card')) {
+		btn.setAttribute('aria-pressed', String(Number(btn.dataset.id) === b.id));
 	}
 	el.day.hidden = false;
-	loadDay();
+	el.dayTitle.textContent = `${b.boothNo} ${b.companyName} · ${dayLabel(b.eventDate)}`;
+	loadSlots();
 }
 
-el.prev.addEventListener('click', () => { if (offset > 0) { offset--; loadDay(); } });
-el.next.addEventListener('click', () => { if (offset < MAX_AHEAD) { offset++; loadDay(); } });
-
-async function loadDay() {
-	const date = ymd(offset);
-	el.dayLabel.textContent = dayLabel(date) + (offset === 0 ? ' · 오늘' : '');
-	el.prev.disabled = offset === 0;
-	el.next.disabled = offset >= MAX_AHEAD;
-
-	if (!coach.availableDays.includes(dayOfWeek(date))) {
-		el.rail.innerHTML = '<p class="empty">이 날은 상담을 받지 않습니다.</p>';
-		return;
-	}
-
+async function loadSlots() {
 	el.rail.innerHTML = '<p class="empty">불러오는 중…</p>';
 	let open;
 	try {
-		open = await api(`api/coaches/${coach.id}/slots?date=${date}`);
+		open = await api(`api/booths/${booth.id}/slots`);
 	} catch (e) {
 		showError(el.rail, e.message);
 		return;
 	}
-	renderRail(date, new Set(open.map(s => new Date(s).getTime())));
+	renderRail(new Set(open.map(s => new Date(s).getTime())));
 }
 
-/* 레일: 근무시간 전체를 밴드로 깔고, 예약 가능한 시간만 채운다.
+/* 레일: 운영시간 전체를 밴드로 깔고, 예약 가능한 시간만 채운다.
  * 마감·지난 시간을 빈 칸으로 남겨야 얼마나 차 있는지가 눈에 보인다. */
-function renderRail(date, openSet) {
-	const grid = slotGrid(date, coach.availableFrom, coach.availableTo, coach.slotMinutes);
+function renderRail(openSet) {
+	const grid = slotGrid(booth.eventDate, booth.openFrom, booth.openTo, booth.slotMinutes);
 	if (!grid.length) {
-		el.rail.innerHTML = '<p class="empty">이 날은 상담을 받지 않습니다.</p>';
+		el.rail.innerHTML = '<p class="empty">운영 시간이 설정되지 않았습니다.</p>';
 		return;
 	}
 
 	const now = Date.now();
 	const list = document.createElement('ol');
 	list.className = 'rail';
+	let lastHour = null;
 
 	for (const start of grid) {
 		const iso = start.toISOString();
 		const isOpen = openSet.has(start.getTime());
 		const li = document.createElement('li');
 
+		// 30분 슬롯이면 시각 눈금은 정시에만 찍는다 — 눈금이 촘촘하면 자가 아니라 노이즈가 된다.
+		const hh = hhmm(iso).slice(0, 2);
 		const hour = document.createElement('span');
 		hour.className = 'hour';
-		hour.textContent = hhmm(iso).slice(0, 2);
+		hour.textContent = hh === lastHour ? '' : hh;
+		lastHour = hh;
 
 		if (isOpen) {
 			li.className = 'band';
@@ -210,7 +197,7 @@ function renderRail(date, openSet) {
 			btn.className = 'slot';
 			btn.innerHTML = '<span class="t"></span><span class="dur"></span>';
 			btn.querySelector('.t').textContent = hhmm(iso);
-			btn.querySelector('.dur').textContent = coach.slotMinutes + '분';
+			btn.querySelector('.dur').textContent = booth.slotMinutes + '분';
 			btn.addEventListener('click', () => openSheet(iso));
 			li.append(hour, btn);
 		} else {
@@ -228,19 +215,18 @@ function renderRail(date, openSet) {
 		list.append(li);
 	}
 
-	const openCount = grid.filter(s => openSet.has(s.getTime())).length;
 	el.rail.replaceChildren(list);
-	if (openCount === 0) {
+	if (!grid.some(s => openSet.has(s.getTime()))) {
 		const p = document.createElement('p');
 		p.className = 'empty';
-		p.textContent = '이 날은 남은 시간이 없습니다. 다음 날을 확인해 보세요.';
+		p.textContent = '이 부스는 남은 시간이 없습니다. 다른 부스를 확인해 보세요.';
 		el.rail.append(p);
 	}
 }
 
 function openSheet(iso) {
 	picked = iso;
-	el.sheetWhen.textContent = `${coach.name} · ${fullWhen(iso)}`;
+	el.sheetWhen.textContent = `${booth.boothNo} ${booth.companyName} · ${fullWhen(iso)}`;
 	el.sheetError.innerHTML = '';
 	el.form.reset();
 	el.sheet.showModal();
@@ -259,7 +245,7 @@ el.form.addEventListener('submit', async (event) => {
 		const result = await api('api/reservations', {
 			method: 'POST',
 			body: JSON.stringify({
-				coachId: coach.id,
+				boothId: booth.id,
 				startTime: picked,
 				name: data.get('name'),
 				phone: data.get('phone'),
@@ -268,7 +254,7 @@ el.form.addEventListener('submit', async (event) => {
 		store.token = result.token;
 		el.sheet.close();
 		renderTicket(result);
-		loadDay();
+		loadSlots();
 	} catch (e) {
 		showError(el.sheetError, e.message);
 	} finally {
@@ -277,7 +263,7 @@ el.form.addEventListener('submit', async (event) => {
 	}
 });
 
-/* 토큰을 잃으면 예약을 다시 열 수 없다. 확인 화면에서 표처럼 분명하게 넘긴다. */
+/* 확인 번호를 잃으면 예약을 다시 열 수 없다. 현장에서 찾아갈 부스번호와 함께 표처럼 넘긴다. */
 function renderTicket(result) {
 	const box = document.createElement('div');
 	box.className = 'ticket';
@@ -286,15 +272,17 @@ function renderTicket(result) {
 	h.className = 'eyebrow';
 	h.textContent = '예약 완료';
 
+	const where = document.createElement('p');
+	where.style.cssText = 'font-weight:700;font-size:1.125rem;margin:0 0 .25rem';
+	where.textContent = `${result.boothNo} ${result.companyName}`;
+
 	const when = document.createElement('p');
-	when.style.fontWeight = '700';
-	when.style.margin = '0 0 .75rem';
-	when.textContent = `${coach.name} · ${fullWhen(result.startTime)} (${result.slotMinutes}분)`;
+	when.style.cssText = 'margin:0 0 .75rem;font-family:var(--mono);font-size:.875rem';
+	when.textContent = `${fullWhen(result.startTime)} · ${result.slotMinutes}분`;
 
 	const note = document.createElement('p');
-	note.style.margin = '0';
-	note.style.fontSize = '.875rem';
-	note.textContent = '이 확인 번호로 예약을 조회하고 취소할 수 있습니다. 저장해 두세요.';
+	note.style.cssText = 'margin:0;font-size:.875rem';
+	note.textContent = `당일 ${result.boothNo} 부스로 찾아오세요. 아래 확인 번호로 예약을 조회하고 취소할 수 있습니다.`;
 
 	const code = document.createElement('code');
 	code.textContent = result.token;
@@ -318,13 +306,12 @@ function renderTicket(result) {
 
 	const go = document.createElement('a');
 	go.className = 'btn';
-	go.style.textAlign = 'center';
-	go.style.textDecoration = 'none';
+	go.style.cssText = 'text-align:center;text-decoration:none';
 	go.href = 'my.html';
 	go.textContent = '내 예약 보기';
 
 	actions.append(copy, go);
-	box.append(h, when, note, code, actions);
+	box.append(h, where, when, note, code, actions);
 	el.ticket.replaceChildren(box);
 	box.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }

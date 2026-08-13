@@ -51,14 +51,8 @@ function ymd(offset = 0) {
 	return `${kst.getFullYear()}-${String(kst.getMonth() + 1).padStart(2, '0')}-${String(kst.getDate()).padStart(2, '0')}`;
 }
 
-const DAY_NAMES = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
-
-function dayOfWeek(ymdStr) {
-	return DAY_NAMES[new Date(ymdStr + 'T00:00:00+09:00').getDay()];
-}
-
-/** "09:00:00" + n분 단위로 근무시간 전체를 훑어 슬롯 시작 시각(Date)을 만든다.
- *  서버 Slots.forDate와 같은 규칙 — 끝을 넘기는 슬롯은 만들지 않는다. */
+/** "10:00:00" + n분 단위로 운영시간 전체를 훑어 슬롯 시작 시각(Date)을 만든다.
+ *  서버 Slots.forBooth와 같은 규칙 — 끝을 넘기는 슬롯은 만들지 않는다. */
 function slotGrid(ymdStr, from, to, minutes) {
 	const [fh, fm] = from.split(':').map(Number);
 	const [th, tm] = to.split(':').map(Number);

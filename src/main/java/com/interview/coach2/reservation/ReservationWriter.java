@@ -18,11 +18,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class ReservationWriter {
 
 	private final ReservationRepository reservations;
-	private final CustomerRepository customers;
+	private final VisitorRepository visitors;
 
-	public ReservationWriter(ReservationRepository reservations, CustomerRepository customers) {
+	public ReservationWriter(ReservationRepository reservations, VisitorRepository visitors) {
 		this.reservations = reservations;
-		this.customers = customers;
+		this.visitors = visitors;
 	}
 
 	@Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -31,7 +31,7 @@ public class ReservationWriter {
 	}
 
 	@Transactional(propagation = Propagation.REQUIRES_NEW)
-	public Customer insertCustomer(Customer customer) {
-		return customers.saveAndFlush(customer);
+	public Visitor insertVisitor(Visitor visitor) {
+		return visitors.saveAndFlush(visitor);
 	}
 }

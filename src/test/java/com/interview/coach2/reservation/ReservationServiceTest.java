@@ -11,7 +11,6 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.util.EnumSet;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -26,57 +25,59 @@ class ReservationServiceTest {
 
 	@Autowired ReservationService service;
 	@Autowired ReservationWriter writer;
-	@Autowired CoachRepository coaches;
-	@Autowired CustomerRepository customers;
+	@Autowired BoothRepository booths;
+	@Autowired VisitorRepository visitors;
 	@Autowired ReservationRepository reservations;
 
-	private Coach coach;
+	private Booth booth;
 	private Instant slot;
 
 	@BeforeEach
 	void setUp() {
 		reservations.deleteAll();
-		customers.deleteAll();
-		coaches.deleteAll();
+		visitors.deleteAll();
+		booths.deleteAll();
 
-		// 항상 미래이고 항상 근무요일인 날을 고른다 — 실행 시점에 따라 깨지지 않게.
-		LocalDate target = Slots.today().plusDays(7);
-		coach = coaches.save(new Coach("김코치", "커리어 코치",
-			LocalTime.of(9, 0), LocalTime.of(12, 0), 60,
-			EnumSet.of(target.getDayOfWeek())));
-		slot = target.atTime(10, 0).atZone(Slots.ZONE).toInstant();
+		// 항상 미래인 날을 고른다 — 실행 시점에 따라 깨지지 않게.
+		LocalDate eventDate = Slots.today().plusDays(7);
+		booth = booths.save(new Booth("동해기업", "A-12", "백엔드 개발자 모집",
+			eventDate, LocalTime.of(10, 0), LocalTime.of(17, 0), 30));
+		slot = eventDate.atTime(11, 0).atZone(Slots.ZONE).toInstant();
+	}
+
+	private static void assertStatus(Throwable e, HttpStatus expected) {
+		assertThat(((ResponseStatusException) e).getStatusCode()).isEqualTo(expected);
 	}
 
 	@Test
 	void 예약하면_토큰이_발급된다() {
 		ReservationService.BookResult result =
-			service.book(coach.getId(), slot, "홍길동", "010-1234-5678");
+			service.book(booth.getId(), slot, "홍길동", "010-1234-5678");
 
-		assertThat(result.customerToken()).isNotBlank();
+		assertThat(result.visitorToken()).isNotBlank();
 		assertThat(result.reservation().getStatus()).isEqualTo(ReservationStatus.RESERVED);
-		// 코치 설정이 나중에 바뀌어도 흔들리지 않도록 길이를 복사해둔다
-		assertThat(result.reservation().getSlotMinutes()).isEqualTo(60);
+		// 부스 설정이 나중에 바뀌어도 흔들리지 않도록 길이를 복사해둔다
+		assertThat(result.reservation().getSlotMinutes()).isEqualTo(30);
 	}
 
 	@Test
 	void 전화번호는_표기가_달라도_같은_사람이다() {
-		String token = service.book(coach.getId(), slot, "홍길동", "010-1234-5678").customerToken();
-		Instant other = slot.plusSeconds(3600);
+		String token = service.book(booth.getId(), slot, "홍길동", "010-1234-5678").visitorToken();
+		Instant other = slot.plusSeconds(1800);
 
-		String again = service.book(coach.getId(), other, "홍길동", "01012345678").customerToken();
+		String again = service.book(booth.getId(), other, "홍길동", "01012345678").visitorToken();
 
 		assertThat(again).isEqualTo(token);
-		assertThat(customers.count()).isEqualTo(1);
+		assertThat(visitors.count()).isEqualTo(1);
 	}
 
 	@Test
 	void 같은_슬롯은_두_번_예약되지_않는다() {
-		service.book(coach.getId(), slot, "홍길동", "01011112222");
+		service.book(booth.getId(), slot, "홍길동", "01011112222");
 
-		assertThatThrownBy(() -> service.book(coach.getId(), slot, "김철수", "01033334444"))
+		assertThatThrownBy(() -> service.book(booth.getId(), slot, "김철수", "01033334444"))
 			.isInstanceOf(ResponseStatusException.class)
-			.satisfies(e -> assertThat(((ResponseStatusException) e).getStatusCode())
-				.isEqualTo(HttpStatus.CONFLICT));
+			.satisfies(e -> assertStatus(e, HttpStatus.CONFLICT));
 	}
 
 	/**
@@ -86,101 +87,107 @@ class ReservationServiceTest {
 	 */
 	@Test
 	void 사전검사를_우회해도_DB가_같은_슬롯을_거절한다() {
-		Customer a = writer.insertCustomer(new Customer("홍길동", "01011112222"));
-		Customer b = writer.insertCustomer(new Customer("김철수", "01033334444"));
+		Visitor a = writer.insertVisitor(new Visitor("홍길동", "01011112222"));
+		Visitor b = writer.insertVisitor(new Visitor("김철수", "01033334444"));
 
-		writer.insert(new Reservation(coach.getId(), a.getId(), slot, 60));
+		writer.insert(new Reservation(booth.getId(), a.getId(), slot, 30));
 
-		assertThatThrownBy(() -> writer.insert(new Reservation(coach.getId(), b.getId(), slot, 60)))
+		assertThatThrownBy(() -> writer.insert(new Reservation(booth.getId(), b.getId(), slot, 30)))
 			.isInstanceOf(DataIntegrityViolationException.class);
 	}
 
 	@Test
-	void 한_사람이_같은_시각에_두_코치를_잡을_수_없다() {
-		LocalDate target = LocalDate.ofInstant(slot, Slots.ZONE);
-		Coach other = coaches.save(new Coach("이코치", null,
-			LocalTime.of(9, 0), LocalTime.of(12, 0), 60, EnumSet.of(target.getDayOfWeek())));
+	void 한_사람이_같은_시각에_두_부스를_잡을_수_없다() {
+		Booth other = booths.save(new Booth("서해기업", "B-03", null,
+			booth.getEventDate(), LocalTime.of(10, 0), LocalTime.of(17, 0), 30));
 
-		service.book(coach.getId(), slot, "홍길동", "01011112222");
+		service.book(booth.getId(), slot, "홍길동", "01011112222");
 
 		assertThatThrownBy(() -> service.book(other.getId(), slot, "홍길동", "01011112222"))
 			.isInstanceOf(ResponseStatusException.class)
-			.satisfies(e -> assertThat(((ResponseStatusException) e).getStatusCode())
-				.isEqualTo(HttpStatus.CONFLICT));
+			.satisfies(e -> assertStatus(e, HttpStatus.CONFLICT));
+	}
+
+	@Test
+	void 다른_시각이면_여러_부스를_돌_수_있다() {
+		Booth other = booths.save(new Booth("서해기업", "B-03", null,
+			booth.getEventDate(), LocalTime.of(10, 0), LocalTime.of(17, 0), 30));
+
+		service.book(booth.getId(), slot, "홍길동", "01011112222");
+		ReservationService.BookResult second =
+			service.book(other.getId(), slot.plusSeconds(1800), "홍길동", "01011112222");
+
+		assertThat(second.reservation().getStatus()).isEqualTo(ReservationStatus.RESERVED);
+		assertThat(service.myReservations(second.visitorToken())).hasSize(2);
 	}
 
 	@Test
 	void 취소하면_같은_슬롯을_다시_예약할_수_있다() {
 		ReservationService.BookResult first =
-			service.book(coach.getId(), slot, "홍길동", "01011112222");
+			service.book(booth.getId(), slot, "홍길동", "01011112222");
 
-		service.cancel(first.reservation().getId(), first.customerToken());
+		service.cancel(first.reservation().getId(), first.visitorToken());
 
 		// 슬롯키가 NULL이 되어 유니크 제약에서 빠져야 다른 사람이 잡을 수 있다.
 		ReservationService.BookResult second =
-			service.book(coach.getId(), slot, "김철수", "01033334444");
+			service.book(booth.getId(), slot, "김철수", "01033334444");
 		assertThat(second.reservation().getId()).isNotEqualTo(first.reservation().getId());
 	}
 
 	@Test
 	void 예약한_슬롯은_가용목록에서_빠진다() {
-		LocalDate target = LocalDate.ofInstant(slot, Slots.ZONE);
-		List<Instant> before = service.availableSlots(coach.getId(), target);
+		List<Instant> before = service.availableSlots(booth.getId());
 
-		service.book(coach.getId(), slot, "홍길동", "01011112222");
+		service.book(booth.getId(), slot, "홍길동", "01011112222");
 
-		assertThat(service.availableSlots(coach.getId(), target))
+		assertThat(service.availableSlots(booth.getId()))
 			.hasSize(before.size() - 1)
 			.doesNotContain(slot);
 	}
 
 	@Test
 	void 슬롯_경계가_아닌_시각은_거부된다() {
-		Instant offGrid = slot.plusSeconds(600); // 10:10 — 정각 슬롯이 아니다
+		Instant offGrid = slot.plusSeconds(600); // 11:10 — 30분 격자에 없다
 
-		assertThatThrownBy(() -> service.book(coach.getId(), offGrid, "홍길동", "01011112222"))
+		assertThatThrownBy(() -> service.book(booth.getId(), offGrid, "홍길동", "01011112222"))
 			.isInstanceOf(ResponseStatusException.class)
-			.satisfies(e -> assertThat(((ResponseStatusException) e).getStatusCode())
-				.isEqualTo(HttpStatus.BAD_REQUEST));
+			.satisfies(e -> assertStatus(e, HttpStatus.BAD_REQUEST));
 	}
 
 	@Test
-	void 지난_시간은_예약할_수_없다() {
+	void 지난_행사일은_예약할_수_없다() {
 		LocalDate past = Slots.today().minusDays(7);
-		Coach pastCoach = coaches.save(new Coach("박코치", null,
-			LocalTime.of(9, 0), LocalTime.of(12, 0), 60, EnumSet.of(past.getDayOfWeek())));
-		Instant pastSlot = past.atTime(10, 0).atZone(Slots.ZONE).toInstant();
+		Booth pastBooth = booths.save(new Booth("과거기업", "Z-99", null,
+			past, LocalTime.of(10, 0), LocalTime.of(17, 0), 30));
+		Instant pastSlot = past.atTime(11, 0).atZone(Slots.ZONE).toInstant();
 
-		assertThatThrownBy(() -> service.book(pastCoach.getId(), pastSlot, "홍길동", "01011112222"))
+		assertThatThrownBy(() -> service.book(pastBooth.getId(), pastSlot, "홍길동", "01011112222"))
 			.isInstanceOf(ResponseStatusException.class)
-			.satisfies(e -> assertThat(((ResponseStatusException) e).getStatusCode())
-				.isEqualTo(HttpStatus.BAD_REQUEST));
+			.satisfies(e -> assertStatus(e, HttpStatus.BAD_REQUEST));
 	}
 
 	@Test
 	void 남의_토큰으로는_취소할_수_없고_존재도_알려주지_않는다() {
 		ReservationService.BookResult mine =
-			service.book(coach.getId(), slot, "홍길동", "01011112222");
-		String otherToken = service.book(coach.getId(), slot.plusSeconds(3600), "김철수", "01033334444")
-			.customerToken();
+			service.book(booth.getId(), slot, "홍길동", "01011112222");
+		String otherToken = service.book(booth.getId(), slot.plusSeconds(1800), "김철수", "01033334444")
+			.visitorToken();
 
 		assertThatThrownBy(() -> service.cancel(mine.reservation().getId(), otherToken))
 			.isInstanceOf(ResponseStatusException.class)
-			.satisfies(e -> assertThat(((ResponseStatusException) e).getStatusCode())
-				.isEqualTo(HttpStatus.NOT_FOUND));
+			.satisfies(e -> assertStatus(e, HttpStatus.NOT_FOUND));
 
 		assertThat(reservations.findById(mine.reservation().getId()))
 			.get().extracting(Reservation::getStatus).isEqualTo(ReservationStatus.RESERVED);
 	}
 
 	@Test
-	void 비활성_코치는_예약할_수_없다() {
-		coach.deactivate();
-		coaches.save(coach);
+	void 중지된_부스는_예약할_수_없다() {
+		booth.deactivate();
+		booths.save(booth);
 
-		assertThatThrownBy(() -> service.book(coach.getId(), slot, "홍길동", "01011112222"))
+		assertThatThrownBy(() -> service.book(booth.getId(), slot, "홍길동", "01011112222"))
 			.isInstanceOf(ResponseStatusException.class)
-			.satisfies(e -> assertThat(((ResponseStatusException) e).getStatusCode())
-				.isEqualTo(HttpStatus.NOT_FOUND));
+			.satisfies(e -> assertStatus(e, HttpStatus.NOT_FOUND));
 	}
 }
