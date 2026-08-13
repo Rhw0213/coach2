@@ -56,20 +56,14 @@ public class Booth {
 
 	public Booth(String companyName, String boothNo, String note,
 	             LocalDate eventDate, LocalTime openFrom, LocalTime openTo, int slotMinutes) {
-		if (companyName == null || companyName.isBlank()) {
-			throw new IllegalArgumentException("회사명은 비어 있을 수 없다");
-		}
-		if (boothNo == null || boothNo.isBlank()) {
-			throw new IllegalArgumentException("부스번호는 비어 있을 수 없다");
-		}
 		if (eventDate == null) {
 			throw new IllegalArgumentException("행사일이 필요하다");
 		}
 		validateHours(openFrom, openTo, slotMinutes);
 
-		this.companyName = companyName;
-		this.boothNo = boothNo;
-		this.note = note;
+		this.companyName = required(companyName, "회사명은 비어 있을 수 없다");
+		this.boothNo = required(boothNo, "부스번호는 비어 있을 수 없다");
+		this.note = trimToNull(note);
 		this.eventDate = eventDate;
 		this.openFrom = openFrom;
 		this.openTo = openTo;
@@ -89,15 +83,9 @@ public class Booth {
 	}
 
 	public void updateInfo(String companyName, String boothNo, String note) {
-		if (companyName == null || companyName.isBlank()) {
-			throw new IllegalArgumentException("회사명은 비어 있을 수 없다");
-		}
-		if (boothNo == null || boothNo.isBlank()) {
-			throw new IllegalArgumentException("부스번호는 비어 있을 수 없다");
-		}
-		this.companyName = companyName;
-		this.boothNo = boothNo;
-		this.note = note;
+		this.companyName = required(companyName, "회사명은 비어 있을 수 없다");
+		this.boothNo = required(boothNo, "부스번호는 비어 있을 수 없다");
+		this.note = trimToNull(note);
 	}
 
 	public void deactivate() {
@@ -106,6 +94,27 @@ public class Booth {
 
 	public void activate() {
 		this.active = true;
+	}
+
+	/**
+	 * 앞뒤 공백을 떼고 받는다. 관리자가 실수로 " a2"를 입력하면 부스번호 정렬이
+	 * 무너지고(공백이 영문자보다 작다) 예약 확인서에도 공백이 그대로 찍힌다.
+	 * 화면에서 막을 수도 있지만, 값이 들어오는 문은 API 하나뿐이므로 여기서 막는다.
+	 */
+	private static String required(String value, String message) {
+		String trimmed = value == null ? "" : value.trim();
+		if (trimmed.isEmpty()) {
+			throw new IllegalArgumentException(message);
+		}
+		return trimmed;
+	}
+
+	private static String trimToNull(String value) {
+		if (value == null) {
+			return null;
+		}
+		String trimmed = value.trim();
+		return trimmed.isEmpty() ? null : trimmed;
 	}
 
 	private static void validateHours(LocalTime from, LocalTime to, int slotMinutes) {
