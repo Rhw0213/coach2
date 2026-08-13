@@ -65,6 +65,13 @@ public class Reservation {
 	@Column(unique = true)
 	private String visitorSlotKey;
 
+	/**
+	 * 한 사람은 한 부스를 한 번만 — 같은 기업 시간대를 여러 개 선점하는 것을 막는다.
+	 * 여러 기업을 도는 것은 허용된다(부스가 다르면 키도 다르다).
+	 */
+	@Column(unique = true)
+	private String visitorBoothKey;
+
 	protected Reservation() {
 	}
 
@@ -77,6 +84,7 @@ public class Reservation {
 		this.createdAt = Instant.now();
 		this.boothSlotKey = slotKey(boothId, startTime);
 		this.visitorSlotKey = slotKey(visitorId, startTime);
+		this.visitorBoothKey = visitorId + "@b" + boothId;
 	}
 
 	/** 취소는 되돌릴 수 없다. 다시 잡으려면 새 예약을 만든다. */
@@ -86,10 +94,12 @@ public class Reservation {
 		}
 		this.status = ReservationStatus.CANCELLED;
 		this.cancelledAt = Instant.now();
-		// 두 키를 NULL로 만들어야 슬롯이 실제로 풀린다. 상태만 바꾸면 유니크 제약이
-		// 그대로 남아 같은 슬롯을 아무도 다시 예약하지 못한다.
+		// 세 키를 모두 NULL로 만들어야 슬롯이 실제로 풀린다. 상태만 바꾸면 유니크 제약이
+		// 그대로 남아 같은 슬롯을 아무도 다시 예약하지 못하고, 취소한 본인도
+		// 그 부스를 다시 잡지 못한다.
 		this.boothSlotKey = null;
 		this.visitorSlotKey = null;
+		this.visitorBoothKey = null;
 	}
 
 	public boolean isOwnedBy(Long visitorId) {

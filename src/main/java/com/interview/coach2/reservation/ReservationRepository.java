@@ -21,4 +21,7 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
 
 	boolean existsByBoothIdAndStartTimeAndStatus(
 		Long boothId, Instant startTime, ReservationStatus status);
+
+	boolean existsByVisitorIdAndBoothIdAndStatus(
+		Long visitorId, Long boothId, ReservationStatus status);
 }

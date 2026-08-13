@@ -76,6 +76,9 @@ const el = {
 let booths = [];
 let booth = null;
 let picked = null;
+/* 한 사람은 한 부스를 한 번만 잡을 수 있다. 이미 잡은 부스를 눌러보고 나서
+ * 실패하게 두지 않으려면 화면이 먼저 알려줘야 한다. */
+let bookedBoothIds = new Set();
 
 init();
 
@@ -86,6 +89,7 @@ async function init() {
 		showError(el.booths, e.message);
 		return;
 	}
+	await loadMine();
 	if (!booths.length) {
 		el.booths.innerHTML = '<p class="empty">아직 등록된 부스가 없습니다.</p>';
 		return;
@@ -98,6 +102,21 @@ async function init() {
 
 	renderBooths();
 	select(booths[0]);
+}
+
+/** 확인 번호가 있으면 이미 잡은 부스를 미리 파악한다. 실패해도 예약을 막지 않는다 —
+ *  최종 판정은 어차피 서버가 한다. */
+async function loadMine() {
+	if (!store.token) {
+		return;
+	}
+	try {
+		const list = await api('api/reservations/me/' + encodeURIComponent(store.token));
+		bookedBoothIds = new Set(
+			list.filter(r => r.status === 'RESERVED').map(r => r.boothId));
+	} catch {
+		bookedBoothIds = new Set();
+	}
 }
 
 function renderBooths() {
@@ -134,7 +153,12 @@ function renderBooths() {
 
 		const hours = document.createElement('div');
 		hours.className = 'booth-meta';
-		hours.textContent = `${b.openFrom.slice(0, 5)}–${b.openTo.slice(0, 5)} · ${b.slotMinutes}분`;
+		hours.textContent = bookedBoothIds.has(b.id)
+			? '예약함'
+			: `${b.openFrom.slice(0, 5)}–${b.openTo.slice(0, 5)} · ${b.slotMinutes}분`;
+		if (bookedBoothIds.has(b.id)) {
+			hours.classList.add('booth-meta--booked');
+		}
 		btn.append(hours);
 
 		btn.addEventListener('click', () => select(b));
@@ -151,6 +175,21 @@ function select(b) {
 	}
 	el.day.hidden = false;
 	el.dayTitle.textContent = `${b.boothNo} ${b.companyName} · ${dayLabel(b.eventDate)}`;
+
+	if (bookedBoothIds.has(b.id)) {
+		// 잡을 수 없는 시간을 초록으로 보여주면 눌러보고 실패한다. 아예 그리지 않는다.
+		el.rail.innerHTML = '';
+		const p = document.createElement('p');
+		p.className = 'empty';
+		p.textContent = '이 부스는 이미 예약하셨습니다. 한 부스당 한 번만 예약할 수 있습니다.';
+		const go = document.createElement('a');
+		go.className = 'btn';
+		go.style.cssText = 'display:inline-block;text-decoration:none;flex:none;padding:.625rem 1rem';
+		go.href = 'my.html';
+		go.textContent = '내 예약에서 확인·변경';
+		el.rail.append(p, go);
+		return;
+	}
 	loadSlots();
 }
 
@@ -256,9 +295,11 @@ el.form.addEventListener('submit', async (event) => {
 			}),
 		});
 		store.token = result.token;
+		bookedBoothIds.add(booth.id);
 		el.sheet.close();
 		renderTicket(result);
-		loadSlots();
+		renderBooths();
+		select(booth);
 	} catch (e) {
 		showError(el.sheetError, e.message);
 		// 남이 먼저 잡은 슬롯이면 레일을 다시 그려야 한다. 안 그리면 방금 마감된 자리가

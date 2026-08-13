@@ -90,6 +90,10 @@ public class ReservationService {
 				visitor.getId(), startTime, ReservationStatus.RESERVED)) {
 			throw conflict("같은 시간에 다른 부스를 이미 예약하셨습니다");
 		}
+		if (reservations.existsByVisitorIdAndBoothIdAndStatus(
+				visitor.getId(), boothId, ReservationStatus.RESERVED)) {
+			throw conflict("이 부스는 이미 예약하셨습니다. 다른 시간으로 바꾸시려면 기존 예약을 취소해 주세요");
+		}
 
 		try {
 			Reservation saved = writer.insert(

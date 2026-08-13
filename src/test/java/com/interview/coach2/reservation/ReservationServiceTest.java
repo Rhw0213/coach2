@@ -62,10 +62,13 @@ class ReservationServiceTest {
 
 	@Test
 	void 전화번호는_표기가_달라도_같은_사람이다() {
-		String token = service.book(booth.getId(), slot, "홍길동", "010-1234-5678").visitorToken();
-		Instant other = slot.plusSeconds(1800);
+		// 부스당 1건 제한이 있으므로 같은 사람인지 확인하려면 다른 부스를 잡아야 한다.
+		Booth other = booths.save(new Booth("서해기업", "B-03", null,
+			booth.getEventDate(), LocalTime.of(10, 0), LocalTime.of(17, 0), 30));
 
-		String again = service.book(booth.getId(), other, "홍길동", "01012345678").visitorToken();
+		String token = service.book(booth.getId(), slot, "홍길동", "010-1234-5678").visitorToken();
+		String again = service.book(other.getId(), slot.plusSeconds(1800), "홍길동", "01012345678")
+			.visitorToken();
 
 		assertThat(again).isEqualTo(token);
 		assertThat(visitors.count()).isEqualTo(1);
@@ -106,6 +109,40 @@ class ReservationServiceTest {
 		assertThatThrownBy(() -> service.book(other.getId(), slot, "홍길동", "01011112222"))
 			.isInstanceOf(ResponseStatusException.class)
 			.satisfies(e -> assertStatus(e, HttpStatus.CONFLICT));
+	}
+
+	@Test
+	void 같은_부스를_두_번_예약할_수_없다() {
+		service.book(booth.getId(), slot, "홍길동", "01011112222");
+
+		// 시간이 달라도 같은 부스면 막는다 — 한 사람이 한 기업의 시간대를 여러 개 선점하지 못한다.
+		assertThatThrownBy(() ->
+			service.book(booth.getId(), slot.plusSeconds(1800), "홍길동", "01011112222"))
+			.isInstanceOf(ResponseStatusException.class)
+			.satisfies(e -> assertStatus(e, HttpStatus.CONFLICT));
+	}
+
+	@Test
+	void 사전검사를_우회해도_DB가_같은_부스_중복을_거절한다() {
+		Visitor v = writer.insertVisitor(new Visitor("홍길동", "01011112222"));
+		writer.insert(new Reservation(booth.getId(), v.getId(), slot, 30));
+
+		assertThatThrownBy(() -> writer.insert(
+			new Reservation(booth.getId(), v.getId(), slot.plusSeconds(1800), 30)))
+			.isInstanceOf(DataIntegrityViolationException.class);
+	}
+
+	@Test
+	void 취소하면_그_부스를_다시_예약할_수_있다() {
+		ReservationService.BookResult first =
+			service.book(booth.getId(), slot, "홍길동", "01011112222");
+
+		service.cancel(first.reservation().getId(), first.visitorToken());
+
+		// visitorBoothKey도 NULL이 되어야 본인이 시간을 바꿔 다시 잡을 수 있다.
+		ReservationService.BookResult again =
+			service.book(booth.getId(), slot.plusSeconds(1800), "홍길동", "01011112222");
+		assertThat(again.reservation().getStatus()).isEqualTo(ReservationStatus.RESERVED);
 	}
 
 	@Test
