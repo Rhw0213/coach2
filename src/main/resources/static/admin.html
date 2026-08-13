@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>관리자 · 상담 예약</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div class="wrap">
+
+	<header class="topbar">
+		<p class="mark">관리자</p>
+		<nav>
+			<a href="index.html">예약 화면</a>
+			<a href="#" id="signout" hidden>잠그기</a>
+		</nav>
+	</header>
+
+	<form class="gate" id="gate">
+		<p class="eyebrow">인증</p>
+		<h1>관리자</h1>
+		<label>
+			<span>관리자 시크릿</span>
+			<input name="secret" type="password" required autocomplete="off">
+		</label>
+		<div id="gateError"></div>
+		<div class="actions">
+			<button class="btn" type="submit">열기</button>
+		</div>
+	</form>
+
+	<main id="panel" hidden>
+
+		<h2 style="margin-top:0">예약 현황</h2>
+		<div class="datebar">
+			<button class="step" id="prev" type="button" aria-label="이전 날">‹</button>
+			<h2 id="dayLabel"></h2>
+			<button class="step" id="next" type="button" aria-label="다음 날">›</button>
+		</div>
+		<div id="bookings"></div>
+
+		<h2>코치</h2>
+		<div id="coachList"></div>
+
+		<h2 id="formTitle">코치 추가</h2>
+		<form id="coachForm">
+			<input type="hidden" name="id">
+			<div class="row">
+				<label><span>이름</span><input name="name" required maxlength="40"></label>
+				<label><span>직함</span><input name="title" maxlength="40" placeholder="선택"></label>
+			</div>
+			<div class="row">
+				<label><span>근무 시작</span><input name="availableFrom" type="time" required value="09:00"></label>
+				<label><span>근무 종료</span><input name="availableTo" type="time" required value="18:00"></label>
+			</div>
+			<label style="max-width:12rem">
+				<span>세션 길이 (분)</span>
+				<input name="slotMinutes" type="number" required min="5" max="480" step="5" value="60">
+			</label>
+			<label>
+				<span>상담 요일</span>
+				<span class="days" id="days"></span>
+			</label>
+			<div id="formError"></div>
+			<div class="actions">
+				<button class="btn btn--ghost" type="button" id="resetForm" hidden>새로 추가</button>
+				<button class="btn" type="submit" id="save">코치 추가</button>
+			</div>
+		</form>
+
+	</main>
+</div>
+
+<script src="app.js"></script>
+<script>
+const DAYS = [
+	['MONDAY', '월'], ['TUESDAY', '화'], ['WEDNESDAY', '수'], ['THURSDAY', '목'],
+	['FRIDAY', '금'], ['SATURDAY', '토'], ['SUNDAY', '일'],
+];
+
+const gate = document.getElementById('gate');
+const panel = document.getElementById('panel');
+const coachForm = document.getElementById('coachForm');
+const bookings = document.getElementById('bookings');
+const coachList = document.getElementById('coachList');
+const dayLabelEl = document.getElementById('dayLabel');
+const formTitle = document.getElementById('formTitle');
+const saveBtn = document.getElementById('save');
+const resetBtn = document.getElementById('resetForm');
+const signout = document.getElementById('signout');
+
+let offset = 0;
+
+/* 시크릿은 sessionStorage에만 둔다 — 탭을 닫으면 사라진다. */
+const secretKey = 'coach2.admin';
+let secret = sessionStorage.getItem(secretKey) || '';
+
+function adminApi(path, options = {}) {
+	return api(path, { ...options, headers: { 'X-Admin-Secret': secret, ...(options.headers || {}) } });
+}
+
+renderDayCheckboxes();
+if (secret) open();
+
+gate.addEventListener('submit', async (event) => {
+	event.preventDefault();
+	secret = gate.secret.value;
+	try {
+		await adminApi('api/admin/coaches');
+		sessionStorage.setItem(secretKey, secret);
+		open();
+	} catch (e) {
+		secret = '';
+		showError(document.getElementById('gateError'), '시크릿이 맞지 않습니다.');
+	}
+});
+
+signout.addEventListener('click', (event) => {
+	event.preventDefault();
+	sessionStorage.removeItem(secretKey);
+	location.reload();
+});
+
+function open() {
+	gate.hidden = true;
+	panel.hidden = false;
+	signout.hidden = false;
+	loadDay();
+	loadCoaches();
+}
+
+document.getElementById('prev').addEventListener('click', () => { offset--; loadDay(); });
+document.getElementById('next').addEventListener('click', () => { offset++; loadDay(); });
+
+async function loadDay() {
+	const date = ymd(offset);
+	dayLabelEl.textContent = dayLabel(date) + (offset === 0 ? ' · 오늘' : '');
+	bookings.innerHTML = '<p class="empty">불러오는 중…</p>';
+	try {
+		render(await adminApi('api/admin/reservations?date=' + date));
+	} catch (e) {
+		showError(bookings, e.message);
+	}
+}
+
+function render(list) {
+	if (!list.length) {
+		bookings.innerHTML = '<p class="empty">이 날은 예약이 없습니다.</p>';
+		return;
+	}
+	const table = document.createElement('table');
+	table.className = 'admin-table';
+	table.innerHTML = '<thead><tr><th>시각</th><th>코치</th><th>예약자</th><th>연락처</th></tr></thead>';
+	const tbody = document.createElement('tbody');
+	for (const r of list) {
+		const tr = document.createElement('tr');
+		tr.append(
+			cell(hhmm(r.startTime) + ' · ' + r.slotMinutes + '분', 'num'),
+			cell(r.coachName),
+			cell(r.customerName),
+			cell(r.customerPhone, 'num'));
+		tbody.append(tr);
+	}
+	table.append(tbody);
+	bookings.replaceChildren(table);
+}
+
+function cell(text, cls) {
+	const td = document.createElement('td');
+	if (cls) td.className = cls;
+	td.textContent = text;
+	return td;
+}
+
+async function loadCoaches() {
+	coachList.innerHTML = '<p class="empty">불러오는 중…</p>';
+	let list;
+	try {
+		list = await adminApi('api/admin/coaches');
+	} catch (e) {
+		showError(coachList, e.message);
+		return;
+	}
+	if (!list.length) {
+		coachList.innerHTML = '<p class="empty">등록된 코치가 없습니다. 아래에서 추가하세요.</p>';
+		return;
+	}
+
+	const table = document.createElement('table');
+	table.className = 'admin-table';
+	table.innerHTML = '<thead><tr><th>이름</th><th>근무</th><th>요일</th><th>상태</th><th></th></tr></thead>';
+	const tbody = document.createElement('tbody');
+
+	for (const c of list) {
+		const tr = document.createElement('tr');
+		const name = cell(c.name + (c.title ? ' · ' + c.title : ''));
+		const hours = cell(`${c.availableFrom.slice(0, 5)}–${c.availableTo.slice(0, 5)} · ${c.slotMinutes}분`, 'num');
+		const days = cell(DAYS.filter(([k]) => c.availableDays.includes(k)).map(([, ko]) => ko).join(''));
+		const state = cell(c.active ? '운영중' : '중지');
+
+		const td = document.createElement('td');
+		const edit = document.createElement('button');
+		edit.type = 'button';
+		edit.className = 'btn btn--ghost';
+		edit.style.cssText = 'flex:none;padding:.375rem .75rem;font-size:.8125rem;margin-right:.375rem';
+		edit.textContent = '수정';
+		edit.addEventListener('click', () => fillForm(c));
+
+		const toggle = document.createElement('button');
+		toggle.type = 'button';
+		toggle.className = 'btn btn--ghost';
+		toggle.style.cssText = 'flex:none;padding:.375rem .75rem;font-size:.8125rem';
+		toggle.textContent = c.active ? '중지' : '재개';
+		toggle.addEventListener('click', async () => {
+			toggle.disabled = true;
+			try {
+				// 중지해도 이미 잡힌 예약은 유지된다. 새 예약만 막힌다.
+				await adminApi(`api/admin/coaches/${c.id}/active?active=${!c.active}`, { method: 'PATCH' });
+				loadCoaches();
+			} catch (e) {
+				showError(coachList, e.message);
+			}
+		});
+
+		td.append(edit, toggle);
+		tr.append(name, hours, days, state, td);
+		tbody.append(tr);
+	}
+	table.append(tbody);
+	coachList.replaceChildren(table);
+}
+
+function renderDayCheckboxes() {
+	const box = document.getElementById('days');
+	for (const [key, ko] of DAYS) {
+		const label = document.createElement('label');
+		const input = document.createElement('input');
+		input.type = 'checkbox';
+		input.name = 'day';
+		input.value = key;
+		if (key !== 'SATURDAY' && key !== 'SUNDAY') input.checked = true;
+		const span = document.createElement('span');
+		span.textContent = ko;
+		label.append(input, span);
+		box.append(label);
+	}
+}
+
+function fillForm(c) {
+	coachForm.id.value = c.id;
+	coachForm.name.value = c.name;
+	coachForm.title.value = c.title || '';
+	coachForm.availableFrom.value = c.availableFrom.slice(0, 5);
+	coachForm.availableTo.value = c.availableTo.slice(0, 5);
+	coachForm.slotMinutes.value = c.slotMinutes;
+	for (const input of coachForm.querySelectorAll('input[name=day]')) {
+		input.checked = c.availableDays.includes(input.value);
+	}
+	formTitle.textContent = c.name + ' 수정';
+	saveBtn.textContent = '변경 저장';
+	resetBtn.hidden = false;
+	formTitle.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+resetBtn.addEventListener('click', clearForm);
+
+function clearForm() {
+	coachForm.reset();
+	coachForm.id.value = '';
+	formTitle.textContent = '코치 추가';
+	saveBtn.textContent = '코치 추가';
+	resetBtn.hidden = true;
+}
+
+coachForm.addEventListener('submit', async (event) => {
+	event.preventDefault();
+	const days = [...coachForm.querySelectorAll('input[name=day]:checked')].map(i => i.value);
+	const errorBox = document.getElementById('formError');
+	errorBox.innerHTML = '';
+	if (!days.length) {
+		showError(errorBox, '상담 요일을 하나 이상 선택하세요.');
+		return;
+	}
+
+	const id = coachForm.id.value;
+	const body = JSON.stringify({
+		name: coachForm.name.value,
+		title: coachForm.title.value || null,
+		availableFrom: coachForm.availableFrom.value + ':00',
+		availableTo: coachForm.availableTo.value + ':00',
+		slotMinutes: Number(coachForm.slotMinutes.value),
+		availableDays: days,
+	});
+
+	saveBtn.disabled = true;
+	try {
+		// 수정은 근무 일정만 바꾼다(이름은 생성 시 확정). 서버 계약과 같다.
+		await adminApi(id ? `api/admin/coaches/${id}` : 'api/admin/coaches',
+			{ method: id ? 'PATCH' : 'POST', body });
+		clearForm();
+		loadCoaches();
+		loadDay();
+	} catch (e) {
+		showError(errorBox, e.message);
+	} finally {
+		saveBtn.disabled = false;
+	}
+});
+</script>
+</body>
+</html>

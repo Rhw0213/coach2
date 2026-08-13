@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>상담 예약</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div class="wrap">
+
+	<header class="topbar">
+		<p class="mark">상담 예약</p>
+		<nav>
+			<a href="index.html" aria-current="page">예약하기</a>
+			<a href="my.html">내 예약</a>
+		</nav>
+	</header>
+
+	<p class="eyebrow">1:1 코칭</p>
+	<h1>한 시간을<br>비워 두세요</h1>
+	<p class="lede">코치를 고르고 남은 시간을 선택하면 예약이 끝납니다. 회원가입은 없습니다.</p>
+
+	<div id="ticket"></div>
+
+	<h2>코치</h2>
+	<div id="coaches"><p class="empty">불러오는 중…</p></div>
+
+	<section id="day" hidden>
+		<div class="datebar">
+			<button class="step" id="prev" type="button" aria-label="이전 날">‹</button>
+			<h2 id="dayLabel"></h2>
+			<button class="step" id="next" type="button" aria-label="다음 날">›</button>
+		</div>
+		<div id="rail"><p class="empty">불러오는 중…</p></div>
+	</section>
+
+</div>
+
+<dialog id="sheet">
+	<form method="dialog" id="bookForm">
+		<h2>예약하기</h2>
+		<p class="when" id="sheetWhen"></p>
+
+		<label>
+			<span>이름</span>
+			<input name="name" required autocomplete="name" maxlength="40">
+		</label>
+		<label>
+			<span>연락처</span>
+			<input name="phone" required type="tel" inputmode="tel" autocomplete="tel"
+			       placeholder="010-1234-5678" maxlength="20">
+		</label>
+
+		<div id="sheetError"></div>
+
+		<div class="actions">
+			<button class="btn btn--ghost" type="button" id="sheetClose">닫기</button>
+			<button class="btn" type="submit" id="sheetSubmit">예약 확정</button>
+		</div>
+	</form>
+</dialog>
+
+<script src="app.js"></script>
+<script>
+const el = {
+	coaches: document.getElementById('coaches'),
+	day: document.getElementById('day'),
+	dayLabel: document.getElementById('dayLabel'),
+	rail: document.getElementById('rail'),
+	prev: document.getElementById('prev'),
+	next: document.getElementById('next'),
+	ticket: document.getElementById('ticket'),
+	sheet: document.getElementById('sheet'),
+	sheetWhen: document.getElementById('sheetWhen'),
+	sheetError: document.getElementById('sheetError'),
+	sheetSubmit: document.getElementById('sheetSubmit'),
+	form: document.getElementById('bookForm'),
+};
+
+const MAX_AHEAD = 60;
+let coaches = [];
+let coach = null;
+let offset = 0;
+let picked = null;
+
+init();
+
+async function init() {
+	try {
+		coaches = await api('api/coaches');
+	} catch (e) {
+		showError(el.coaches, e.message);
+		return;
+	}
+	if (!coaches.length) {
+		el.coaches.innerHTML = '<p class="empty">아직 등록된 코치가 없습니다.</p>';
+		return;
+	}
+	renderCoaches();
+	select(coaches[0]);
+}
+
+function renderCoaches() {
+	const list = document.createElement('ul');
+	list.className = 'coaches';
+	for (const c of coaches) {
+		const li = document.createElement('li');
+		const btn = document.createElement('button');
+		btn.type = 'button';
+		btn.className = 'coach';
+		btn.dataset.id = c.id;
+		btn.setAttribute('aria-pressed', 'false');
+
+		const name = document.createElement('div');
+		name.className = 'coach-name';
+		name.textContent = c.name;
+		btn.append(name);
+
+		if (c.title) {
+			const t = document.createElement('div');
+			t.className = 'coach-title';
+			t.textContent = c.title;
+			btn.append(t);
+		}
+
+		const hours = document.createElement('div');
+		hours.className = 'coach-hours';
+		hours.textContent = `${c.availableFrom.slice(0, 5)}–${c.availableTo.slice(0, 5)} · ${c.slotMinutes}분 · ${koDays(c.availableDays)}`;
+		btn.append(hours);
+
+		btn.addEventListener('click', () => select(c));
+		li.append(btn);
+		list.append(li);
+	}
+	el.coaches.replaceChildren(list);
+}
+
+const KO_DAY = {
+	MONDAY: '월', TUESDAY: '화', WEDNESDAY: '수', THURSDAY: '목',
+	FRIDAY: '금', SATURDAY: '토', SUNDAY: '일',
+};
+const DAY_ORDER = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
+
+function koDays(days) {
+	return DAY_ORDER.filter(d => days.includes(d)).map(d => KO_DAY[d]).join('');
+}
+
+function select(c) {
+	coach = c;
+	offset = 0;
+	for (const btn of el.coaches.querySelectorAll('.coach')) {
+		btn.setAttribute('aria-pressed', String(Number(btn.dataset.id) === c.id));
+	}
+	el.day.hidden = false;
+	loadDay();
+}
+
+el.prev.addEventListener('click', () => { if (offset > 0) { offset--; loadDay(); } });
+el.next.addEventListener('click', () => { if (offset < MAX_AHEAD) { offset++; loadDay(); } });
+
+async function loadDay() {
+	const date = ymd(offset);
+	el.dayLabel.textContent = dayLabel(date) + (offset === 0 ? ' · 오늘' : '');
+	el.prev.disabled = offset === 0;
+	el.next.disabled = offset >= MAX_AHEAD;
+
+	if (!coach.availableDays.includes(dayOfWeek(date))) {
+		el.rail.innerHTML = '<p class="empty">이 날은 상담을 받지 않습니다.</p>';
+		return;
+	}
+
+	el.rail.innerHTML = '<p class="empty">불러오는 중…</p>';
+	let open;
+	try {
+		open = await api(`api/coaches/${coach.id}/slots?date=${date}`);
+	} catch (e) {
+		showError(el.rail, e.message);
+		return;
+	}
+	renderRail(date, new Set(open.map(s => new Date(s).getTime())));
+}
+
+/* 레일: 근무시간 전체를 밴드로 깔고, 예약 가능한 시간만 채운다.
+ * 마감·지난 시간을 빈 칸으로 남겨야 얼마나 차 있는지가 눈에 보인다. */
+function renderRail(date, openSet) {
+	const grid = slotGrid(date, coach.availableFrom, coach.availableTo, coach.slotMinutes);
+	if (!grid.length) {
+		el.rail.innerHTML = '<p class="empty">이 날은 상담을 받지 않습니다.</p>';
+		return;
+	}
+
+	const now = Date.now();
+	const list = document.createElement('ol');
+	list.className = 'rail';
+
+	for (const start of grid) {
+		const iso = start.toISOString();
+		const isOpen = openSet.has(start.getTime());
+		const li = document.createElement('li');
+
+		const hour = document.createElement('span');
+		hour.className = 'hour';
+		hour.textContent = hhmm(iso).slice(0, 2);
+
+		if (isOpen) {
+			li.className = 'band';
+			const btn = document.createElement('button');
+			btn.type = 'button';
+			btn.className = 'slot';
+			btn.innerHTML = '<span class="t"></span><span class="dur"></span>';
+			btn.querySelector('.t').textContent = hhmm(iso);
+			btn.querySelector('.dur').textContent = coach.slotMinutes + '분';
+			btn.addEventListener('click', () => openSheet(iso));
+			li.append(hour, btn);
+		} else {
+			li.className = 'band band--gone';
+			const gone = document.createElement('span');
+			gone.className = 'gone';
+			const t = document.createElement('span');
+			t.className = 't';
+			t.textContent = hhmm(iso);
+			const why = document.createElement('span');
+			why.textContent = start.getTime() < now ? '지난 시간' : '마감';
+			gone.append(t, why);
+			li.append(hour, gone);
+		}
+		list.append(li);
+	}
+
+	const openCount = grid.filter(s => openSet.has(s.getTime())).length;
+	el.rail.replaceChildren(list);
+	if (openCount === 0) {
+		const p = document.createElement('p');
+		p.className = 'empty';
+		p.textContent = '이 날은 남은 시간이 없습니다. 다음 날을 확인해 보세요.';
+		el.rail.append(p);
+	}
+}
+
+function openSheet(iso) {
+	picked = iso;
+	el.sheetWhen.textContent = `${coach.name} · ${fullWhen(iso)}`;
+	el.sheetError.innerHTML = '';
+	el.form.reset();
+	el.sheet.showModal();
+}
+
+document.getElementById('sheetClose').addEventListener('click', () => el.sheet.close());
+
+el.form.addEventListener('submit', async (event) => {
+	event.preventDefault();
+	const data = new FormData(el.form);
+	el.sheetSubmit.disabled = true;
+	el.sheetSubmit.textContent = '예약 중…';
+	el.sheetError.innerHTML = '';
+
+	try {
+		const result = await api('api/reservations', {
+			method: 'POST',
+			body: JSON.stringify({
+				coachId: coach.id,
+				startTime: picked,
+				name: data.get('name'),
+				phone: data.get('phone'),
+			}),
+		});
+		store.token = result.token;
+		el.sheet.close();
+		renderTicket(result);
+		loadDay();
+	} catch (e) {
+		showError(el.sheetError, e.message);
+	} finally {
+		el.sheetSubmit.disabled = false;
+		el.sheetSubmit.textContent = '예약 확정';
+	}
+});
+
+/* 토큰을 잃으면 예약을 다시 열 수 없다. 확인 화면에서 표처럼 분명하게 넘긴다. */
+function renderTicket(result) {
+	const box = document.createElement('div');
+	box.className = 'ticket';
+
+	const h = document.createElement('p');
+	h.className = 'eyebrow';
+	h.textContent = '예약 완료';
+
+	const when = document.createElement('p');
+	when.style.fontWeight = '700';
+	when.style.margin = '0 0 .75rem';
+	when.textContent = `${coach.name} · ${fullWhen(result.startTime)} (${result.slotMinutes}분)`;
+
+	const note = document.createElement('p');
+	note.style.margin = '0';
+	note.style.fontSize = '.875rem';
+	note.textContent = '이 확인 번호로 예약을 조회하고 취소할 수 있습니다. 저장해 두세요.';
+
+	const code = document.createElement('code');
+	code.textContent = result.token;
+
+	const actions = document.createElement('div');
+	actions.className = 'actions';
+
+	const copy = document.createElement('button');
+	copy.type = 'button';
+	copy.className = 'btn btn--ghost';
+	copy.textContent = '번호 복사';
+	copy.addEventListener('click', async () => {
+		try {
+			await navigator.clipboard.writeText(result.token);
+			copy.textContent = '복사됨';
+			setTimeout(() => { copy.textContent = '번호 복사'; }, 1500);
+		} catch {
+			copy.textContent = '직접 선택해 복사하세요';
+		}
+	});
+
+	const go = document.createElement('a');
+	go.className = 'btn';
+	go.style.textAlign = 'center';
+	go.style.textDecoration = 'none';
+	go.href = 'my.html';
+	go.textContent = '내 예약 보기';
+
+	actions.append(copy, go);
+	box.append(h, when, note, code, actions);
+	el.ticket.replaceChildren(box);
+	box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+</script>
+</body>
+</html>

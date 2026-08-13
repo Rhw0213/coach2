@@ -1,0 +1,417 @@
+/* coach2 — 상담/코칭 세션 예약
+ *
+ * 시그니처는 '시간 레일'이다. 하루를 세로 눈금으로 그리고, 예약 가능한 시간은
+ * 채워진 블록으로, 마감된 시간은 빈 칸으로 남긴다. 남은 자리가 줄어드는 것이
+ * 장식이 아니라 실제 여백으로 보이게 하는 것이 목적이다.
+ *
+ * 한국어 시스템 세리프는 기기마다 렌더링이 들쭉날쭉해서 디스플레이 세리프를 쓰지 않는다.
+ * 대신 시각 눈금을 모노스페이스 tabular로 잡아 계기(計器)의 성격을 만들고,
+ * 본문은 시스템 한글 산세리프의 굵은 웨이트로 밀도를 준다. 웹폰트 다운로드는 없다.
+ */
+
+:root {
+	--ink: #1C2024;
+	--ink-70: rgba(28, 32, 36, .70);
+	--ink-45: rgba(28, 32, 36, .45);
+	--ink-25: rgba(28, 32, 36, .25);
+	--field: #E4E7DF;
+	--paper: #FBFAF7;
+	--rail: #C7CBC1;
+	--pine: #1F5847;
+	--pine-deep: #163F33;
+	--on-pine: #F1F5F0;
+	--brick: #8C3A2B;
+
+	--mono: ui-monospace, "SF Mono", Menlo, Consolas, "Cascadia Mono", monospace;
+	--sans: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", Pretendard,
+		"Malgun Gothic", "Noto Sans KR", sans-serif;
+
+	--gutter: 3.25rem;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+	margin: 0;
+	background: var(--field);
+	color: var(--ink);
+	font-family: var(--sans);
+	font-size: 16px;
+	line-height: 1.5;
+	-webkit-text-size-adjust: 100%;
+}
+
+:focus-visible {
+	outline: 2px solid var(--pine);
+	outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	*, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+.wrap {
+	max-width: 46rem;
+	margin: 0 auto;
+	padding: 0 1.25rem 5rem;
+}
+
+/* ── 상단 바 ───────────────────────────────────────────── */
+
+.topbar {
+	display: flex;
+	align-items: baseline;
+	gap: 1rem;
+	padding: 1.25rem 0 1.75rem;
+	border-bottom: 1px solid var(--rail);
+	margin-bottom: 2rem;
+}
+
+.mark {
+	font-size: .8125rem;
+	font-weight: 700;
+	letter-spacing: .16em;
+	text-transform: uppercase;
+	margin: 0;
+}
+
+.topbar nav {
+	margin-left: auto;
+	display: flex;
+	gap: 1rem;
+	font-size: .875rem;
+}
+
+.topbar a { color: var(--ink-70); text-decoration: none; }
+.topbar a:hover, .topbar a[aria-current] { color: var(--ink); text-decoration: underline; }
+
+/* ── 제목 / 라벨 ───────────────────────────────────────── */
+
+.eyebrow {
+	font-family: var(--mono);
+	font-size: .75rem;
+	letter-spacing: .14em;
+	text-transform: uppercase;
+	color: var(--ink-45);
+	margin: 0 0 .5rem;
+}
+
+h1 {
+	font-size: clamp(1.75rem, 7vw, 2.5rem);
+	font-weight: 800;
+	letter-spacing: -.03em;
+	line-height: 1.15;
+	margin: 0 0 .5rem;
+}
+
+h2 {
+	font-size: 1.0625rem;
+	font-weight: 700;
+	letter-spacing: -.01em;
+	margin: 2.5rem 0 .875rem;
+}
+
+.lede { color: var(--ink-70); margin: 0 0 2rem; max-width: 34rem; }
+
+/* ── 코치 선택 ─────────────────────────────────────────── */
+
+.coaches {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+	gap: .75rem;
+	list-style: none;
+	padding: 0;
+	margin: 0;
+}
+
+.coach {
+	display: block;
+	width: 100%;
+	text-align: left;
+	background: var(--paper);
+	border: 1px solid var(--rail);
+	border-radius: 2px;
+	padding: 1rem;
+	font: inherit;
+	color: inherit;
+	cursor: pointer;
+	transition: border-color .12s, box-shadow .12s;
+}
+
+.coach:hover { border-color: var(--ink-45); }
+
+.coach[aria-pressed="true"] {
+	border-color: var(--pine);
+	box-shadow: inset 0 0 0 1px var(--pine);
+}
+
+.coach-name { font-weight: 700; letter-spacing: -.01em; }
+.coach-title { font-size: .8125rem; color: var(--ink-70); margin-top: .125rem; }
+
+.coach-hours {
+	font-family: var(--mono);
+	font-size: .75rem;
+	color: var(--ink-45);
+	margin-top: .625rem;
+	letter-spacing: .02em;
+}
+
+/* ── 날짜 이동 ─────────────────────────────────────────── */
+
+.datebar {
+	display: flex;
+	align-items: center;
+	gap: .75rem;
+	margin: 2.5rem 0 0;
+	padding-bottom: .75rem;
+}
+
+.datebar h2 { margin: 0; font-size: 1.25rem; letter-spacing: -.02em; }
+
+.step {
+	width: 2.25rem;
+	height: 2.25rem;
+	flex: none;
+	background: transparent;
+	border: 1px solid var(--rail);
+	border-radius: 2px;
+	color: var(--ink);
+	font-size: 1rem;
+	line-height: 1;
+	cursor: pointer;
+}
+.step:hover:not(:disabled) { border-color: var(--ink-45); }
+.step:disabled { opacity: .35; cursor: default; }
+.datebar .step:last-of-type { margin-left: auto; }
+
+/* ── 시간 레일 (시그니처) ──────────────────────────────── */
+
+.rail {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	border-top: 1px solid var(--ink-25);
+}
+
+.band {
+	display: grid;
+	grid-template-columns: var(--gutter) 1fr;
+	align-items: stretch;
+	min-height: 3.5rem;
+	border-bottom: 1px solid var(--rail);
+}
+
+/* 시각 눈금 — 밴드 상단 괘선에 맞춰 위쪽 정렬. 자 눈금처럼 읽히게 한다. */
+.band .hour {
+	font-family: var(--mono);
+	font-size: .8125rem;
+	font-variant-numeric: tabular-nums;
+	color: var(--ink-45);
+	padding: .5rem .75rem 0 0;
+	text-align: right;
+	letter-spacing: .02em;
+}
+
+.slot {
+	display: flex;
+	align-items: center;
+	gap: .75rem;
+	width: 100%;
+	margin: .375rem 0;
+	padding: .75rem 1rem;
+	border: 0;
+	border-radius: 2px;
+	background: var(--pine);
+	color: var(--on-pine);
+	font: inherit;
+	font-weight: 600;
+	letter-spacing: -.01em;
+	text-align: left;
+	cursor: pointer;
+	transition: background .12s, transform .12s;
+}
+
+.slot:hover { background: var(--pine-deep); }
+.slot:active { transform: translateY(1px); }
+
+.slot .t { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.slot .dur { margin-left: auto; font-family: var(--mono); font-size: .75rem; opacity: .7; }
+
+/* 마감·지난 시간은 채우지 않는다. 빈 칸 자체가 정보다. */
+.band--gone {
+	display: grid;
+	grid-template-columns: var(--gutter) 1fr;
+	align-items: center;
+}
+
+.gone {
+	display: flex;
+	align-items: center;
+	gap: .75rem;
+	padding: .75rem 0;
+	color: var(--ink-25);
+	font-size: .875rem;
+}
+
+.gone .t {
+	font-family: var(--mono);
+	font-variant-numeric: tabular-nums;
+	text-decoration: line-through;
+	text-decoration-thickness: 1px;
+}
+
+/* ── 상태 메시지 ───────────────────────────────────────── */
+
+.empty {
+	padding: 2.5rem 0;
+	color: var(--ink-45);
+	font-size: .9375rem;
+}
+
+.error {
+	border-left: 3px solid var(--brick);
+	background: var(--paper);
+	padding: .75rem 1rem;
+	margin: 1rem 0;
+	font-size: .9375rem;
+}
+
+/* ── 예약 시트 ─────────────────────────────────────────── */
+
+dialog {
+	width: min(26rem, calc(100vw - 2rem));
+	border: 1px solid var(--ink-25);
+	border-radius: 2px;
+	background: var(--paper);
+	color: var(--ink);
+	padding: 1.5rem;
+}
+
+dialog::backdrop { background: rgba(28, 32, 36, .45); }
+
+dialog h2 { margin: 0 0 .25rem; font-size: 1.25rem; letter-spacing: -.02em; }
+
+.when {
+	font-family: var(--mono);
+	font-size: .875rem;
+	color: var(--ink-70);
+	margin: 0 0 1.25rem;
+	letter-spacing: .02em;
+}
+
+label { display: block; margin-bottom: 1rem; }
+label span { display: block; font-size: .8125rem; font-weight: 600; margin-bottom: .375rem; }
+
+input, select {
+	width: 100%;
+	padding: .625rem .75rem;
+	border: 1px solid var(--rail);
+	border-radius: 2px;
+	background: #fff;
+	color: var(--ink);
+	font: inherit;
+}
+input:focus, select:focus { border-color: var(--pine); }
+
+.actions { display: flex; gap: .625rem; margin-top: 1.5rem; }
+
+.btn {
+	flex: 1;
+	padding: .75rem 1rem;
+	border: 1px solid var(--pine);
+	border-radius: 2px;
+	background: var(--pine);
+	color: var(--on-pine);
+	font: inherit;
+	font-weight: 700;
+	cursor: pointer;
+}
+.btn:hover { background: var(--pine-deep); }
+.btn[disabled] { opacity: .5; cursor: default; }
+
+.btn--ghost { background: transparent; color: var(--ink-70); border-color: var(--rail); }
+.btn--ghost:hover { background: transparent; border-color: var(--ink-45); color: var(--ink); }
+
+.btn--danger { background: transparent; color: var(--brick); border-color: var(--brick); }
+.btn--danger:hover { background: var(--brick); color: var(--paper); }
+
+/* ── 예약 표 (내 예약 / 관리자) ────────────────────────── */
+
+.stub {
+	display: grid;
+	grid-template-columns: auto 1fr;
+	gap: 0 1.25rem;
+	background: var(--paper);
+	border: 1px solid var(--rail);
+	border-left: 3px solid var(--pine);
+	border-radius: 2px;
+	padding: 1rem 1.25rem;
+	margin-bottom: .75rem;
+}
+
+.stub--off { border-left-color: var(--ink-25); opacity: .6; }
+
+.stub-time {
+	font-family: var(--mono);
+	font-size: 1.125rem;
+	font-variant-numeric: tabular-nums;
+	letter-spacing: -.01em;
+	align-self: center;
+}
+
+.stub-body { min-width: 0; }
+.stub-who { font-weight: 700; letter-spacing: -.01em; }
+.stub-meta { font-size: .8125rem; color: var(--ink-70); margin-top: .125rem; }
+.stub-actions { grid-column: 1 / -1; margin-top: .875rem; }
+.stub-actions .btn { flex: none; padding: .5rem .875rem; font-size: .875rem; }
+
+/* 토큰은 잃어버리면 예약에 다시 접근할 수 없다. 표(票)처럼 눈에 띄게 다룬다. */
+.ticket {
+	background: var(--paper);
+	border: 1px dashed var(--ink-45);
+	border-radius: 2px;
+	padding: 1.25rem;
+	margin: 1.25rem 0;
+}
+
+.ticket code {
+	display: block;
+	font-family: var(--mono);
+	font-size: .8125rem;
+	word-break: break-all;
+	background: var(--field);
+	padding: .625rem;
+	border-radius: 2px;
+	margin: .625rem 0;
+}
+
+/* ── 관리자 ────────────────────────────────────────────── */
+
+.gate { max-width: 24rem; margin: 4rem auto; }
+
+.admin-table { width: 100%; border-collapse: collapse; font-size: .875rem; }
+.admin-table th {
+	text-align: left;
+	font-family: var(--mono);
+	font-size: .6875rem;
+	letter-spacing: .12em;
+	text-transform: uppercase;
+	color: var(--ink-45);
+	font-weight: 400;
+	padding: 0 .75rem .5rem 0;
+	border-bottom: 1px solid var(--ink-25);
+}
+.admin-table td { padding: .75rem .75rem .75rem 0; border-bottom: 1px solid var(--rail); vertical-align: top; }
+.admin-table .num { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.days { display: flex; flex-wrap: wrap; gap: .375rem; }
+.days label { display: inline-flex; align-items: center; gap: .3125rem; margin: 0; font-size: .875rem; }
+.days input { width: auto; }
+.days span { display: inline; margin: 0; font-weight: 400; }
+
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+
+@media (max-width: 30rem) {
+	.row { grid-template-columns: 1fr; }
+	:root { --gutter: 2.5rem; }
+}

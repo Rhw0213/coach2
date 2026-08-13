@@ -5,6 +5,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -25,7 +26,14 @@ public class ReservationController {
 		this.coaches = coaches;
 	}
 
-	public record CoachView(Long id, String name, String title, int slotMinutes) {
+	/**
+	 * 근무시간·요일을 함께 내려준다. 예약 화면이 "마감된 시간"을 빈 칸으로 그리려면
+	 * 가용 슬롯 목록만으로는 부족하고 하루 전체의 틀을 알아야 한다.
+	 * 예약 페이지에 공개되는 정보이므로 숨길 이유도 없다.
+	 */
+	public record CoachView(Long id, String name, String title, int slotMinutes,
+	                        LocalTime availableFrom, LocalTime availableTo,
+	                        List<String> availableDays) {
 	}
 
 	public record BookRequest(Long coachId, Instant startTime, String name, String phone) {
@@ -41,7 +49,9 @@ public class ReservationController {
 	@GetMapping("/coaches")
 	public List<CoachView> coaches() {
 		return service.activeCoaches().stream()
-			.map(c -> new CoachView(c.getId(), c.getName(), c.getTitle(), c.getSlotMinutes()))
+			.map(c -> new CoachView(c.getId(), c.getName(), c.getTitle(), c.getSlotMinutes(),
+				c.getAvailableFrom(), c.getAvailableTo(),
+				c.availableDaySet().stream().map(Enum::name).toList()))
 			.toList();
 	}
 

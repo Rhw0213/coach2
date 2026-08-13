@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>내 예약</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div class="wrap">
+
+	<header class="topbar">
+		<p class="mark">상담 예약</p>
+		<nav>
+			<a href="index.html">예약하기</a>
+			<a href="my.html" aria-current="page">내 예약</a>
+		</nav>
+	</header>
+
+	<p class="eyebrow">확인 · 취소</p>
+	<h1>내 예약</h1>
+	<p class="lede">예약할 때 받은 확인 번호를 넣으면 예약을 보고 취소할 수 있습니다.</p>
+
+	<form id="lookup">
+		<label>
+			<span>확인 번호</span>
+			<input name="token" required autocomplete="off" spellcheck="false"
+			       placeholder="예약 완료 화면에서 받은 번호">
+		</label>
+		<div class="actions">
+			<button class="btn" type="submit">예약 조회</button>
+		</div>
+	</form>
+
+	<div id="out"></div>
+
+</div>
+
+<script src="app.js"></script>
+<script>
+const form = document.getElementById('lookup');
+const input = form.token;
+const out = document.getElementById('out');
+
+/* 링크로 바로 열 수 있게 ?t= 를 받고, 없으면 지난 예약에서 저장해 둔 번호를 쓴다. */
+const fromUrl = new URLSearchParams(location.search).get('t');
+const initial = fromUrl || store.token;
+if (initial) {
+	input.value = initial;
+	load(initial);
+}
+
+form.addEventListener('submit', (event) => {
+	event.preventDefault();
+	const token = input.value.trim();
+	if (token) {
+		store.token = token;
+		load(token);
+	}
+});
+
+async function load(token) {
+	out.innerHTML = '<p class="empty">불러오는 중…</p>';
+	let list;
+	try {
+		list = await api('api/reservations/me/' + encodeURIComponent(token));
+	} catch (e) {
+		showError(out, e.message);
+		return;
+	}
+	render(token, list);
+}
+
+function render(token, list) {
+	out.replaceChildren();
+
+	if (!list.length) {
+		const p = document.createElement('p');
+		p.className = 'empty';
+		p.textContent = '이 번호로 된 예약이 없습니다.';
+		out.append(p);
+		return;
+	}
+
+	const heading = document.createElement('h2');
+	heading.textContent = '예약 ' + list.length + '건';
+	out.append(heading);
+
+	const now = Date.now();
+	for (const r of list) {
+		const cancelled = r.status === 'CANCELLED';
+		const past = new Date(r.startTime).getTime() < now;
+
+		const stub = document.createElement('div');
+		stub.className = 'stub' + (cancelled || past ? ' stub--off' : '');
+
+		const time = document.createElement('div');
+		time.className = 'stub-time';
+		time.textContent = hhmm(r.startTime);
+
+		const body = document.createElement('div');
+		body.className = 'stub-body';
+
+		const who = document.createElement('div');
+		who.className = 'stub-who';
+		who.textContent = r.coachName;
+
+		const meta = document.createElement('div');
+		meta.className = 'stub-meta';
+		meta.textContent = fullWhen(r.startTime) + ' · ' + r.slotMinutes + '분'
+			+ (cancelled ? ' · 취소됨' : past ? ' · 지난 예약' : '');
+
+		body.append(who, meta);
+		stub.append(time, body);
+
+		// 취소는 되돌릴 수 없다. 지난 예약과 이미 취소된 예약에는 버튼을 두지 않는다.
+		if (!cancelled && !past) {
+			const actions = document.createElement('div');
+			actions.className = 'stub-actions';
+			const btn = document.createElement('button');
+			btn.type = 'button';
+			btn.className = 'btn btn--danger';
+			btn.textContent = '예약 취소';
+			btn.addEventListener('click', () => cancel(token, r, btn));
+			actions.append(btn);
+			stub.append(actions);
+		}
+
+		out.append(stub);
+	}
+}
+
+async function cancel(token, reservation, btn) {
+	if (btn.dataset.confirming !== 'yes') {
+		btn.dataset.confirming = 'yes';
+		btn.textContent = '정말 취소할까요? 한 번 더 누르세요';
+		setTimeout(() => {
+			if (btn.dataset.confirming === 'yes') {
+				btn.dataset.confirming = '';
+				btn.textContent = '예약 취소';
+			}
+		}, 4000);
+		return;
+	}
+
+	btn.disabled = true;
+	btn.textContent = '취소 중…';
+	try {
+		await api(`api/reservations/${reservation.id}?token=${encodeURIComponent(token)}`,
+			{ method: 'DELETE' });
+		load(token);
+	} catch (e) {
+		showError(out, e.message);
+	}
+}
+</script>
+</body>
+</html>
