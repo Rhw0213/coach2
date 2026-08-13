@@ -234,7 +234,35 @@ async function loadBooths() {
 			}
 		});
 
-		td.append(edit, toggle);
+		// 담당자 링크 — 주최측이 복사해서 각 참가 기업에 전달한다.
+		// 이 링크로는 해당 부스 예약만 보이고 아무것도 바꿀 수 없다.
+		const link = document.createElement('button');
+		link.type = 'button';
+		link.className = 'btn btn--ghost';
+		link.style.cssText = 'flex:none;padding:.375rem .75rem;font-size:.8125rem;margin-left:.375rem';
+		link.textContent = '담당자 링크';
+		link.addEventListener('click', async () => {
+			const url = `${location.origin}${BASE}booth.html?k=${b.staffToken}`;
+			try {
+				await navigator.clipboard.writeText(url);
+				link.textContent = '복사됨';
+			} catch {
+				// 클립보드가 막힌 환경(비HTTPS·구형 브라우저)에서는 직접 고를 수 있게 보여준다
+				const box = document.createElement('div');
+				box.className = 'staff-link';
+				const input = document.createElement('input');
+				input.value = url;
+				input.readOnly = true;
+				box.append(input);
+				td.append(box);
+				input.select();
+				link.textContent = '담당자 링크';
+				return;
+			}
+			setTimeout(() => { link.textContent = '담당자 링크'; }, 1500);
+		});
+
+		td.append(edit, toggle, link);
 		tr.append(
 			cell(b.boothNo, 'num'),
 			cell(b.companyName + (b.note ? ' · ' + b.note : '')),

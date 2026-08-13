@@ -51,6 +51,15 @@ public class Booth {
 	@Column(nullable = false)
 	private boolean active = true;
 
+	/**
+	 * 부스 담당자용 링크의 열쇠. 주최측이 관리자 화면에서 복사해 각 참가 기업에 전달한다.
+	 * 이 토큰으로는 자기 부스의 예약만 볼 수 있고 설정은 바꿀 수 없다 —
+	 * 담당자에게 ADMIN_SECRET을 주면 남의 기업 예약자 연락처까지 전부 열린다.
+	 * 공개 응답(BoothView)에는 절대 실리지 않는다.
+	 */
+	@Column(unique = true)
+	private String staffToken;
+
 	protected Booth() {
 	}
 
@@ -69,6 +78,18 @@ public class Booth {
 		this.openTo = openTo;
 		this.slotMinutes = slotMinutes;
 		this.active = true;
+		this.staffToken = newToken();
+	}
+
+	/** 이 기능이 생기기 전에 만들어진 부스를 위한 보충. 관리자가 링크를 보러 올 때 채운다. */
+	public void ensureStaffToken() {
+		if (staffToken == null || staffToken.isBlank()) {
+			this.staffToken = newToken();
+		}
+	}
+
+	private static String newToken() {
+		return java.util.UUID.randomUUID().toString().replace("-", "");
 	}
 
 	public void updateSchedule(LocalDate eventDate, LocalTime openFrom, LocalTime openTo, int slotMinutes) {

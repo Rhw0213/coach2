@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>부스 예약 현황</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div class="wrap">
+
+	<header class="topbar">
+		<p class="mark" id="mark">부스 예약 현황</p>
+		<nav>
+			<button class="btn btn--ghost" type="button" id="refresh"
+			        style="flex:none;padding:.375rem .75rem;font-size:.8125rem">새로고침</button>
+		</nav>
+	</header>
+
+	<div id="out"><p class="empty">불러오는 중…</p></div>
+
+</div>
+
+<script src="app.js"></script>
+<script>
+const out = document.getElementById('out');
+const mark = document.getElementById('mark');
+const token = new URLSearchParams(location.search).get('k');
+
+if (!token) {
+	showError(out, '링크가 올바르지 않습니다. 주최측에서 받은 주소로 다시 접속해 주세요.');
+} else {
+	load();
+	// 행사 중에는 예약이 계속 들어온다. 담당자가 새로고침을 누르지 않아도 따라가야 한다.
+	setInterval(load, 30_000);
+	// 탭을 다시 열었을 때는 30초를 기다리지 않는다.
+	document.addEventListener('visibilitychange', () => {
+		if (document.visibilityState === 'visible') load();
+	});
+}
+
+document.getElementById('refresh').addEventListener('click', () => load());
+
+async function load() {
+	let data;
+	try {
+		data = await api('api/staff/' + encodeURIComponent(token));
+	} catch (e) {
+		showError(out, e.message);
+		return;
+	}
+	render(data);
+}
+
+function render(data) {
+	mark.textContent = `${data.boothNo} ${data.companyName}`;
+	document.title = `${data.boothNo} ${data.companyName} · 예약 현황`;
+
+	const byTime = new Map(data.reservations.map(r => [new Date(r.startTime).getTime(), r]));
+	const grid = slotGrid(data.eventDate, data.openFrom, data.openTo, data.slotMinutes);
+	const now = Date.now();
+
+	out.replaceChildren();
+
+	// ── 지금 담당자에게 가장 중요한 정보: 다음에 누가 오는가 ──
+	const upcoming = data.reservations
+		.map(r => ({ ...r, ms: new Date(r.startTime).getTime() }))
+		.filter(r => r.ms + r.slotMinutes * 60_000 > now)
+		.sort((a, b) => a.ms - b.ms);
+
+	out.append(nextCard(upcoming[0], now));
+
+	// ── 요약 ──
+	const summary = document.createElement('p');
+	summary.className = 'eyebrow';
+	summary.style.margin = '2rem 0 .5rem';
+	summary.textContent =
+		`${dayLabel(data.eventDate)} · ${data.openFrom.slice(0, 5)}–${data.openTo.slice(0, 5)}`
+		+ ` · 예약 ${data.reservations.length}건 / 전체 ${grid.length}칸`;
+	out.append(summary);
+
+	if (!data.active) {
+		const off = document.createElement('p');
+		off.className = 'error';
+		off.textContent = '이 부스는 현재 신규 예약이 중지된 상태입니다. 기존 예약은 그대로 유효합니다.';
+		out.append(off);
+	}
+
+	// ── 하루 전체 ──
+	const list = document.createElement('ol');
+	list.className = 'rail';
+	list.setAttribute('role', 'list');
+	let lastHour = null;
+
+	for (const start of grid) {
+		const r = byTime.get(start.getTime());
+		const iso = start.toISOString();
+		const li = document.createElement('li');
+		li.className = r ? 'band' : 'band band--gone';
+
+		const hh = hhmm(iso).slice(0, 2);
+		const hour = document.createElement('span');
+		hour.className = 'hour';
+		hour.textContent = hh === lastHour ? '' : hh;
+		lastHour = hh;
+
+		if (r) {
+			const box = document.createElement('div');
+			box.className = 'booked' + (start.getTime() + r.slotMinutes * 60_000 <= now ? ' booked--done' : '');
+
+			const t = document.createElement('span');
+			t.className = 'booked-time';
+			t.textContent = hhmm(iso);
+
+			const who = document.createElement('span');
+			who.className = 'booked-who';
+			who.textContent = r.visitorName;
+
+			// 연락처는 tel: 링크로 — 담당자가 현장에서 바로 걸 수 있어야 한다.
+			const tel = document.createElement('a');
+			tel.className = 'booked-tel';
+			tel.href = 'tel:' + r.visitorPhone;
+			tel.textContent = r.visitorPhone;
+
+			box.append(t, who, tel);
+			li.append(hour, box);
+		} else {
+			const gone = document.createElement('span');
+			gone.className = 'gone';
+			const t = document.createElement('span');
+			t.className = 't';
+			t.textContent = hhmm(iso);
+			const why = document.createElement('span');
+			why.textContent = start.getTime() < now ? '' : '비어 있음';
+			gone.append(t, why);
+			li.append(hour, gone);
+		}
+		list.append(li);
+	}
+	out.append(list);
+}
+
+function nextCard(next, now) {
+	const box = document.createElement('div');
+	box.className = 'ticket';
+	box.style.marginTop = '0';
+
+	const label = document.createElement('p');
+	label.className = 'eyebrow';
+	label.style.margin = '0 0 .375rem';
+
+	if (!next) {
+		label.textContent = '다음 상담';
+		const none = document.createElement('p');
+		none.style.cssText = 'margin:0;font-weight:700;font-size:1.125rem';
+		none.textContent = '남은 예약이 없습니다';
+		box.append(label, none);
+		return box;
+	}
+
+	const started = next.ms <= now;
+	label.textContent = started ? '진행 중' : '다음 상담';
+
+	const who = document.createElement('p');
+	who.style.cssText = 'margin:0;font-weight:800;font-size:1.5rem;letter-spacing:-.02em';
+	who.textContent = next.visitorName;
+
+	const when = document.createElement('p');
+	when.style.cssText = 'margin:.25rem 0 .75rem;font-family:var(--mono);font-size:.9375rem';
+	when.textContent = `${hhmm(next.startTime)} · ${next.slotMinutes}분`
+		+ (started ? '' : ` · ${minutesUntil(next.ms, now)}`);
+
+	const tel = document.createElement('a');
+	tel.className = 'btn';
+	tel.style.cssText = 'display:inline-block;text-decoration:none;flex:none;padding:.625rem 1rem';
+	tel.href = 'tel:' + next.visitorPhone;
+	tel.textContent = next.visitorPhone;
+
+	box.append(label, who, when, tel);
+	return box;
+}
+
+function minutesUntil(ms, now) {
+	const mins = Math.round((ms - now) / 60_000);
+	if (mins < 1) return '곧 시작';
+	if (mins < 60) return `${mins}분 뒤`;
+	return `${Math.floor(mins / 60)}시간 ${mins % 60}분 뒤`;
+}
+</script>
+</body>
+</html>

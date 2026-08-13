@@ -19,10 +19,13 @@ public class ReservationController {
 
 	private final ReservationService service;
 	private final BoothRepository booths;
+	private final VisitorRepository visitors;
 
-	public ReservationController(ReservationService service, BoothRepository booths) {
+	public ReservationController(ReservationService service, BoothRepository booths,
+	                             VisitorRepository visitors) {
 		this.service = service;
 		this.booths = booths;
+		this.visitors = visitors;
 	}
 
 	/**
@@ -85,6 +88,39 @@ public class ReservationController {
 	@DeleteMapping("/reservations/{reservationId}")
 	public void cancel(@PathVariable Long reservationId, @RequestParam String token) {
 		service.cancel(reservationId, token);
+	}
+
+	// ── 부스 담당자 ──────────────────────────────────────────────
+	// 읽기 전용이다. 토큰은 자기 부스의 예약을 보여줄 뿐 아무것도 바꾸지 못한다.
+	// 예약자 연락처가 실리므로 토큰이 곧 접근 권한이다 — 공개 목록에는 나가지 않는다.
+
+	public record StaffReservation(Instant startTime, int slotMinutes,
+	                               String visitorName, String visitorPhone) {
+	}
+
+	public record StaffView(String companyName, String boothNo, String note,
+	                        LocalDate eventDate, LocalTime openFrom, LocalTime openTo,
+	                        int slotMinutes, boolean active, List<StaffReservation> reservations) {
+	}
+
+	@GetMapping("/staff/{staffToken}")
+	public StaffView staffView(@PathVariable String staffToken) {
+		Booth booth = service.boothByStaffToken(staffToken);
+		List<Reservation> list = service.reservationsFor(booth.getId());
+
+		Map<Long, Visitor> visitorById = visitors.findAllById(
+				list.stream().map(Reservation::getVisitorId).distinct().toList())
+			.stream().collect(Collectors.toMap(Visitor::getId, v -> v, (a, b) -> a));
+
+		List<StaffReservation> rows = list.stream().map(r -> {
+			Visitor v = visitorById.get(r.getVisitorId());
+			return new StaffReservation(r.getStartTime(), r.getSlotMinutes(),
+				v == null ? "-" : v.getName(), v == null ? "-" : v.getPhone());
+		}).toList();
+
+		return new StaffView(booth.getCompanyName(), booth.getBoothNo(), booth.getNote(),
+			booth.getEventDate(), booth.getOpenFrom(), booth.getOpenTo(),
+			booth.getSlotMinutes(), booth.isActive(), rows);
 	}
 
 	static BoothView toView(Booth b) {

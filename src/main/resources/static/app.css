@@ -258,6 +258,57 @@ h2 {
 	text-decoration-thickness: 1px;
 }
 
+/* ── 담당자 화면: 예약된 칸 ────────────────────────────── */
+
+/* 방문자 화면과 색의 의미가 뒤집힌다. 거기선 '채워짐 = 예약 가능'이지만
+   담당자에게는 '채워짐 = 사람이 온다'가 자연스럽다. 그래서 버튼이 아니라
+   카드로 그려 누를 수 있는 것처럼 보이지 않게 한다. */
+.booked {
+	display: flex;
+	align-items: baseline;
+	gap: .75rem;
+	flex-wrap: wrap;
+	margin: .375rem 0;
+	padding: .75rem 1rem;
+	border-radius: 2px;
+	background: var(--pine);
+	color: var(--on-pine);
+}
+
+.booked--done { background: var(--ink-25); }
+
+.booked-time {
+	font-family: var(--mono);
+	font-variant-numeric: tabular-nums;
+	font-weight: 600;
+}
+
+.booked-who { font-weight: 700; letter-spacing: -.01em; }
+
+.booked-tel {
+	margin-left: auto;
+	font-family: var(--mono);
+	font-size: .8125rem;
+	color: inherit;
+	opacity: .85;
+}
+
+/* ── 담당자 링크 (관리자) ──────────────────────────────── */
+
+.staff-link {
+	display: flex;
+	align-items: center;
+	gap: .5rem;
+	margin-top: .375rem;
+}
+
+.staff-link input {
+	font-family: var(--mono);
+	font-size: .75rem;
+	padding: .3125rem .5rem;
+	background: var(--field);
+}
+
 /* ── 상태 메시지 ───────────────────────────────────────── */
 
 .empty {

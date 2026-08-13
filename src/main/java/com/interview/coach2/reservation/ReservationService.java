@@ -121,6 +121,23 @@ public class ReservationService {
 		reservation.cancel();
 	}
 
+	/** 부스 담당자용. 토큰이 가리키는 부스와 그 부스의 유효한 예약만 돌려준다. */
+	@Transactional(readOnly = true)
+	public Booth boothByStaffToken(String staffToken) {
+		if (staffToken == null || staffToken.isBlank()) {
+			throw notFound("부스를 찾을 수 없습니다");
+		}
+		return booths.findByStaffToken(staffToken)
+			.orElseThrow(() -> notFound("부스를 찾을 수 없습니다"));
+	}
+
+	@Transactional(readOnly = true)
+	public List<Reservation> reservationsFor(Long boothId) {
+		return reservations.findByBoothIdAndStatus(boothId, ReservationStatus.RESERVED).stream()
+			.sorted(java.util.Comparator.comparing(Reservation::getStartTime))
+			.toList();
+	}
+
 	@Transactional(readOnly = true)
 	public List<Reservation> reservationsOn(LocalDate date) {
 		return reservations.findByStatusAndStartTimeGreaterThanEqualAndStartTimeLessThanOrderByStartTime(
