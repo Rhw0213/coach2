@@ -11,16 +11,34 @@ async function api(path, options = {}) {
 	// 아래에서 합쳐둔 headers를 통째로 덮어써서 Content-Type이 사라지고,
 	// 본문 있는 요청이 415로 거절된다. 구조분해로 그 실수를 아예 막는다.
 	const { headers, ...rest } = options;
-	const res = await fetch(BASE + path, {
-		...rest,
-		headers: { 'Content-Type': 'application/json', ...headers },
-	});
-	if (res.status === 204 || res.headers.get('content-length') === '0') return null;
 
-	const text = await res.text();
-	const data = text ? JSON.parse(text) : null;
+	let res;
+	try {
+		res = await fetch(BASE + path, {
+			...rest,
+			headers: { 'Content-Type': 'application/json', ...headers },
+		});
+	} catch {
+		// fetch는 네트워크 실패에만 reject한다. 브라우저 기본 문구("Failed to fetch")가
+		// 그대로 화면에 뜨지 않도록 여기서 한국어로 바꾼다.
+		throw new Error('연결에 실패했습니다. 네트워크를 확인하고 다시 시도해 주세요.');
+	}
+
+	// ⚠ res.ok를 먼저 봐야 한다. 본문 없는 응답을 먼저 걸러내면 관리자 인증 실패(401)처럼
+	// 본문 없이 오는 '에러'까지 성공으로 삼켜서 null을 돌려주고, 호출부는 실패를 알 수 없다.
+	const empty = res.status === 204 || res.headers.get('content-length') === '0';
+	const text = empty ? '' : await res.text();
+	let data = null;
+	try {
+		data = text ? JSON.parse(text) : null;
+	} catch {
+		data = null; // JSON이 아닌 에러 페이지(nginx 502 등)
+	}
+
 	if (!res.ok) {
-		// ResponseStatusException은 ProblemDetail로 직렬화되고 사용자용 메시지는 detail에 담긴다.
+		if (res.status === 401) {
+			throw new Error('인증에 실패했습니다.');
+		}
 		throw new Error(data?.detail || data?.message || `요청에 실패했습니다 (${res.status})`);
 	}
 	return data;
@@ -49,10 +67,10 @@ function fullWhen(iso) {
 
 /** 오늘(KST) 기준 offset일 뒤의 YYYY-MM-DD */
 function ymd(offset = 0) {
-	const now = new Date();
-	const kst = new Date(now.toLocaleString('en-US', { timeZone: KST }));
-	kst.setDate(kst.getDate() + offset);
-	return `${kst.getFullYear()}-${String(kst.getMonth() + 1).padStart(2, '0')}-${String(kst.getDate()).padStart(2, '0')}`;
+	const parts = new Intl.DateTimeFormat('en-CA', {
+		timeZone: KST, year: 'numeric', month: '2-digit', day: '2-digit',
+	}).format(new Date());
+	return offset === 0 ? parts : addDays(parts, offset);
 }
 
 /** YYYY-MM-DD 에서 며칠 이동. UTC 자정으로 파싱해 UTC로 더하고 UTC로 되돌린다 —
@@ -79,15 +97,33 @@ function slotGrid(ymdStr, from, to, minutes) {
 	return out;
 }
 
+/** role="alert"를 붙여 스크린리더가 실패를 즉시 읽도록 한다. */
 function showError(el, message) {
 	el.innerHTML = '';
 	const box = document.createElement('p');
 	box.className = 'error';
+	box.setAttribute('role', 'alert');
 	box.textContent = message;
 	el.append(box);
 }
 
+/* 확인 번호 보관. 시크릿 모드나 저장이 막힌 인앱 브라우저에서는 localStorage가 던진다.
+ * 그때도 예약 자체는 이미 성공했으므로 화면이 깨지면 안 된다 — 메모리로 물러선다. */
+let memoryToken = '';
 const store = {
-	get token() { return localStorage.getItem('coach2.token') || ''; },
-	set token(v) { localStorage.setItem('coach2.token', v); },
+	get token() {
+		try {
+			return localStorage.getItem('coach2.token') || memoryToken;
+		} catch {
+			return memoryToken;
+		}
+	},
+	set token(value) {
+		memoryToken = value;
+		try {
+			localStorage.setItem('coach2.token', value);
+		} catch {
+			/* 저장은 못 해도 확인 번호는 화면에 그대로 표시된다 */
+		}
+	},
 };

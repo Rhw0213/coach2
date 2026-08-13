@@ -32,10 +32,10 @@ public class AdminController {
 		this.visitors = visitors;
 	}
 
+	// @DateTimeFormat은 @RequestBody(JSON) 바인딩에 관여하지 않는다 — Jackson이 ISO-8601을
+	// 그대로 읽으므로 필요도 없다. 붙여두면 이 값이 파싱을 좌우한다고 오해하게 되므로 뺀다.
 	public record BoothRequest(String companyName, String boothNo, String note,
-	                           @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate eventDate,
-	                           @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime openFrom,
-	                           @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime openTo,
+	                           LocalDate eventDate, LocalTime openFrom, LocalTime openTo,
 	                           Integer slotMinutes) {
 	}
 

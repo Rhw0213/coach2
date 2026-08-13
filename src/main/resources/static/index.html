@@ -103,6 +103,8 @@ async function init() {
 function renderBooths() {
 	const list = document.createElement('ul');
 	list.className = 'booth-grid';
+	// list-style:none 을 주면 Safari/VoiceOver가 목록 의미를 버린다. 명시로 되돌린다.
+	list.setAttribute('role', 'list');
 	for (const b of booths) {
 		const li = document.createElement('li');
 		const btn = document.createElement('button');
@@ -176,6 +178,8 @@ function renderRail(openSet) {
 	const now = Date.now();
 	const list = document.createElement('ol');
 	list.className = 'rail';
+	list.setAttribute('role', 'list');
+	list.setAttribute('aria-label', '예약 가능한 시간');
 	let lastHour = null;
 
 	for (const start of grid) {
@@ -257,6 +261,10 @@ el.form.addEventListener('submit', async (event) => {
 		loadSlots();
 	} catch (e) {
 		showError(el.sheetError, e.message);
+		// 남이 먼저 잡은 슬롯이면 레일을 다시 그려야 한다. 안 그리면 방금 마감된 자리가
+		// 계속 초록으로 남아 있어 사용자가 같은 곳을 또 눌러 같은 실패를 반복한다.
+		// 통신이 끊겨 성공 여부가 불확실한 경우에도 여기서 실제 상태가 드러난다.
+		loadSlots();
 	} finally {
 		el.sheetSubmit.disabled = false;
 		el.sheetSubmit.textContent = '예약 확정';

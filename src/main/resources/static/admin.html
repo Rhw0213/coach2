@@ -42,6 +42,7 @@
 		<div id="bookings"></div>
 
 		<h2>부스</h2>
+		<div id="boothError"></div>
 		<div id="boothList"></div>
 
 		<h2 id="formTitle">부스 추가</h2>
@@ -78,6 +79,7 @@ const panel = document.getElementById('panel');
 const boothForm = document.getElementById('boothForm');
 const bookings = document.getElementById('bookings');
 const boothList = document.getElementById('boothList');
+const boothError = document.getElementById('boothError');
 const dayLabelEl = document.getElementById('dayLabel');
 const formTitle = document.getElementById('formTitle');
 const saveBtn = document.getElementById('save');
@@ -106,7 +108,9 @@ gate.addEventListener('submit', async (event) => {
 		open();
 	} catch (e) {
 		secret = '';
-		showError(document.getElementById('gateError'), '시크릿이 맞지 않습니다.');
+		// 통신 장애를 '시크릿이 틀렸다'고 말하면, 맞는 값을 계속 다시 입력하게 된다.
+		showError(document.getElementById('gateError'),
+			e.message === '인증에 실패했습니다.' ? '시크릿이 맞지 않습니다.' : e.message);
 	}
 });
 
@@ -116,11 +120,13 @@ signout.addEventListener('click', (event) => {
 	location.reload();
 });
 
-function open() {
+async function open() {
 	gate.hidden = true;
 	panel.hidden = false;
 	signout.hidden = false;
-	loadBooths();
+	// 순서가 중요하다. loadBooths가 viewDate를 행사일로 맞추므로 그 뒤에 조회해야
+	// '오늘' 조회와 '행사일' 조회가 경합해 엉뚱한 날의 표가 남는 일이 없다.
+	await loadBooths();
 	loadDay();
 }
 
@@ -173,12 +179,14 @@ function cell(text, cls) {
 }
 
 async function loadBooths() {
+	boothError.innerHTML = '';
 	boothList.innerHTML = '<p class="empty">불러오는 중…</p>';
 	let list;
 	try {
 		list = await adminApi('api/admin/booths');
 	} catch (e) {
-		showError(boothList, e.message);
+		boothList.innerHTML = '';
+		showError(boothError, e.message);
 		return;
 	}
 	if (!list.length) {
@@ -187,9 +195,9 @@ async function loadBooths() {
 	}
 
 	// 예약 현황은 행사일을 보는 게 기본이다. 오늘이 아니라 첫 부스의 행사일로 맞춘다.
+	// 조회는 호출부(open)가 이 함수가 끝난 뒤에 한 번만 한다.
 	if (viewDate === ymd(0) && list[0].eventDate !== ymd(0)) {
 		viewDate = list[0].eventDate;
-		loadDay();
 	}
 
 	const table = document.createElement('table');
@@ -220,7 +228,9 @@ async function loadBooths() {
 				await adminApi(`api/admin/booths/${b.id}/active?active=${!b.active}`, { method: 'PATCH' });
 				loadBooths();
 			} catch (e) {
-				showError(boothList, e.message);
+				// 표를 지우지 않는다 — 실패한 부스 하나 때문에 나머지 현황을 잃으면 안 된다.
+				showError(boothError, e.message);
+				toggle.disabled = false;
 			}
 		});
 

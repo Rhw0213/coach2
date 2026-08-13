@@ -121,8 +121,11 @@ function render(token, list) {
 			btn.type = 'button';
 			btn.className = 'btn btn--danger';
 			btn.textContent = '예약 취소';
-			btn.addEventListener('click', () => cancel(token, r, btn));
-			actions.append(btn);
+			// 실패 메시지는 이 예약 바로 아래에만 띄운다 — 목록 전체를 갈아치우면
+			// 확인하러 온 다른 예약까지 사라진다.
+			const slot = document.createElement('div');
+			btn.addEventListener('click', () => cancel(token, r, btn, slot));
+			actions.append(btn, slot);
 			stub.append(actions);
 		}
 
@@ -130,7 +133,8 @@ function render(token, list) {
 	}
 }
 
-async function cancel(token, reservation, btn) {
+async function cancel(token, reservation, btn, errorSlot) {
+	errorSlot.innerHTML = '';
 	if (btn.dataset.confirming !== 'yes') {
 		btn.dataset.confirming = 'yes';
 		btn.textContent = '정말 취소할까요? 한 번 더 누르세요';
@@ -150,7 +154,10 @@ async function cancel(token, reservation, btn) {
 			{ method: 'DELETE' });
 		load(token);
 	} catch (e) {
-		showError(out, e.message);
+		showError(errorSlot, e.message);
+		btn.disabled = false;
+		btn.dataset.confirming = '';
+		btn.textContent = '예약 취소';
 	}
 }
 </script>
