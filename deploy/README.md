@@ -100,12 +100,15 @@ sudo nginx -t && sudo systemctl reload nginx
 
 ```bash
 curl -sS https://eastpeace.kr/reserve/health     # {"status":"ok","app":"coach2"}
-curl -sS -o /dev/null -w '%{http_code}\n' https://eastpeace.kr/   # eastAI 200 유지
+curl -sS -o /dev/null -w '%{http_code}\n' https://eastpeace.kr/   # eastAI 응답 유지
 ```
 
 **두 번째 줄이 이 배포의 진짜 합격 기준이다** — coach2가 뜨는 것보다 eastAI가
 그대로인 게 중요하다. 응답 본문까지 확인하는 이유는, nginx include가 빠져 있으면
 `/reserve/health`가 eastAI의 catch-all로 새면서 상태코드만으로는 통과해버리기 때문이다.
+
+eastAI 루트는 **평소에 302를 준다**(앱이 리다이렉트). 200을 기대하지 말 것.
+여기서 문제인 값은 `502`/`504`(nginx가 앱에 못 닿음)와 `000`(연결 실패)뿐이다.
 
 ---
 

@@ -111,13 +111,16 @@ jobs:
           # coach2 실패 시 여기서 exit하면 안 된다 — 이 검사가 더 중요하다.
           code=$(curl -sS -o /dev/null -w '%{http_code}' --connect-timeout 5 --max-time 15 \
                  "https://eastpeace.kr/" || echo 000)
-          if [ "$code" = "200" ]; then
-            echo "✅ eastAI 정상 (200)"
-          else
-            echo "❌ eastAI 응답 이상: $code — 즉시 확인 필요"
-          fi
+          # eastAI 루트는 평소에 302를 준다(앱이 리다이렉트). 200을 요구하면 멀쩡한데도
+          # 배포가 실패한다. 여기서 잡아야 하는 건 'nginx가 앱에 닿지 못하는 상태' —
+          # 즉 5xx와 연결실패(000)다. 2xx/3xx/4xx는 경로가 살아 있다는 뜻이다.
+          case "$code" in
+            000|5*) east_ok=false ;;
+            *)      east_ok=true ;;
+          esac
+          $east_ok && echo "✅ eastAI 정상 ($code)" || echo "❌ eastAI 응답 이상: $code — 즉시 확인 필요"
 
-          [ "$code" = "200" ] || exit 1
+          $east_ok || exit 1
           $coach2_ok || exit 1
 
   freeze-notice:
