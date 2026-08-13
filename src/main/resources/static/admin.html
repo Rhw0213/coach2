@@ -128,9 +128,7 @@ document.getElementById('prev').addEventListener('click', () => shiftDay(-1));
 document.getElementById('next').addEventListener('click', () => shiftDay(1));
 
 function shiftDay(delta) {
-	const d = new Date(viewDate + 'T00:00:00+09:00');
-	d.setDate(d.getDate() + delta);
-	viewDate = d.toISOString().slice(0, 10);
+	viewDate = addDays(viewDate, delta);
 	loadDay();
 }
 

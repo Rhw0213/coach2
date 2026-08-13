@@ -7,9 +7,13 @@ const BASE = location.pathname.replace(/[^/]*$/, '');
 const KST = 'Asia/Seoul';
 
 async function api(path, options = {}) {
+	// headers를 먼저 빼낸다. 그냥 {...options}를 펼치면 그 안의 headers가
+	// 아래에서 합쳐둔 headers를 통째로 덮어써서 Content-Type이 사라지고,
+	// 본문 있는 요청이 415로 거절된다. 구조분해로 그 실수를 아예 막는다.
+	const { headers, ...rest } = options;
 	const res = await fetch(BASE + path, {
-		headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
-		...options,
+		...rest,
+		headers: { 'Content-Type': 'application/json', ...headers },
 	});
 	if (res.status === 204 || res.headers.get('content-length') === '0') return null;
 
@@ -49,6 +53,14 @@ function ymd(offset = 0) {
 	const kst = new Date(now.toLocaleString('en-US', { timeZone: KST }));
 	kst.setDate(kst.getDate() + offset);
 	return `${kst.getFullYear()}-${String(kst.getMonth() + 1).padStart(2, '0')}-${String(kst.getDate()).padStart(2, '0')}`;
+}
+
+/** YYYY-MM-DD 에서 며칠 이동. UTC 자정으로 파싱해 UTC로 더하고 UTC로 되돌린다 —
+ *  로컬 타임존이 개입하면 KST 자정(=전날 15:00 UTC)에서 날짜가 하루 밀린다. */
+function addDays(ymdStr, delta) {
+	const d = new Date(ymdStr + 'T00:00:00Z');
+	d.setUTCDate(d.getUTCDate() + delta);
+	return d.toISOString().slice(0, 10);
 }
 
 /** "10:00:00" + n분 단위로 운영시간 전체를 훑어 슬롯 시작 시각(Date)을 만든다.
