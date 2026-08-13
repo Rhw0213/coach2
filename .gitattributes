@@ -1,0 +1,4 @@
+# 저장소에는 항상 LF로 저장한다.
+# Dockerfile·nginx 설정·워크플로우가 CRLF로 리눅스 호스트에 올라가면
+# 원인을 찾기 어려운 방식으로 깨진다.
+* text=auto eol=lf

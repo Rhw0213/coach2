@@ -1,0 +1,41 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '4.0.6'
+	id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'com.interview'
+version = '0.0.1-SNAPSHOT'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(17)
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+// eastAI의 의존성 목록을 통째로 베끼지 않았다. 예약 도메인이 실제로 요구할 때
+// (메일 알림, JWT 로그인, 엑셀 내보내기 등) 그때 추가한다.
+dependencies {
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	compileOnly 'org.projectlombok:lombok'
+	annotationProcessor 'org.projectlombok:lombok'
+	runtimeOnly 'org.postgresql:postgresql'
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+	testRuntimeOnly 'com.h2database:h2'
+}
+
+// Dockerfile이 build/libs/app.jar 하나만 집는다. 이름을 고정해두면
+// 버전 문자열이나 plain jar 때문에 COPY가 깨질 일이 없다.
+tasks.named('bootJar') {
+	archiveFileName = 'app.jar'
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}

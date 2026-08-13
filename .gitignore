@@ -1,0 +1,11 @@
+.gradle/
+build/
+.env
+
+### IDE ###
+.idea/
+*.iml
+.vscode/
+
+### Tools ###
+.claude/

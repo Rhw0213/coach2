@@ -1,0 +1,94 @@
+# coach2 — 상담/코칭 세션 예약 시스템
+#
+# eastAI(coach1)와 같은 호스트에 나란히 뜬다. 아래 이름·포트는 전부 실제 호스트를 조회해서
+# 비어 있는 값으로 고른 것 (2026-08-13 기준 docker ps / ss -tlnp).
+#   eastai 점유: 컨테이너 eastai·eastai-db·eastai-livekit / 포트 8080·5432·17880·7881·7880
+#   coach2  사용: 컨테이너 coach2·coach2-db                / 포트 8090
+#
+# 프로젝트명을 명시한다 — 디렉터리명에 기대면 클론 위치가 바뀔 때 볼륨이 갈린다.
+name: coach2
+
+services:
+  postgres:
+    # eastai-db와 같은 이미지 → 레이어가 공유되어 추가 디스크가 거의 들지 않는다.
+    image: postgres:16-alpine
+    container_name: coach2-db
+    restart: always
+    # 이 호스트는 프로젝트 간 cgroup 격리가 없다. eastai 말고는 아무도 제한이 없어서
+    # 한쪽이 폭주하면 eastai-db를 굶길 수 있다(vCPU 2, RAM 7.6G). coach2는 전부 묶는다.
+    mem_limit: 512m
+    cpus: "0.5"
+    environment:
+      POSTGRES_DB: coach2
+      POSTGRES_USER: ${DB_USERNAME:-coach2}
+      # 기본값을 주지 않는다. eastai 쪽은 :-eastai 폴백이 있어 미주입 시 기본 비밀번호로 뜨는데,
+      # 그 파일 주석 스스로가 위험하다고 적어둔 상태다. 여기선 미주입이면 아예 기동을 막는다.
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD 미설정 — .env를 확인할 것}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    # ports를 두지 않는다.
+    # 앱은 compose 네트워크(postgres:5432)로 붙으므로 호스트 포트가 필요 없고,
+    # 127.0.0.1로 열어도 안전하지 않다 — eastai-livekit이 network_mode: host라서
+    # 호스트 loopback을 공유한다. 즉 인터넷에 가장 많이 노출된 그 컨테이너가
+    # 127.0.0.1:5433에 그대로 닿는다. psql이 필요하면:
+    #   docker compose exec postgres psql -U coach2 -d coach2
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-coach2} -d coach2"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    container_name: coach2
+    restart: always
+    # 1g는 빠듯했다. MaxRAMPercentage=75%면 힙 768m, 나머지 256m로 metaspace(Hibernate가
+    # 프록시 생성으로 100~180m를 쓴다) + 스레드 스택 + 코드캐시를 감당해야 해서
+    # cgroup OOM-kill(SIGKILL)이 날 수 있다. 그건 ExitOnOutOfMemoryError로 못 막는다.
+    # 호스트에 6G가 놀고 있으므로 여유를 준다.
+    mem_limit: 1536m
+    cpus: "1.0"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      # 컨테이너 안은 8080, 호스트는 8090(8080은 eastai 점유).
+      # 루프백 전용 — 호스트 nginx를 통해서만 노출된다. 0.0.0.0으로 열면 nginx를 우회해
+      # X-Forwarded-For를 위조할 수 있는 직결 경로가 생긴다.
+      - "127.0.0.1:8090:8080"
+    environment:
+      # nginx가 /reserve/ 를 떼지 않고 그대로 넘긴다(proxy_pass 뒤 슬래시 없음).
+      # 따라서 앱도 같은 prefix로 받아야 링크·리다이렉트·쿠키 경로가 맞는다.
+      # 서브도메인으로 전환하면 이 값을 빈 문자열로 두고 nginx도 별도 server 블록으로 교체.
+      - SERVER_SERVLET_CONTEXT_PATH=${CONTEXT_PATH:-/reserve}
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/coach2
+      - SPRING_DATASOURCE_USERNAME=${DB_USERNAME:-coach2}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD:?DB_PASSWORD 미설정 — .env를 확인할 것}
+      # /api/admin/** 의 유일한 열쇠. 기본값을 주지 않는다 — 미주입이면 기동이 막힌다.
+      # 기본값이 있으면 배포에서 빠뜨렸을 때 관리자 API가 알려진 값으로 열린 채 조용히 뜬다.
+      - ADMIN_SECRET=${ADMIN_SECRET:?ADMIN_SECRET 미설정 — .env를 확인할 것}
+      # ponytail: 엔티티가 없는 지금은 update로 충분하다. 스키마가 굳으면
+      # validate + Flyway(src/main/resources/db/migration)로 올린다 — update는 되돌릴 수
+      # 없는 ALTER를 자동으로 치기 때문에 롤백해도 스키마는 안 돌아온다.
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+      # 기본값 true는 요청이 끝날 때까지 DB 커넥션을 붙잡아 풀을 일찍 고갈시킨다.
+      - SPRING_JPA_OPEN_IN_VIEW=false
+      - TZ=Asia/Seoul
+    # eastai는 /var/run/docker.sock을 rw로 마운트한다(관리자 LiveKit 로그뷰어용).
+    # coach2에는 절대 넣지 않는다 — 그 소켓은 호스트 root 권한과 같아서, coach2가 뚫리면
+    # eastai-db를 포함한 호스트 전체가 넘어간다. 여기선 필요도 없다.
+    healthcheck:
+      # $$ 로 이스케이프해야 한다. $ 하나면 Compose가 YAML 파싱 시점에 호스트/.env에서
+      # 찾다가 없으니 빈 문자열로 치환해버리고(경고만 뜬다) curl이 /health를 때려 영구 unhealthy가 된다.
+      # SERVER_SERVLET_CONTEXT_PATH는 .env가 아니라 위 environment에만 있으므로 Compose는 볼 수 없다.
+      # $$ 로 넘기면 컨테이너 안 sh가 런타임에 진짜 환경변수로 전개한다.
+      test: ["CMD-SHELL", "curl -f http://localhost:8080$${SERVER_SERVLET_CONTEXT_PATH}/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  # 프로젝트명이 coach2이므로 호스트에는 coach2_postgres_data로 만들어진다.
+  # eastai_postgres_data와 겹치지 않는다.
+  postgres_data:
