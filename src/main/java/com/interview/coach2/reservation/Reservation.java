@@ -13,8 +13,12 @@ import java.time.Instant;
  * 그래서 DB 유니크 제약이 진짜 방어선이고, 서비스의 사전 검사는 흔한 경우에
  * 친절한 메시지를 주기 위한 것일 뿐이다.
  *
- * 부스 좌석이 여러 개였다면 '세고 나서 넣는' 경합이 생겨 부모 행 비관락이 필요하지만,
- * 슬롯당 1명이므로 유니크 제약 하나로 DB가 직접 막는다.
+ * 정원이 여러 명인 부스(그룹면접 5명)도 같은 방식으로 막는다. 좌석 번호를 키에 넣어
+ * 부스@시각(#좌석) 을 유니크로 두면, '세고 나서 넣는' 경합 자체가 생기지 않는다 —
+ * 서비스는 1번 좌석부터 넣어 보고 제약에 막히면 다음 번호로 넘어갈 뿐이고,
+ * 좌석 문자열이 정원 개수만큼만 존재하므로 정원 초과는 타이밍과 무관하게 불가능하다.
+ * 부모 행 비관락을 쓰면 이 성질을 애플리케이션 코드로 옮겨오게 되어, 락 로직에 버그가
+ * 나는 순간 DB가 받아줄 최후의 방어선이 사라진다. 그래서 락을 쓰지 않았다.
  *
  * 제약을 '부분 유니크 인덱스(WHERE status=RESERVED)'로 만들지 않았다. 그건 Postgres
  * 전용이라 부팅 시 raw JDBC로 따로 만들어야 하고, H2로 도는 테스트에서는 조용히
@@ -57,7 +61,14 @@ public class Reservation {
 
 	private Instant cancelledAt;
 
-	/** 한 부스의 한 슬롯은 한 건만. 취소하면 NULL이 되어 슬롯이 풀린다. */
+	/**
+	 * 이 예약이 차지한 좌석 번호(1..부스 정원). 정원이 1이면 항상 1이다.
+	 * 취소해도 남겨둔다 — 누가 몇 번 좌석이었는지는 기록이고, 슬롯을 놓아주는 것은 키의 몫이다.
+	 */
+	@Column(columnDefinition = "integer default 1 not null")
+	private int seatNo;
+
+	/** 한 부스의 한 슬롯의 한 좌석은 한 건만. 취소하면 NULL이 되어 그 좌석이 풀린다. */
 	@Column(unique = true)
 	private String boothSlotKey;
 
@@ -75,14 +86,20 @@ public class Reservation {
 	protected Reservation() {
 	}
 
-	public Reservation(Long boothId, Long visitorId, Instant startTime, int slotMinutes) {
+	public Reservation(Long boothId, Long visitorId, Instant startTime, int slotMinutes, int seatNo) {
 		this.boothId = boothId;
 		this.visitorId = visitorId;
 		this.startTime = startTime;
 		this.slotMinutes = slotMinutes;
+		this.seatNo = seatNo;
 		this.status = ReservationStatus.RESERVED;
 		this.createdAt = Instant.now();
-		this.boothSlotKey = slotKey(boothId, startTime);
+		// 1번 좌석은 좌석번호를 붙이지 않는다 — 이 기능이 생기기 전에 쓰던 키와 글자 그대로 같다.
+		// 덕분에 기존 예약 행을 손대지 않아도 되고(마이그레이션 없음), 코드를 되돌려도
+		// 옛 코드가 만드는 키와 충돌해 이중예약이 막힌다.
+		this.boothSlotKey = seatNo == 1
+			? slotKey(boothId, startTime)
+			: slotKey(boothId, startTime) + "#" + seatNo;
 		this.visitorSlotKey = slotKey(visitorId, startTime);
 		this.visitorBoothKey = visitorId + "@b" + boothId;
 	}

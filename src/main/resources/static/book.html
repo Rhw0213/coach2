@@ -20,7 +20,7 @@
 
 	<p class="eyebrow" id="eventDate">1:1 면접·상담</p>
 	<h1>예약 시간을 지정해 주세요</h1>
-	<p class="lede">기업마다 상담 시간이 정해져 있습니다. 한 시간대에 한 명씩만 배정되니 원하는 시간을 먼저 확보하세요. 회원가입은 없습니다.</p>
+	<p class="lede">기업마다 상담 시간이 정해져 있습니다. 자리가 한정되어 있으니 원하는 시간을 먼저 확보하세요. 회원가입은 없습니다.</p>
 
 	<div id="ticket"></div>
 
@@ -156,7 +156,9 @@ function renderBooths() {
 		hours.className = 'booth-meta';
 		hours.textContent = bookedBoothIds.has(b.id)
 			? '예약함'
-			: `${b.openFrom.slice(0, 5)}–${b.openTo.slice(0, 5)} · ${b.slotMinutes}분`;
+			// 정원이 1이면 굳이 말하지 않는다 — 1:1이 기본이고, 그룹일 때만 알려주면 된다.
+			: `${b.openFrom.slice(0, 5)}–${b.openTo.slice(0, 5)} · ${b.slotMinutes}분`
+				+ (b.capacity > 1 ? ` · 그룹 ${b.capacity}명` : '');
 		if (bookedBoothIds.has(b.id)) {
 			hours.classList.add('booth-meta--booked');
 		}

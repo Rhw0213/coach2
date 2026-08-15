@@ -9,7 +9,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -45,16 +45,16 @@ public class ReservationService {
 	@Transactional(readOnly = true)
 	public List<Instant> availableSlots(Long boothId) {
 		Booth booth = activeBooth(boothId);
-		Set<Instant> taken = reservations
+		// 슬롯마다 몇 명이 찼는지 센다. 정원이 1이면 예전처럼 '있으면 마감'과 같아진다.
+		Map<Instant, Long> taken = reservations
 			.findByBoothIdAndStatus(boothId, ReservationStatus.RESERVED)
 			.stream()
-			.map(Reservation::getStartTime)
-			.collect(Collectors.toSet());
+			.collect(Collectors.groupingBy(Reservation::getStartTime, Collectors.counting()));
 
 		Instant now = Instant.now();
 		return Slots.forBooth(booth).stream()
 			.filter(slot -> slot.isAfter(now))
-			.filter(slot -> !taken.contains(slot))
+			.filter(slot -> taken.getOrDefault(slot, 0L) < booth.getCapacity())
 			.toList();
 	}
 
@@ -80,11 +80,14 @@ public class ReservationService {
 
 		Visitor visitor = findOrCreateVisitor(name, phone);
 
-		// 아래 두 검사는 흔한 경우에 무엇이 문제인지 알려주기 위한 것이다.
+		// 아래 세 검사는 흔한 경우에 무엇이 문제인지 알려주기 위한 것이다.
 		// 동시 요청은 이걸로 막지 못한다 — 진짜 방어선은 Reservation의 유니크 제약이다.
-		if (reservations.existsByBoothIdAndStartTimeAndStatus(
-				boothId, startTime, ReservationStatus.RESERVED)) {
-			throw conflict("이미 예약된 시간입니다");
+		if (reservations.countByBoothIdAndStartTimeAndStatus(
+				boothId, startTime, ReservationStatus.RESERVED) >= booth.getCapacity()) {
+			// 1:1이면 '이미 예약된', 그룹이면 '정원이 찬' 것이다. 사용자가 읽는 문장이므로 구분한다.
+			throw conflict(booth.getCapacity() == 1
+				? "이미 예약된 시간입니다"
+				: "이 시간은 정원이 모두 찼습니다");
 		}
 		if (reservations.existsByVisitorIdAndStartTimeAndStatus(
 				visitor.getId(), startTime, ReservationStatus.RESERVED)) {
@@ -95,16 +98,22 @@ public class ReservationService {
 			throw conflict("이 부스는 이미 예약하셨습니다. 다른 시간으로 바꾸시려면 기존 예약을 취소해 주세요");
 		}
 
-		try {
-			Reservation saved = writer.insert(
-				new Reservation(boothId, visitor.getId(), startTime, booth.getSlotMinutes()));
-			return new BookResult(saved, visitor.getToken());
-		} catch (DataIntegrityViolationException e) {
-			// 위 검사와 INSERT 사이에 다른 요청이 같은 슬롯을 가져간 경우.
-			// 부스 슬롯 충돌인지 본인 중복인지는 구분하지 않는다 — 제약 이름을 파싱하는 건
-			// DB에 종속적이라 깨지기 쉽고, 사용자가 할 행동은 어느 쪽이든 같다.
-			throw conflict("방금 다른 예약이 확정되었습니다. 다른 시간을 선택해 주세요");
+		// 1번 좌석부터 넣어 본다. 이미 찬 좌석은 유니크 제약이 거절하므로 다음 번호로 넘어간다.
+		// 좌석 문자열이 정원 개수만큼만 존재하니, 동시 요청이 몇 개든 정원을 넘길 수 없다.
+		for (int seat = 1; seat <= booth.getCapacity(); seat++) {
+			try {
+				Reservation saved = writer.insert(new Reservation(
+					boothId, visitor.getId(), startTime, booth.getSlotMinutes(), seat));
+				return new BookResult(saved, visitor.getToken());
+			} catch (DataIntegrityViolationException e) {
+				// 이 좌석은 방금 다른 사람이 가져갔다. 다음 좌석을 시도한다.
+				// visitorSlotKey·visitorBoothKey 위반이면 어느 좌석을 시도해도 똑같이 실패하고
+				// 아래 conflict로 떨어진다. 제약 이름을 파싱해 구분하지는 않는다 — DB에 종속적이라
+				// 깨지기 쉽고, 사용자가 할 행동은 어느 쪽이든 같다.
+			}
 		}
+		// 위 검사와 INSERT 사이에 다른 요청들이 남은 좌석을 모두 가져간 경우.
+		throw conflict("방금 다른 예약이 확정되었습니다. 다른 시간을 선택해 주세요");
 	}
 
 	@Transactional(readOnly = true)

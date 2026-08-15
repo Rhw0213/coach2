@@ -96,7 +96,7 @@ class PublicApiContractTest {
 		Booth booth = saveBooth();
 		Visitor visitor = visitors.save(new Visitor("홍길동", "01011112222"));
 		reservations.save(new Reservation(booth.getId(), visitor.getId(),
-			Slots.forBooth(booth).get(0), 30));
+			Slots.forBooth(booth).get(0), 30, 1));
 
 		String slots = get("/api/booths/" + booth.getId() + "/slots").body();
 

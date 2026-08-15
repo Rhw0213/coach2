@@ -35,7 +35,7 @@ public class ReservationController {
 	 */
 	public record BoothView(Long id, String companyName, String boothNo, String note,
 	                        LocalDate eventDate, LocalTime openFrom, LocalTime openTo,
-	                        int slotMinutes) {
+	                        int slotMinutes, int capacity) {
 	}
 
 	public record BookRequest(Long boothId, Instant startTime, String name, String phone) {
@@ -125,6 +125,6 @@ public class ReservationController {
 
 	static BoothView toView(Booth b) {
 		return new BoothView(b.getId(), b.getCompanyName(), b.getBoothNo(), b.getNote(),
-			b.getEventDate(), b.getOpenFrom(), b.getOpenTo(), b.getSlotMinutes());
+			b.getEventDate(), b.getOpenFrom(), b.getOpenTo(), b.getSlotMinutes(), b.getCapacity());
 	}
 }

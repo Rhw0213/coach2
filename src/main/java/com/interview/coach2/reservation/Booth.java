@@ -48,6 +48,16 @@ public class Booth {
 	@Column(nullable = false)
 	private int slotMinutes;
 
+	/**
+	 * 한 슬롯이 받는 인원. 1이면 1:1 면접·상담, 5면 그룹면접처럼 여러 명이 같은 시간에 들어온다.
+	 * 좌석 배정은 Reservation.seatNo가 맡고, 정원 초과는 DB 유니크 제약이 직접 막는다.
+	 */
+	// DEFAULT를 DDL에 직접 박는다. 그냥 NOT NULL로 두면 이미 행이 있는 운영 테이블에
+	// ALTER ... ADD COLUMN ... NOT NULL 이 실패하는데, ddl-auto=update는 그 실패를
+	// 로그만 남기고 넘어간다 — 컬럼 없이 뜬 앱은 헬스체크는 통과하면서 예약 쿼리만 깨진다.
+	@Column(columnDefinition = "integer default 1 not null")
+	private int capacity = 1;
+
 	@Column(nullable = false)
 	private boolean active = true;
 
@@ -63,12 +73,20 @@ public class Booth {
 	protected Booth() {
 	}
 
+	/** 정원을 안 주면 1:1이다 — 이 시스템이 처음부터 받아온 형태이므로 그것을 기본값으로 둔다. */
 	public Booth(String companyName, String boothNo, String note,
 	             LocalDate eventDate, LocalTime openFrom, LocalTime openTo, int slotMinutes) {
+		this(companyName, boothNo, note, eventDate, openFrom, openTo, slotMinutes, 1);
+	}
+
+	public Booth(String companyName, String boothNo, String note,
+	             LocalDate eventDate, LocalTime openFrom, LocalTime openTo,
+	             int slotMinutes, int capacity) {
 		if (eventDate == null) {
 			throw new IllegalArgumentException("행사일이 필요하다");
 		}
 		validateHours(openFrom, openTo, slotMinutes);
+		validateCapacity(capacity);
 
 		this.companyName = required(companyName, "회사명은 비어 있을 수 없다");
 		this.boothNo = required(boothNo, "부스번호는 비어 있을 수 없다");
@@ -77,6 +95,7 @@ public class Booth {
 		this.openFrom = openFrom;
 		this.openTo = openTo;
 		this.slotMinutes = slotMinutes;
+		this.capacity = capacity;
 		this.active = true;
 		this.staffToken = newToken();
 	}
@@ -92,15 +111,20 @@ public class Booth {
 		return java.util.UUID.randomUUID().toString().replace("-", "");
 	}
 
-	public void updateSchedule(LocalDate eventDate, LocalTime openFrom, LocalTime openTo, int slotMinutes) {
+	public void updateSchedule(LocalDate eventDate, LocalTime openFrom, LocalTime openTo,
+	                          int slotMinutes, int capacity) {
 		if (eventDate == null) {
 			throw new IllegalArgumentException("행사일이 필요하다");
 		}
 		validateHours(openFrom, openTo, slotMinutes);
+		validateCapacity(capacity);
 		this.eventDate = eventDate;
 		this.openFrom = openFrom;
 		this.openTo = openTo;
 		this.slotMinutes = slotMinutes;
+		// 이미 그 정원만큼 찬 슬롯이 있어도 줄이는 것을 막지 않는다. 기존 예약은 그대로 두고
+		// 새 예약만 막히는 편이, 이미 확정된 사람을 밀어내는 것보다 낫다.
+		this.capacity = capacity;
 	}
 
 	public void updateInfo(String companyName, String boothNo, String note) {
@@ -147,6 +171,12 @@ public class Booth {
 		}
 		if (slotMinutes <= 0) {
 			throw new IllegalArgumentException("슬롯 길이는 양수여야 한다");
+		}
+	}
+
+	private static void validateCapacity(int capacity) {
+		if (capacity <= 0) {
+			throw new IllegalArgumentException("정원은 1명 이상이어야 한다");
 		}
 	}
 }

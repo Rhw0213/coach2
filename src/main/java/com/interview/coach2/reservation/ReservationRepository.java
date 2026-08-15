@@ -19,7 +19,8 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
 	boolean existsByVisitorIdAndStartTimeAndStatus(
 		Long visitorId, Instant startTime, ReservationStatus status);
 
-	boolean existsByBoothIdAndStartTimeAndStatus(
+	// 정원이 1명이 아닐 수 있으므로 '있냐'가 아니라 '몇 명이냐'를 묻는다.
+	long countByBoothIdAndStartTimeAndStatus(
 		Long boothId, Instant startTime, ReservationStatus status);
 
 	boolean existsByVisitorIdAndBoothIdAndStatus(

@@ -34,14 +34,16 @@ public class AdminController {
 
 	// @DateTimeFormat은 @RequestBody(JSON) 바인딩에 관여하지 않는다 — Jackson이 ISO-8601을
 	// 그대로 읽으므로 필요도 없다. 붙여두면 이 값이 파싱을 좌우한다고 오해하게 되므로 뺀다.
+	// capacity는 안 보내면 1이다. 기존 부스 수정 요청이 이 필드를 모른 채 들어와도
+	// 1:1로 조용히 바뀌지 않도록, updateBooth에서 null이면 현재 값을 유지한다.
 	public record BoothRequest(String companyName, String boothNo, String note,
 	                           LocalDate eventDate, LocalTime openFrom, LocalTime openTo,
-	                           Integer slotMinutes) {
+	                           Integer slotMinutes, Integer capacity) {
 	}
 
 	public record AdminBoothView(Long id, String companyName, String boothNo, String note,
 	                             LocalDate eventDate, LocalTime openFrom, LocalTime openTo,
-	                             int slotMinutes, boolean active, String staffToken) {
+	                             int slotMinutes, int capacity, boolean active, String staffToken) {
 	}
 
 	public record AdminReservationView(Long id, Long boothId, String companyName, String boothNo,
@@ -66,7 +68,8 @@ public class AdminController {
 			required(request.eventDate(), "행사일"),
 			required(request.openFrom(), "운영 시작"),
 			required(request.openTo(), "운영 종료"),
-			required(request.slotMinutes(), "슬롯 길이"));
+			required(request.slotMinutes(), "슬롯 길이"),
+			request.capacity() == null ? 1 : request.capacity());
 		return toView(booths.save(booth));
 	}
 
@@ -80,7 +83,8 @@ public class AdminController {
 			required(request.eventDate(), "행사일"),
 			required(request.openFrom(), "운영 시작"),
 			required(request.openTo(), "운영 종료"),
-			required(request.slotMinutes(), "슬롯 길이"));
+			required(request.slotMinutes(), "슬롯 길이"),
+			request.capacity() == null ? booth.getCapacity() : request.capacity());
 		return toView(booth);
 	}
 
@@ -125,8 +129,8 @@ public class AdminController {
 
 	private static AdminBoothView toView(Booth b) {
 		return new AdminBoothView(b.getId(), b.getCompanyName(), b.getBoothNo(), b.getNote(),
-			b.getEventDate(), b.getOpenFrom(), b.getOpenTo(), b.getSlotMinutes(), b.isActive(),
-			b.getStaffToken());
+			b.getEventDate(), b.getOpenFrom(), b.getOpenTo(), b.getSlotMinutes(), b.getCapacity(),
+			b.isActive(), b.getStaffToken());
 	}
 
 	private static <T> T required(T value, String field) {

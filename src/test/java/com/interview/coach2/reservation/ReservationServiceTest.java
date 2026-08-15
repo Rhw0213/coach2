@@ -93,9 +93,9 @@ class ReservationServiceTest {
 		Visitor a = writer.insertVisitor(new Visitor("홍길동", "01011112222"));
 		Visitor b = writer.insertVisitor(new Visitor("김철수", "01033334444"));
 
-		writer.insert(new Reservation(booth.getId(), a.getId(), slot, 30));
+		writer.insert(new Reservation(booth.getId(), a.getId(), slot, 30, 1));
 
-		assertThatThrownBy(() -> writer.insert(new Reservation(booth.getId(), b.getId(), slot, 30)))
+		assertThatThrownBy(() -> writer.insert(new Reservation(booth.getId(), b.getId(), slot, 30, 1)))
 			.isInstanceOf(DataIntegrityViolationException.class);
 	}
 
@@ -125,10 +125,10 @@ class ReservationServiceTest {
 	@Test
 	void 사전검사를_우회해도_DB가_같은_부스_중복을_거절한다() {
 		Visitor v = writer.insertVisitor(new Visitor("홍길동", "01011112222"));
-		writer.insert(new Reservation(booth.getId(), v.getId(), slot, 30));
+		writer.insert(new Reservation(booth.getId(), v.getId(), slot, 30, 1));
 
 		assertThatThrownBy(() -> writer.insert(
-			new Reservation(booth.getId(), v.getId(), slot.plusSeconds(1800), 30)))
+			new Reservation(booth.getId(), v.getId(), slot.plusSeconds(1800), 30, 1)))
 			.isInstanceOf(DataIntegrityViolationException.class);
 	}
 
@@ -226,5 +226,110 @@ class ReservationServiceTest {
 		assertThatThrownBy(() -> service.book(booth.getId(), slot, "홍길동", "01011112222"))
 			.isInstanceOf(ResponseStatusException.class)
 			.satisfies(e -> assertStatus(e, HttpStatus.NOT_FOUND));
+	}
+
+	// ── 그룹면접(정원 5) ────────────────────────────────────────
+	// 정원이 1인 위 테스트들이 그대로 통과해야 한다 — 1:1은 정원 1인 특수한 경우일 뿐이다.
+
+	/** 정원 5짜리 부스. 슬롯은 위 setUp의 것과 같은 시각을 쓴다(부스가 다르므로 충돌하지 않는다). */
+	private Booth groupBooth() {
+		return booths.save(new Booth("동해기업 그룹면접", "G-01", "그룹면접",
+			booth.getEventDate(), LocalTime.of(10, 0), LocalTime.of(17, 0), 30, 5));
+	}
+
+	@Test
+	void 정원이_5명이면_같은_슬롯에_다섯_명이_들어간다() {
+		Booth group = groupBooth();
+
+		for (int i = 1; i <= 5; i++) {
+			service.book(group.getId(), slot, "참가자" + i, "0101111000" + i);
+		}
+
+		assertThat(reservations.countByBoothIdAndStartTimeAndStatus(
+			group.getId(), slot, ReservationStatus.RESERVED)).isEqualTo(5);
+	}
+
+	@Test
+	void 정원을_넘는_여섯_번째는_거절된다() {
+		Booth group = groupBooth();
+		for (int i = 1; i <= 5; i++) {
+			service.book(group.getId(), slot, "참가자" + i, "0101111000" + i);
+		}
+
+		assertThatThrownBy(() -> service.book(group.getId(), slot, "여섯째", "01099998888"))
+			.isInstanceOf(ResponseStatusException.class)
+			.satisfies(e -> assertStatus(e, HttpStatus.CONFLICT));
+	}
+
+	/**
+	 * 사전검사가 없어도 DB가 정원을 지키는지 본다. 좌석 번호가 유니크 키에 들어가므로
+	 * 같은 좌석을 두 번 넣으려는 시도는 제약에 막힌다 — 이게 동시 요청의 진짜 방어선이다.
+	 * 이 테스트가 깨지면 그룹 슬롯에 정원을 넘겨 사람이 들어갈 수 있다.
+	 */
+	@Test
+	void 사전검사를_우회해도_DB가_같은_좌석을_두_번_주지_않는다() {
+		Booth group = groupBooth();
+		Visitor a = writer.insertVisitor(new Visitor("가", "01011110001"));
+		Visitor b = writer.insertVisitor(new Visitor("나", "01011110002"));
+
+		writer.insert(new Reservation(group.getId(), a.getId(), slot, 30, 3));
+
+		assertThatThrownBy(() -> writer.insert(
+			new Reservation(group.getId(), b.getId(), slot, 30, 3)))
+			.isInstanceOf(DataIntegrityViolationException.class);
+	}
+
+	@Test
+	void 정원이_찬_슬롯은_예약_가능_목록에서_빠진다() {
+		Booth group = groupBooth();
+
+		assertThat(service.availableSlots(group.getId())).contains(slot);
+
+		for (int i = 1; i <= 4; i++) {
+			service.book(group.getId(), slot, "참가자" + i, "0101111000" + i);
+		}
+		// 4/5는 아직 자리가 있다 — 한 명이라도 찼다고 슬롯을 닫아버리면 그룹면접이 성립하지 않는다.
+		assertThat(service.availableSlots(group.getId())).contains(slot);
+
+		service.book(group.getId(), slot, "참가자5", "01011110005");
+		assertThat(service.availableSlots(group.getId())).doesNotContain(slot);
+	}
+
+	@Test
+	void 그룹_예약을_취소하면_그_자리가_다시_열린다() {
+		Booth group = groupBooth();
+		ReservationService.BookResult first =
+			service.book(group.getId(), slot, "참가자1", "01011110001");
+		for (int i = 2; i <= 5; i++) {
+			service.book(group.getId(), slot, "참가자" + i, "0101111000" + i);
+		}
+		assertThat(service.availableSlots(group.getId())).doesNotContain(slot);
+
+		service.cancel(first.reservation().getId(), first.visitorToken());
+
+		assertThat(service.availableSlots(group.getId())).contains(slot);
+		service.book(group.getId(), slot, "대기자", "01077776666");
+		assertThat(reservations.countByBoothIdAndStartTimeAndStatus(
+			group.getId(), slot, ReservationStatus.RESERVED)).isEqualTo(5);
+	}
+
+	/**
+	 * 1번 좌석 키가 예전 형식과 글자 그대로 같아야 한다. 이 성질이 깨지면 이 기능 이전에
+	 * 저장된 예약 행과 새 예약이 서로 다른 키를 갖게 되어 같은 슬롯에 두 명이 들어간다.
+	 * 운영 DB를 손대지 않고 배포할 수 있는 근거가 이것이므로 테스트로 못박아둔다.
+	 */
+	@Test
+	void 일번_좌석은_예전_키_형식을_그대로_쓴다() {
+		assertThat(new Reservation(7L, 9L, slot, 30, 1).getBoothSlotKey())
+			.isEqualTo("7@" + slot.toEpochMilli());
+		assertThat(new Reservation(7L, 9L, slot, 30, 2).getBoothSlotKey())
+			.isEqualTo("7@" + slot.toEpochMilli() + "#2");
+	}
+
+	@Test
+	void 정원은_1명_미만일_수_없다() {
+		assertThatThrownBy(() -> new Booth("영정원", "X-00", null,
+			booth.getEventDate(), LocalTime.of(10, 0), LocalTime.of(17, 0), 30, 0))
+			.isInstanceOf(IllegalArgumentException.class);
 	}
 }
