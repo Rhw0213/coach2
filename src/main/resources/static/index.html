@@ -16,611 +16,636 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 
 <style>
-/* 온라인 채용박람회 안내 — 빌드도 의존성도 없다.
- * 외부에서 받는 것은 브랜드 마크(favicon.svg) 하나뿐이고, 그건 탭 아이콘으로
- * 어차피 요청되는 파일이라 로고에 다시 써도 요청이 늘지 않는다.
+/* 온라인 채용박람회 안내.
  *
- * 디자인은 배포된 포스터(채용박람회.png)를 그대로 따른다. 같은 행사를 알리는
- * 두 매체가 다르게 생기면 학생은 다른 행사로 읽는다. 그래서 예약 앱(app.css)의
- * 절제된 토큰이 아니라 포스터의 언어를 쓴다 — 둥근 모서리, 민트 카드,
- * 번호 배지, 점선 구분선, 진초록 CTA 블록.
+ * 색은 배포된 포스터(채용박람회.png)를 그대로 쓴다. 같은 행사를 알리는 두 매체가
+ * 다른 색이면 학생은 다른 행사로 읽는다. 다만 포스터의 '구조'까지 베끼지는 않았다 —
+ * 인쇄물은 한 장을 훑게 만들면 되지만 이 페이지가 할 일은 하나, 예약이다.
  *
- * 일러스트는 포스터 PNG를 쓰지 않고 인라인 SVG로 다시 그렸다. 원본이 1.5MB인데
- * 대상이 대학생이라 대부분 모바일로 열고, 그 한 장이 페이지 전체보다 무겁다.
- * 같은 이유로 웹폰트도 받지 않는다 — 한글 웹폰트 한 벌이 본문보다 크다.
+ * 그래서 히어로가 시간표다. 이 행사의 실체는 노트북 일러스트가 아니라 10:00~17:00을
+ * 30분으로 자른 열네 칸이고, 참가자가 실제로 경쟁하는 대상이 그 칸이다. 종이가 못 하는
+ * 단 하나가 그 칸의 지금 상태를 보여주는 것이라, 레일이 API에서 현황을 받아 칠한다.
  *
- * 포스터에서 딱 하나 바꾼 것: QR 자리를 실제 예약 버튼으로 교체했다.
- * 이 페이지가 그 QR이 도착하는 곳이라, 여기 또 QR을 넣으면 제자리를 맴돈다.
+ * 위계는 세 가지로만 만든다.
+ *   바탕   진초록 필드(히어로·맺음) ↔ 흰 바탕(본문). 포스터는 전부 창백해서 큰 것이 없었다.
+ *   굵기   본문을 400으로 내렸다. 전부 700 이상이면 아무것도 강조되지 않는다.
+ *   숫자   시각·소요시간·마감일은 전부 등폭 숫자다. 이 행사의 내용이 곧 숫자다.
+ *
+ * 웹폰트는 받지 않는다 — 한글 웹폰트 한 벌이 이 페이지 전체보다 무겁고, 대상이
+ * 대학생이라 대부분 모바일로 연다. 대신 크기·굵기·자간과 등폭 숫자로 목소리를 나눈다.
+ * app.js는 새로 받는다(4KB): 레일이 예약 화면과 똑같은 슬롯 계산을 써야 하는데,
+ * 그 규칙을 여기 다시 적으면 언젠가 두 화면이 서로 다른 시간표를 그린다.
  */
 
 :root {
-	--green-deep: #1A5A4A;
-	--green: #2A7A66;
-	--green-soft: #E9F3EF;
-	--green-pill: #D5E9E0;
-	--ink: #22292F;
-	--gray: #6E7A82;
-	--line: #E1E8E5;
-	--white: #FFFFFF;
+	/* 포스터에서 뽑은 다섯 단계. --pine-900만 새로 넣었다 — 포스터에는 필드로 쓸 만큼
+	   깊은 색이 없었고, 그게 없으면 페이지 전체가 창백한 채로 남는다. */
+	--pine-900: #0E3A30;
+	--pine-700: #1A5A4A;
+	--pine-500: #2A7A66;
+	--mint-400: #57B79D;
+	--mint-100: #D5E9E0;
+	--mint-50:  #E9F3EF;
+
+	--paper: #FFFFFF;
+	--ink: #16201C;
+	--ink-60: #66746E;
+	--rule: #DCE6E1;
+
+	/* 이 페이지에서 초록이 아닌 유일한 색. 신청 마감이 임박했을 때만 쓴다 —
+	   늘 켜져 있는 경고는 아무것도 경고하지 못한다. */
+	--warn: #B4462F;
+	--warn-bg: #FDF2EF;
 
 	--sans: -apple-system, BlinkMacSystemFont, Pretendard, "Apple SD Gothic Neo",
 		"Malgun Gothic", "Noto Sans KR", sans-serif;
-
-	--r-card: 1rem;
-	--r-box: 1.25rem;
+	--mono: ui-monospace, SFMono-Regular, "Cascadia Mono", Consolas,
+		"Liberation Mono", monospace;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
 
 body {
 	margin: 0;
-	background: var(--white);
+	background: var(--paper);
 	color: var(--ink);
 	font-family: var(--sans);
 	font-size: 16px;
-	line-height: 1.6;
+	font-weight: 400;
+	line-height: 1.65;
 	-webkit-text-size-adjust: 100%;
 	/* 한국어는 어절 단위로 끊어야 읽힌다. 320px에서 가로 넘침 없음을 확인했다. */
 	word-break: keep-all;
 }
 
-:focus-visible { outline: 3px solid var(--green); outline-offset: 3px; }
+:focus-visible { outline: 3px solid var(--mint-400); outline-offset: 3px; border-radius: 2px; }
 
 @media (prefers-reduced-motion: reduce) {
 	*, *::before, *::after { animation: none !important; transition: none !important; }
 }
 
-.page { max-width: 62rem; margin: 0 auto; padding: 0 1.25rem 4rem; }
+.shell { max-width: 64rem; margin: 0 auto; padding: 0 1.25rem; }
 
-/* ── 로고 ──────────────────────────────────────────────── */
+/* 등폭 숫자 — 시각·기간·마감일에만 붙인다. 이 페이지의 두 번째 목소리다. */
+.num {
+	font-family: var(--mono);
+	font-variant-numeric: tabular-nums;
+	font-feature-settings: "tnum" 1;
+}
 
-.logo {
+/* 아주 작은 라틴 라벨. 자간을 넓게 벌려 한글 본문과 완전히 다른 소리로 읽히게 한다. */
+.eyebrow {
+	font-family: var(--mono);
+	font-size: .6875rem;
+	font-weight: 700;
+	letter-spacing: .18em;
+	text-transform: uppercase;
+}
+
+/* ══ 히어로 — 진초록 필드 ══════════════════════════════════ */
+
+.hero {
+	position: relative;
+	overflow: hidden;
+	background: var(--pine-900);
+	color: var(--paper);
+	padding-bottom: 3rem;
+}
+
+/* 포스터의 화상회의 모티프. 스티커가 아니라 바탕이 되도록 어둡게 깔고 가장자리로 흘린다.
+   2×2 화면 분할이 아래 레일의 칸과 같은 리듬이라 둘이 서로를 설명한다. */
+.hero-art {
+	position: absolute;
+	right: -6rem;
+	top: 3rem;
+	width: 34rem;
+	pointer-events: none;
+	display: none;
+}
+@media (min-width: 64rem) { .hero-art { display: block; } }
+
+.top {
+	position: relative;
 	display: flex;
 	align-items: center;
 	gap: .625rem;
-	padding: 1.5rem 0 2rem;
-	font-size: .9375rem;
-	font-weight: 800;
-	letter-spacing: .04em;
 	flex-wrap: wrap;
-}
-
-/* 실제 브랜드 마크. favicon.svg와 같은 파일이라 브라우저가 탭 아이콘용으로
-   어차피 받는 것을 재사용한다 — 요청이 늘지 않는다. */
-.logo-mark {
-	width: 1.875rem;
-	height: 1.875rem;
-	flex: none;
-}
-
-.logo-div { color: var(--line); font-weight: 400; }
-.logo-org { font-weight: 700; }
-
-/* ── 히어로 ────────────────────────────────────────────── */
-
-.hero {
-	display: grid;
-	grid-template-columns: 1fr;
-	gap: 2rem;
-	align-items: center;
-	padding-bottom: 2.5rem;
-}
-
-.pill-row { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
-
-.pill {
-	display: inline-block;
-	background: var(--green-deep);
-	color: var(--white);
+	padding: 1.5rem 0 3.5rem;
 	font-size: .875rem;
 	font-weight: 700;
-	padding: .5rem 1.125rem;
-	border-radius: 999px;
-}
-
-/* 남은 날짜. 포스터에는 없지만 인쇄물과 달리 웹은 매일 다시 열린다 —
-   마감이 지났는지 아닌지가 가장 먼저 알아야 할 정보다. */
-.dday {
-	display: inline-block;
-	border: 1.5px solid var(--green-pill);
-	color: var(--green);
-	font-size: .8125rem;
-	font-weight: 800;
-	padding: .375rem .875rem;
-	border-radius: 999px;
 	letter-spacing: .02em;
 }
-.dday[data-urgent] { border-color: #E8B4A8; color: #B4462F; background: #FDF2EF; }
+.top-mark { width: 1.75rem; height: 1.75rem; flex: none; }
+.top-div { color: rgba(213, 233, 224, .35); font-weight: 400; }
+.top-org { font-weight: 500; color: var(--mint-100); }
+
+/* 남은 날짜. 포스터에는 없다 — 인쇄물과 달리 웹은 매일 다시 열리므로,
+   마감이 지났는지가 가장 먼저 알아야 할 정보다. */
+.dday {
+	margin-left: auto;
+	font-family: var(--mono);
+	font-variant-numeric: tabular-nums;
+	font-size: .8125rem;
+	font-weight: 700;
+	letter-spacing: .04em;
+	color: var(--mint-400);
+	border: 1px solid rgba(87, 183, 157, .45);
+	border-radius: 999px;
+	padding: .3125rem .875rem;
+	white-space: nowrap;
+}
+.dday[data-urgent] { color: #FFC7B6; border-color: rgba(255, 199, 182, .5); background: rgba(180, 70, 47, .28); }
+
+.hero-grid { position: relative; display: grid; gap: 2rem; align-items: end; }
+@media (min-width: 48rem) { .hero-grid { grid-template-columns: 1fr auto; gap: 3rem; } }
+
+.tagline {
+	display: inline-block;
+	background: var(--mint-400);
+	color: var(--pine-900);
+	font-size: .8125rem;
+	font-weight: 800;
+	padding: .4375rem 1rem;
+	border-radius: 999px;
+	margin-bottom: 1.5rem;
+}
 
 .hero h1 {
-	font-size: clamp(2.75rem, 12vw, 4.5rem);
+	font-size: clamp(3rem, 13vw, 5.25rem);
 	font-weight: 900;
-	line-height: 1.08;
-	letter-spacing: -.035em;
-	color: var(--green-deep);
-	margin: 0 0 1.25rem;
+	line-height: 1.02;
+	letter-spacing: -.045em;
+	margin: 0 0 1.5rem;
 }
 .hero h1 span { display: block; }
+.hero h1 .thin { color: var(--mint-400); }
 
-.hero-sub { color: var(--gray); font-size: clamp(1rem, 3vw, 1.125rem); margin: 0; max-width: 26rem; }
-.hero-sub b { display: block; font-weight: 400; }
+.lede { margin: 0; font-size: clamp(1rem, 2.6vw, 1.1875rem); color: var(--mint-100); max-width: 27rem; }
+.lede b { display: block; font-weight: 700; color: var(--paper); }
 
-.hero-art { justify-self: center; width: 100%; max-width: 24rem; }
-.hero-art svg { width: 100%; height: auto; display: block; }
+/* 날짜 도장. 포스터의 '일시' 칸을 숫자만 남겨 크게 찍는다. */
+.stamp {
+	border-left: 2px solid var(--mint-400);
+	padding-left: 1.25rem;
+	line-height: 1.15;
+}
+.stamp-yy { font-size: .8125rem; color: var(--mint-400); letter-spacing: .1em; }
+.stamp-day { display: block; font-size: clamp(2.5rem, 9vw, 3.5rem); font-weight: 700; letter-spacing: -.03em; margin: .125rem 0; }
+.stamp-day em { font-style: normal; font-size: .45em; font-weight: 500; color: var(--mint-100); margin-left: .375rem; }
+.stamp-hr { font-size: .9375rem; color: var(--mint-100); letter-spacing: .02em; }
 
-@media (min-width: 52rem) {
-	.hero { grid-template-columns: 1fr 1fr; gap: 3rem; }
-	.hero-art { max-width: none; }
+/* ── 시간표 레일 (이 페이지의 서명) ──────────────────────── */
+
+.rail {
+	position: relative;
+	margin-top: 3rem;
+	background: rgba(255, 255, 255, .055);
+	border: 1px solid rgba(213, 233, 224, .18);
+	border-radius: 1.125rem;
+	padding: 1.375rem 1.25rem 1.125rem;
 }
 
-/* ── 사실 상자 ─────────────────────────────────────────── */
-
-.facts {
-	border: 1.5px solid var(--line);
-	border-radius: var(--r-box);
-	padding: 1.75rem 1.5rem;
-	margin: 0 0 1rem;
-	display: grid;
-	grid-template-columns: 1fr;
-	gap: 1.5rem;
+.rail-head {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 1rem;
+	flex-wrap: wrap;
+	margin-bottom: 1.125rem;
+}
+.rail-head .eyebrow { color: var(--mint-400); }
+.rail-count { font-size: .875rem; color: var(--mint-100); }
+.rail-count b {
+	font-family: var(--mono);
+	font-variant-numeric: tabular-nums;
+	font-size: 1.375rem;
+	font-weight: 700;
+	color: var(--paper);
+	margin-right: .125rem;
 }
 
-.fact { display: flex; align-items: flex-start; gap: .875rem; }
-.fact-icon { flex: none; color: var(--green); margin-top: .125rem; }
-.fact-icon svg { display: block; }
-.fact dt { font-size: .875rem; font-weight: 800; color: var(--green-deep); margin-bottom: .1875rem; }
-.fact dd { margin: 0; font-size: 1.0625rem; font-weight: 800; letter-spacing: -.01em; }
-.fact .fine { display: block; font-size: .8125rem; font-weight: 400; color: var(--gray); margin-top: .0625rem; }
+.rail-track { display: flex; gap: .25rem; list-style: none; margin: 0; padding: 0; }
 
-@media (min-width: 40rem) {
-	.facts { grid-template-columns: repeat(4, 1fr); gap: 0; }
-	.fact { padding: 0 1.25rem; border-left: 1.5px solid var(--line); }
-	.fact:first-child { border-left: 0; padding-left: 0; }
-	.fact:last-child { padding-right: 0; }
+.slot { flex: 1 1 0; min-width: 0; text-align: center; }
+
+.slot-bar {
+	display: block;
+	height: 3.25rem;
+	border-radius: 3px;
+	transform-origin: bottom;
+	background: rgba(213, 233, 224, .13);
 }
+/* 열려 있는 칸이 빛난다. 반대로 칠하면 페이지가 '자리 없음'을 먼저 말하게 된다. */
+.slot.is-open  .slot-bar { background: var(--mint-400); }
+.slot.is-full  .slot-bar { background: transparent; box-shadow: inset 0 0 0 1px rgba(213, 233, 224, .34); }
+.slot.is-past  .slot-bar { background: transparent; box-shadow: inset 0 0 0 1px rgba(213, 233, 224, .1); }
 
-/* ── 참여 기업 ─────────────────────────────────────────── */
+.slot-t {
+	display: block;
+	margin-top: .5rem;
+	font-family: var(--mono);
+	font-variant-numeric: tabular-nums;
+	font-size: .625rem;
+	letter-spacing: -.02em;
+	color: rgba(213, 233, 224, .78);
+}
+/* 좁은 화면에서는 정시만 남긴다 — 서른 분 단위 라벨이 붙으면 서로 겹쳐 못 읽는다. */
+@media (max-width: 34rem) { .slot:nth-child(even) .slot-t { visibility: hidden; } }
+
+.rail-foot {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1rem;
+	flex-wrap: wrap;
+	margin-top: 1.25rem;
+}
+/* 현황을 못 받으면 칠할 상태가 없으니 범례도 감춘다 — 아무것도 가리키지 않는 범례는 거짓말이다. */
+.key { display: flex; align-items: center; gap: 1rem; font-size: .75rem; color: rgba(213, 233, 224, .75); }
+.key[hidden] { display: none; }
+.key span { display: flex; align-items: center; gap: .375rem; }
+.key i { width: .75rem; height: .75rem; border-radius: 2px; }
+.key .k-open { background: var(--mint-400); }
+.key .k-full { box-shadow: inset 0 0 0 1px rgba(213, 233, 224, .35); }
+
+/* 데이터가 도착할 때 한 번만 도는 연출. 하루가 왼쪽부터 채워지는 모양이다. */
+@keyframes rise { from { transform: scaleY(.18); opacity: 0; } to { transform: scaleY(1); opacity: 1; } }
+.rail-track.is-live .slot-bar { animation: rise .42s cubic-bezier(.2, .8, .3, 1) backwards; animation-delay: calc(var(--i) * 24ms); }
+
+/* ── 버튼 ──────────────────────────────────────────────── */
+
+.btn {
+	display: inline-flex;
+	align-items: center;
+	gap: .5rem;
+	background: var(--paper);
+	color: var(--pine-900);
+	border-radius: .625rem;
+	padding: .8125rem 1.25rem;
+	font-size: .9375rem;
+	font-weight: 800;
+	letter-spacing: -.01em;
+	text-decoration: none;
+	transition: transform .12s ease, box-shadow .12s ease;
+}
+.btn:hover { transform: translateY(-2px); box-shadow: 0 .5rem 1.25rem rgba(0, 0, 0, .25); }
+.btn:active { transform: translateY(0); }
+.btn .arrow { color: var(--pine-500); }
+
+.btn--big { padding: 1.0625rem 1.75rem; font-size: 1.0625rem; }
+
+/* ══ 본문 ═════════════════════════════════════════════════ */
+
+.band { padding: 4rem 0; }
+.band + .band { padding-top: 0; }
+
+/* 사실 넷. 상자를 벗기고 세로 실선만 남겼다 — 포스터에서는 테두리가 종이 위 영역을
+   나누지만, 화면에서는 상자가 하나 더 생길 뿐 정보가 더 또렷해지지 않는다. */
+.facts { display: grid; gap: 1.75rem; margin: 0 0 2rem; }
+@media (min-width: 44rem) { .facts { grid-template-columns: repeat(4, 1fr); gap: 0; } }
+
+.fact { padding-left: 1.25rem; border-left: 2px solid var(--mint-100); }
+.fact dt { font-size: .75rem; font-weight: 700; letter-spacing: .06em; color: var(--pine-500); margin-bottom: .25rem; }
+.fact dd { margin: 0; font-size: 1.125rem; font-weight: 800; letter-spacing: -.015em; line-height: 1.35; }
+.fact .fine { display: block; font-size: .8125rem; font-weight: 400; color: var(--ink-60); margin-top: .1875rem; letter-spacing: 0; }
 
 .firms {
 	display: flex;
 	align-items: baseline;
 	gap: .875rem;
 	flex-wrap: wrap;
-	border: 1.5px solid var(--line);
-	border-radius: var(--r-box);
-	padding: 1.125rem 1.5rem;
-	margin-bottom: 3.5rem;
+	padding-top: 1.5rem;
+	border-top: 1px solid var(--rule);
 }
+.firms dt { font-size: .75rem; font-weight: 700; letter-spacing: .06em; color: var(--pine-500); flex: none; }
+.firms dd { margin: 0; font-weight: 700; letter-spacing: -.015em; }
+.firms .etc { font-weight: 400; color: var(--ink-60); }
 
-.firms-label {
-	flex: none;
-	background: var(--green-soft);
-	color: var(--green-deep);
-	font-size: .8125rem;
-	font-weight: 800;
-	padding: .375rem .875rem;
-	border-radius: 999px;
-}
+/* ── 진행 방식 — 행사 프로그램표 ─────────────────────────── */
 
-.firms-list { font-weight: 700; letter-spacing: -.01em; margin: 0; }
-.firms-list .etc { font-weight: 400; color: var(--gray); }
+.h2 { font-size: clamp(1.5rem, 4.5vw, 1.875rem); font-weight: 900; letter-spacing: -.035em; margin: 0 0 2rem; }
+.h2 .thin { color: var(--pine-500); }
 
-/* ── 구획 제목 (점선 장식) ─────────────────────────────── */
+.prog { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--rule); }
 
-.head-mid {
-	display: flex;
-	align-items: center;
-	gap: 1rem;
-	margin: 0 0 1.75rem;
-	font-size: clamp(1.375rem, 4.5vw, 1.625rem);
-	font-weight: 900;
-	letter-spacing: -.03em;
-	justify-content: center;
-}
-.head-mid::before, .head-mid::after {
-	content: "";
-	flex: 1;
-	max-width: 5rem;
-	border-top: 2px dotted var(--line);
-}
-
-/* 왼쪽 초록 막대가 붙는 제목 — 포스터의 '신청 일정' 형식 */
-.head-bar {
-	display: flex;
-	align-items: center;
-	gap: .75rem;
-	font-size: 1.375rem;
-	font-weight: 900;
-	letter-spacing: -.03em;
-	margin: 0 0 1.25rem;
-}
-.head-bar::before {
-	content: "";
-	width: .3125rem;
-	height: 1.375rem;
-	border-radius: 999px;
-	background: var(--green);
-}
-
-/* ── 진행 방식 카드 ────────────────────────────────────── */
-
-.ways {
-	list-style: none;
-	margin: 0 0 3.5rem;
-	padding: 0;
+.prog li {
 	display: grid;
-	gap: 1rem;
-	grid-template-columns: 1fr;
+	grid-template-columns: 1fr auto;
+	gap: .75rem 1.5rem;
+	align-items: start;
+	padding: 1.75rem 0;
+	border-bottom: 1px solid var(--rule);
 }
+@media (min-width: 40rem) { .prog li { gap: 2.5rem; padding: 2rem 0; } }
 
-@media (min-width: 46rem) { .ways { grid-template-columns: repeat(3, 1fr); } }
+.prog-no { display: block; color: var(--pine-500); margin-bottom: .375rem; }
+.prog h3 { font-size: clamp(1.125rem, 3.4vw, 1.375rem); font-weight: 800; letter-spacing: -.025em; margin: 0 0 .5rem; }
+.prog p { margin: 0; color: var(--ink-60); max-width: 34rem; }
 
-.way {
-	position: relative;
-	background: var(--green-soft);
-	border-radius: var(--r-box);
-	padding: 2.25rem 1.5rem 1.5rem;
-	text-align: center;
-	display: flex;
-	flex-direction: column;
-}
-
-/* 포스터의 번호 배지. 여기는 실제로 순서가 있다 —
-   설명회를 듣고 → 면접을 보고 → 그룹 상담으로 이어지는 하루의 흐름이다. */
-.way-no {
-	position: absolute;
-	top: 1rem;
-	left: 1rem;
-	width: 1.75rem;
-	height: 1.75rem;
-	border-radius: 50%;
-	background: var(--green);
-	color: var(--white);
-	font-size: .875rem;
+.need {
+	display: inline-block;
+	vertical-align: .125em;
+	margin-left: .5rem;
+	background: var(--mint-50);
+	color: var(--pine-700);
+	font-size: .6875rem;
 	font-weight: 800;
-	display: grid;
-	place-items: center;
-}
-
-.way-art { margin: 0 auto .875rem; }
-.way-art svg { display: block; }
-
-.way h3 { font-size: 1.125rem; font-weight: 800; letter-spacing: -.02em; margin: 0 0 .5rem; }
-.way p { margin: 0; font-size: .9375rem; color: var(--gray); text-align: left; }
-
-.way-foot { margin-top: auto; padding-top: 1.25rem; display: flex; justify-content: center; gap: .5rem; flex-wrap: wrap; }
-
-.tag {
-	background: var(--green-pill);
-	color: var(--green-deep);
-	font-size: .8125rem;
-	font-weight: 800;
-	padding: .375rem 1rem;
+	letter-spacing: 0;
+	padding: .1875rem .5rem;
 	border-radius: 999px;
 }
-.tag--book { background: var(--green-deep); color: var(--white); }
 
-/* ── 아래 두 칸: 일정 + 신청 ───────────────────────────── */
+/* 소요시간이 이 표의 닻이다. 셋을 나란히 놓으면 30 / 15 / 30 의 리듬이 그대로 보인다. */
+.dur { text-align: right; white-space: nowrap; line-height: 1; }
+.dur-n { font-size: clamp(2rem, 7vw, 2.75rem); font-weight: 700; letter-spacing: -.04em; color: var(--pine-700); }
+.dur-n span { font-size: .38em; font-weight: 600; margin-left: .125rem; }
+.dur-w { display: block; margin-top: .5rem; font-size: .75rem; color: var(--ink-60); letter-spacing: 0; }
 
-.bottom { display: grid; grid-template-columns: 1fr; gap: 1.5rem; }
-@media (min-width: 52rem) { .bottom { grid-template-columns: 1.15fr 1fr; gap: 2rem; align-items: start; } }
+/* ── 신청 일정 ──────────────────────────────────────────── */
 
-/* 일정 — 날짜가 순서를 지고 있으므로 점과 선으로 잇는다 */
 .plan { list-style: none; margin: 0; padding: 0; }
+.plan li { display: grid; grid-template-columns: auto 1fr; gap: 1rem; }
 
-.plan li { display: grid; grid-template-columns: auto 1fr; gap: .875rem; }
-
-.plan-dot { position: relative; width: 1rem; display: flex; justify-content: center; padding-top: .5rem; }
-.plan-dot::before {
+.dot { position: relative; width: .875rem; display: flex; justify-content: center; padding-top: .5rem; }
+.dot::before {
 	content: "";
 	width: .5rem; height: .5rem;
 	border-radius: 50%;
-	background: var(--white);
-	border: 2.5px solid var(--green);
+	background: var(--paper);
+	border: 2px solid var(--mint-400);
 	z-index: 1;
 }
 /* 잇는 선. 마지막 항목에는 그리지 않는다 — 끝난 뒤로 이어지는 선은 거짓말이다. */
-.plan-dot::after {
+.dot::after {
 	content: "";
 	position: absolute;
-	top: .875rem; bottom: -.25rem; left: 50%;
-	width: 2px;
-	margin-left: -1px;
-	background: var(--line);
+	top: .875rem; bottom: -.5rem; left: 50%;
+	width: 2px; margin-left: -1px;
+	background: var(--rule);
 }
-.plan li:last-child .plan-dot::after { display: none; }
+.plan li:last-child .dot::after { display: none; }
 
-.plan-body { padding: .25rem 0 1.125rem; }
-.plan-when { font-size: .875rem; font-weight: 800; color: var(--green); }
-.plan-what { font-weight: 700; letter-spacing: -.01em; }
-.plan-fine { display: block; font-size: .875rem; font-weight: 400; color: var(--gray); margin-top: .125rem; }
+.step { padding: .25rem 0 1.5rem; }
+.step-when { font-size: .8125rem; font-weight: 700; color: var(--pine-500); letter-spacing: .02em; }
+.step-what { font-weight: 700; letter-spacing: -.015em; }
+.step-fine { display: block; font-size: .875rem; font-weight: 400; color: var(--ink-60); margin-top: .125rem; }
 
-/* 우리가 담당하는 단계만 강조 — 사전신청(~8.21)과 헷갈리면 안 된다 */
-.plan li.is-here .plan-dot::before { background: var(--green); box-shadow: 0 0 0 4px var(--green-soft); }
-.plan li.is-here .plan-what { color: var(--green-deep); }
-
-.plan-link {
-	display: inline-block;
-	margin-top: .5rem;
-	font-size: .875rem;
-	font-weight: 800;
-	color: var(--green);
-	text-decoration: none;
-	border-bottom: 2px solid var(--green-pill);
-	padding-bottom: .125rem;
+/* 우리가 담당하는 단계. 여기만 진초록 카드가 되어 버튼을 직접 쥐고 있다 —
+   일정표가 '지금 당신 차례'를 가리키면서 그 자리에서 할 일을 건넨다. */
+.plan li.is-here .dot::before { background: var(--mint-400); box-shadow: 0 0 0 4px var(--mint-50); }
+.plan li.is-here .step {
+	background: var(--pine-900);
+	color: var(--paper);
+	border-radius: 1rem;
+	padding: 1.5rem;
+	margin-bottom: 1.5rem;
 }
-.plan-link:hover { border-color: var(--green); }
+.plan li.is-here .step-when { color: var(--mint-400); }
+.plan li.is-here .step-fine { color: var(--mint-100); }
+.plan li.is-here .btn { margin-top: 1.125rem; }
 
-/* 신청 상자 — 포스터의 진초록 블록. QR 자리에 실제 버튼이 들어간다. */
-.apply {
-	background: var(--green-deep);
-	border-radius: var(--r-box);
-	padding: 2rem 1.5rem;
-	text-align: center;
-	color: var(--white);
-}
+/* ══ 맺음 ═════════════════════════════════════════════════ */
 
-.apply h2 { font-size: 1.375rem; font-weight: 900; letter-spacing: -.03em; margin: 0 0 .5rem; }
-.apply p { margin: 0 0 1.5rem; font-size: .9375rem; opacity: .82; }
+.closing { background: var(--pine-900); color: var(--paper); padding: 4rem 0 2.5rem; margin-top: 2rem; }
+.closing h2 { font-size: clamp(1.75rem, 5.5vw, 2.5rem); font-weight: 900; letter-spacing: -.04em; margin: .75rem 0 .875rem; }
+.closing .eyebrow { color: var(--mint-400); }
+.closing p { margin: 0 0 2rem; color: var(--mint-100); max-width: 30rem; }
 
-.cta {
-	display: block;
-	background: var(--white);
-	color: var(--green-deep);
-	border-radius: var(--r-card);
-	padding: 1.125rem 1.25rem;
-	text-decoration: none;
-	font-size: 1.0625rem;
-	font-weight: 900;
-	letter-spacing: -.02em;
-	transition: transform .12s;
-}
-.cta:hover { transform: translateY(-2px); }
-.cta:active { transform: translateY(0); }
-.cta .arrow { color: var(--green); }
+.closing-act { display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap; }
+.mine { color: var(--mint-100); font-size: .875rem; text-decoration: underline; text-underline-offset: 4px; }
+.mine:hover { color: var(--paper); }
 
-.apply-fine { display: block; margin-top: 1rem; font-size: .8125rem; opacity: .7; }
-.apply-mine { color: var(--white); font-size: .875rem; font-weight: 700; opacity: .82; text-decoration: underline; text-underline-offset: 3px; }
-
-/* ── 바닥 ──────────────────────────────────────────────── */
-
-.foot {
+.colophon {
 	margin-top: 3.5rem;
-	padding-top: 1.75rem;
-	border-top: 1.5px solid var(--line);
+	padding-top: 1.5rem;
+	border-top: 1px solid rgba(213, 233, 224, .16);
 	font-size: .8125rem;
-	color: var(--gray);
+	color: rgba(213, 233, 224, .7);
 }
-.foot p { margin: 0 0 .25rem; }
+.colophon p { margin: 0 0 .25rem; color: inherit; }
 </style>
 </head>
 <body>
 
-<div class="page">
+<section class="hero">
 
-	<header class="logo">
-		<img class="logo-mark" src="favicon.svg" alt="" width="30" height="30">
-		<span>EAST PEACE EDU</span>
-		<span class="logo-div">|</span>
-		<span class="logo-org">㈜동화인터내셔널</span>
-	</header>
+	<div class="hero-art" aria-hidden="true">
+		<svg viewBox="0 0 420 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+			<circle cx="238" cy="140" r="132" fill="#12463A"/>
+			<g stroke="#1A5A4A" stroke-width="5" stroke-linecap="round" fill="none">
+				<path d="M96 62a30 30 0 0 1 40 0"/><path d="M107 74a15 15 0 0 1 18 0"/>
+			</g>
+			<circle cx="116" cy="86" r="4.5" fill="#1A5A4A"/>
+			<rect x="316" y="42" width="64" height="42" rx="16" fill="#1A5A4A"/>
+			<path d="M334 84l-3 14 17-14z" fill="#1A5A4A"/>
+			<g fill="#0E3A30"><circle cx="334" cy="63" r="4"/><circle cx="348" cy="63" r="4"/><circle cx="362" cy="63" r="4"/></g>
+			<rect x="128" y="106" width="188" height="122" rx="12" fill="#1A5A4A"/>
+			<rect x="138" y="116" width="168" height="102" rx="7" fill="#0E3A30"/>
+			<g fill="#12463A">
+				<rect x="146" y="124" width="76" height="43" rx="6"/><rect x="228" y="124" width="70" height="43" rx="6"/>
+				<rect x="146" y="173" width="76" height="43" rx="6"/><rect x="228" y="173" width="70" height="43" rx="6"/>
+			</g>
+			<g fill="#1A5A4A">
+				<circle cx="184" cy="139" r="8"/><path d="M172 161a12 12 0 0 1 24 0z"/>
+				<circle cx="263" cy="139" r="8"/><path d="M251 161a12 12 0 0 1 24 0z"/>
+				<circle cx="184" cy="188" r="8"/><path d="M172 210a12 12 0 0 1 24 0z"/>
+				<circle cx="263" cy="188" r="8"/><path d="M251 210a12 12 0 0 1 24 0z"/>
+			</g>
+			<rect x="108" y="228" width="228" height="11" rx="5.5" fill="#1A5A4A"/>
+			<path d="M44 244h42l-5 30H49z" fill="#12463A"/>
+			<path d="M65 244c0-20-10-32-25-37 5 22 12 32 25 37z" fill="#1A5A4A"/>
+		</svg>
+	</div>
 
-	<main>
+	<div class="shell">
 
-	<section class="hero">
-		<div>
-			<div class="pill-row">
-				<span class="pill">참가비 전액 무료 · 사전신청제</span>
-				<span class="dday" id="dday">2026. 8. 25.</span>
+		<header class="top">
+			<img class="top-mark" src="favicon.svg" alt="" width="28" height="28">
+			<span>EAST PEACE EDU</span>
+			<span class="top-div">|</span>
+			<span class="top-org">㈜동화인터내셔널</span>
+			<span class="dday" id="dday">2026. 8. 25.</span>
+		</header>
+
+		<div class="hero-grid">
+			<div>
+				<span class="tagline">참가비 전액 무료 · 사전신청제</span>
+				<h1><span>온라인 채용</span><span class="thin">박람회</span></h1>
+				<p class="lede">
+					<b>이동 없이, 집에서 바로.</b>
+					기업 채용설명회부터 1:1 면접·상담까지 하루에 끝내세요.
+				</p>
 			</div>
 
-			<h1><span>온라인 채용</span><span>박람회</span></h1>
-
-			<p class="hero-sub">
-				<b>이동 없이, 집에서 바로.</b>
-				기업 채용설명회부터 1:1 면접·상담까지 하루에 끝내세요.
-			</p>
+			<div class="stamp num">
+				<span class="stamp-yy">2026</span>
+				<span class="stamp-day">08.25<em>화</em></span>
+				<span class="stamp-hr">10:00 — 17:00 KST</span>
+			</div>
 		</div>
 
-		<div class="hero-art" aria-hidden="true">
-			<svg viewBox="0 0 320 240" fill="none" xmlns="http://www.w3.org/2000/svg">
-				<!-- 배경 원 -->
-				<circle cx="180" cy="112" r="104" fill="#E9F3EF"/>
-				<!-- 와이파이 -->
-				<g stroke="#2A7A66" stroke-width="4" stroke-linecap="round" fill="none">
-					<path d="M74 44a26 26 0 0 1 34 0"/>
-					<path d="M83 54a14 14 0 0 1 16 0"/>
-				</g>
-				<circle cx="91" cy="64" r="4" fill="#2A7A66"/>
-				<!-- 말풍선 -->
-				<rect x="238" y="30" width="56" height="36" rx="14" fill="#2A7A66"/>
-				<path d="M254 66l-2 12 14-12z" fill="#2A7A66"/>
-				<g fill="#FFFFFF"><circle cx="254" cy="48" r="3.5"/><circle cx="266" cy="48" r="3.5"/><circle cx="278" cy="48" r="3.5"/></g>
-				<!-- 노트북 -->
-				<rect x="96" y="86" width="150" height="98" rx="10" fill="#1A5A4A"/>
-				<rect x="104" y="94" width="134" height="82" rx="6" fill="#FFFFFF"/>
-				<!-- 화상 4분할 -->
-				<g>
-					<rect x="110" y="100" width="61" height="35" rx="5" fill="#D5E9E0"/>
-					<rect x="175" y="100" width="61" height="35" rx="5" fill="#D5E9E0"/>
-					<rect x="110" y="139" width="61" height="35" rx="5" fill="#D5E9E0"/>
-					<rect x="175" y="139" width="61" height="35" rx="5" fill="#D5E9E0"/>
-				</g>
-				<g fill="#2A7A66">
-					<circle cx="140" cy="112" r="7"/><path d="M129 130a11 11 0 0 1 22 0z"/>
-					<circle cx="205" cy="112" r="7"/><path d="M194 130a11 11 0 0 1 22 0z"/>
-					<circle cx="140" cy="151" r="7"/><path d="M129 169a11 11 0 0 1 22 0z"/>
-					<circle cx="205" cy="151" r="7"/><path d="M194 169a11 11 0 0 1 22 0z"/>
-				</g>
-				<!-- 받침 -->
-				<rect x="80" y="184" width="182" height="9" rx="4.5" fill="#1A5A4A"/>
-				<!-- 화분 -->
-				<path d="M40 196h34l-4 24H44z" fill="#2A7A66"/>
-				<path d="M57 196c0-16-8-26-20-30 4 18 10 26 20 30z" fill="#3F9A82"/>
-				<path d="M57 196c0-14 7-23 18-27-4 16-9 23-18 27z" fill="#57B79D"/>
-				<!-- 체크 -->
-				<circle cx="52" cy="120" r="20" fill="#FFFFFF" stroke="#2A7A66" stroke-width="3.5"/>
-				<path d="M43 120l6 7 13-14" stroke="#2A7A66" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-			</svg>
+		<!-- 서명 요소. 하루를 30분으로 자른 칸이 지금 얼마나 남았는지 실제로 물어와 칠한다. -->
+		<div class="rail">
+			<div class="rail-head">
+				<span class="eyebrow">면접 · 상담 시간표</span>
+				<span class="rail-count" id="railCount">10:00 – 17:00 · 30분 단위</span>
+			</div>
+
+			<!-- 칸 하나하나를 읽어주면 열네 번 반복될 뿐이라, 화면낭독기에는 위의 요약만 남긴다. -->
+			<ol class="rail-track" id="railTrack" aria-hidden="true"></ol>
+
+			<div class="rail-foot">
+				<p class="key" id="railKey" hidden>
+					<span><i class="k-open"></i> 예약 가능</span>
+					<span><i class="k-full"></i> 마감</span>
+				</p>
+				<a class="btn" href="book.html">시간 예약하기 <span class="arrow">→</span></a>
+			</div>
+		</div>
+
+	</div>
+</section>
+
+<main>
+
+	<section class="band">
+		<div class="shell">
+			<dl class="facts">
+				<div class="fact">
+					<dt>일시</dt>
+					<dd class="num">2026. 08. 25.<span class="fine">화요일 10:00 ~ 17:00</span></dd>
+				</div>
+				<div class="fact">
+					<dt>방식</dt>
+					<dd>온라인 ZOOM<span class="fine">PC · 모바일 참여 가능</span></dd>
+				</div>
+				<div class="fact">
+					<dt>대상</dt>
+					<dd>대학생 · 졸업생<span class="fine">취업 준비 중이라면 누구나</span></dd>
+				</div>
+				<div class="fact">
+					<dt>참가비</dt>
+					<dd>무료<span class="fine">전액 주최사 부담</span></dd>
+				</div>
+			</dl>
+
+			<dl class="firms">
+				<dt>참여기업</dt>
+				<dd>시큐아이 · 세트렉아이 · 키사이트테크놀로지스코리아 <span class="etc">등 국내 우수기업 참여</span></dd>
+			</dl>
 		</div>
 	</section>
 
-	<dl class="facts">
-		<div class="fact">
-			<span class="fact-icon" aria-hidden="true">
-				<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-					<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/>
-				</svg>
-			</span>
-			<div><dt>일시</dt><dd>2026. 8. 25.<span class="fine">화요일 10:00 ~ 17:00</span></dd></div>
+	<section class="band">
+		<div class="shell">
+			<h2 class="h2">하루에 <span class="thin">세 가지</span>가 열립니다</h2>
+
+			<ol class="prog">
+				<li>
+					<div>
+						<span class="prog-no eyebrow num">01</span>
+						<h3>기업 채용설명회</h3>
+						<p>참여 기업이 채용 계획과 직무, 인재상을 직접 소개합니다. 관심 있는 기업을 골라 신청하세요.</p>
+					</div>
+					<p class="dur">
+						<span class="dur-n num">30<span>분</span></span>
+						<span class="dur-w">기업별</span>
+					</p>
+				</li>
+				<li>
+					<div>
+						<span class="prog-no eyebrow num">02</span>
+						<h3>1:1 채용 면접 · 상담<span class="need">예약 필요</span></h3>
+						<p>현직 인사담당자와 일대일로 만나 실제 채용 면접 또는 진로 상담을 받습니다.</p>
+					</div>
+					<p class="dur">
+						<span class="dur-n num">15<span>분</span></span>
+						<span class="dur-w">1인</span>
+					</p>
+				</li>
+				<li>
+					<div>
+						<span class="prog-no eyebrow num">03</span>
+						<h3>그룹 상담<span class="need">예약 필요</span></h3>
+						<p>같은 기업을 지원하는 참가자들과 함께 궁금한 점을 묻고 답하는 소그룹 상담입니다.</p>
+					</div>
+					<p class="dur">
+						<span class="dur-n num">30<span>분</span></span>
+						<span class="dur-w">2~5명</span>
+					</p>
+				</li>
+			</ol>
 		</div>
-		<div class="fact">
-			<span class="fact-icon" aria-hidden="true">
-				<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-					<rect x="2" y="4" width="20" height="13" rx="2.5"/><path d="M8 21h8M12 17v4"/>
-				</svg>
-			</span>
-			<div><dt>방식</dt><dd>온라인 ZOOM<span class="fine">PC · 모바일 참여 가능</span></dd></div>
-		</div>
-		<div class="fact">
-			<span class="fact-icon" aria-hidden="true">
-				<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-					<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/>
-					<circle cx="17.5" cy="9" r="2.8"/><path d="M15 20a5.5 5.5 0 0 1 7-4.2"/>
-				</svg>
-			</span>
-			<div><dt>대상</dt><dd>대학생 · 졸업생<span class="fine">취업 준비 중이라면 누구나</span></dd></div>
-		</div>
-		<div class="fact">
-			<span class="fact-icon" aria-hidden="true">
-				<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-					<circle cx="12" cy="12" r="9.5"/><path d="M8 8l4 6 4-6M8.5 13.5h7M8.5 16h7"/>
-				</svg>
-			</span>
-			<div><dt>참가비</dt><dd>무료<span class="fine">전액 주최사 부담</span></dd></div>
-		</div>
-	</dl>
+	</section>
 
-	<div class="firms">
-		<span class="firms-label">참여기업</span>
-		<p class="firms-list">시큐아이 · 세트렉아이 · 키사이트테크놀로지스코리아 <span class="etc">등 국내 우수기업 참여</span></p>
-	</div>
+	<section class="band">
+		<div class="shell">
+			<h2 class="h2">신청 일정</h2>
 
-	<h2 class="head-mid">이렇게 진행됩니다</h2>
-
-	<ol class="ways">
-		<li class="way">
-			<span class="way-no">1</span>
-			<div class="way-art" aria-hidden="true">
-				<svg width="92" height="72" viewBox="0 0 92 72" fill="none" xmlns="http://www.w3.org/2000/svg">
-					<rect x="14" y="10" width="64" height="44" rx="6" fill="#FFFFFF" stroke="#2A7A66" stroke-width="3"/>
-					<path d="M46 54v8M34 62h24" stroke="#2A7A66" stroke-width="3" stroke-linecap="round"/>
-					<path d="M26 27h7l13-9v25l-13-9h-7a3.5 3.5 0 0 1-3.5-3.5v0A3.5 3.5 0 0 1 26 27z" fill="#2A7A66"/>
-					<path d="M53 23c4 2 6 4.5 6 7.5s-2 5.5-6 7.5" stroke="#57B79D" stroke-width="3" stroke-linecap="round" fill="none"/>
-				</svg>
-			</div>
-			<h3>기업 채용설명회</h3>
-			<p>참여 기업이 채용 계획과 직무, 인재상을 직접 소개합니다. 관심 있는 기업을 골라 신청하세요.</p>
-			<div class="way-foot"><span class="tag">기업별 30분</span></div>
-		</li>
-
-		<li class="way">
-			<span class="way-no">2</span>
-			<div class="way-art" aria-hidden="true">
-				<svg width="92" height="72" viewBox="0 0 92 72" fill="none" xmlns="http://www.w3.org/2000/svg">
-					<circle cx="24" cy="20" r="8" fill="#2A7A66"/>
-					<path d="M11 46a13 13 0 0 1 26 0z" fill="#2A7A66"/>
-					<circle cx="68" cy="20" r="8" fill="#57B79D"/>
-					<path d="M55 46a13 13 0 0 1 26 0z" fill="#57B79D"/>
-					<rect x="28" y="46" width="36" height="16" rx="3" fill="#1A5A4A"/>
-					<rect x="22" y="62" width="48" height="4" rx="2" fill="#1A5A4A"/>
-				</svg>
-			</div>
-			<h3>1:1 채용 면접 · 상담</h3>
-			<p>현직 인사담당자와 일대일로 만나 실제 채용 면접 또는 진로 상담을 받습니다.</p>
-			<div class="way-foot"><span class="tag">1인 15분</span><span class="tag tag--book">예약 필요</span></div>
-		</li>
-
-		<li class="way">
-			<span class="way-no">3</span>
-			<div class="way-art" aria-hidden="true">
-				<svg width="92" height="72" viewBox="0 0 92 72" fill="none" xmlns="http://www.w3.org/2000/svg">
-					<rect x="26" y="6" width="40" height="24" rx="10" fill="#D5E9E0"/>
-					<g fill="#2A7A66"><circle cx="37" cy="18" r="3"/><circle cx="46" cy="18" r="3"/><circle cx="55" cy="18" r="3"/></g>
-					<circle cx="20" cy="44" r="7" fill="#57B79D"/><path d="M9 66a11 11 0 0 1 22 0z" fill="#57B79D"/>
-					<circle cx="46" cy="41" r="8" fill="#2A7A66"/><path d="M33 66a13 13 0 0 1 26 0z" fill="#2A7A66"/>
-					<circle cx="72" cy="44" r="7" fill="#57B79D"/><path d="M61 66a11 11 0 0 1 22 0z" fill="#57B79D"/>
-				</svg>
-			</div>
-			<h3>그룹 상담</h3>
-			<p>같은 기업을 지원하는 참가자들과 함께 궁금한 점을 묻고 답하는 소그룹 상담입니다.</p>
-			<div class="way-foot"><span class="tag">2~5명 · 30분</span><span class="tag tag--book">예약 필요</span></div>
-		</li>
-	</ol>
-
-	<div class="bottom">
-		<section>
-			<h2 class="head-bar">신청 일정</h2>
 			<ol class="plan">
 				<li>
-					<span class="plan-dot" aria-hidden="true"></span>
-					<div class="plan-body">
-						<div class="plan-when">~ 8. 21. (금)</div>
-						<div class="plan-what">참가 사전신청 · 희망 기업 선택</div>
+					<span class="dot" aria-hidden="true"></span>
+					<div class="step">
+						<div class="step-when num">~ 8. 21. (금)</div>
+						<div class="step-what">참가 사전신청 · 희망 기업 선택</div>
 					</div>
 				</li>
 				<li>
-					<span class="plan-dot" aria-hidden="true"></span>
-					<div class="plan-body">
-						<div class="plan-when">~ 8. 21. (금)</div>
-						<div class="plan-what">서류(이력서) 접수<span class="plan-fine">해당 기업에 한함</span></div>
+					<span class="dot" aria-hidden="true"></span>
+					<div class="step">
+						<div class="step-when num">~ 8. 21. (금)</div>
+						<div class="step-what">서류(이력서) 접수<span class="step-fine">해당 기업에 한함</span></div>
 					</div>
 				</li>
 				<li class="is-here">
-					<span class="plan-dot" aria-hidden="true"></span>
-					<div class="plan-body">
-						<div class="plan-when">~ 8. 24. (월)</div>
-						<div class="plan-what">기업별 면접 · 상담 신청
-							<span class="plan-fine">원하는 기업과 시간을 직접 고릅니다. 먼저 신청한 순서대로 배정됩니다.</span>
+					<span class="dot" aria-hidden="true"></span>
+					<div class="step">
+						<div class="step-when num">~ 8. 24. (월)</div>
+						<div class="step-what">기업별 면접 · 상담 신청
+							<span class="step-fine">원하는 기업과 시간을 직접 고릅니다. 먼저 신청한 순서대로 배정됩니다.</span>
 						</div>
-						<a class="plan-link" href="book.html">시간 예약하러 가기 →</a>
+						<a class="btn" href="book.html">시간 예약하기 <span class="arrow">→</span></a>
 					</div>
 				</li>
 				<li>
-					<span class="plan-dot" aria-hidden="true"></span>
-					<div class="plan-body">
-						<div class="plan-when">8. 24. (월) 18:00</div>
-						<div class="plan-what">ZOOM 접속 링크 개별 안내<span class="plan-fine">신청 시 남긴 연락처로 보내드립니다.</span></div>
+					<span class="dot" aria-hidden="true"></span>
+					<div class="step">
+						<div class="step-when num">8. 24. (월) 18:00</div>
+						<div class="step-what">ZOOM 접속 링크 개별 안내<span class="step-fine">신청 시 남긴 연락처로 보내드립니다.</span></div>
 					</div>
 				</li>
 				<li>
-					<span class="plan-dot" aria-hidden="true"></span>
-					<div class="plan-body">
-						<div class="plan-when">8. 25. (화)</div>
-						<div class="plan-what">온라인 채용박람회 진행</div>
+					<span class="dot" aria-hidden="true"></span>
+					<div class="step">
+						<div class="step-when num">8. 25. (화)</div>
+						<div class="step-what">온라인 채용박람회 진행</div>
 					</div>
 				</li>
 			</ol>
-		</section>
+		</div>
+	</section>
 
-		<section class="apply">
-			<h2>신청하기</h2>
-			<p>1:1 면접·상담과 그룹 상담 모두 자리가 한정되어 있습니다.<br>원하는 기업과 시간을 먼저 확보하세요.</p>
-			<a class="cta" href="book.html">면접·상담 시간 예약 <span class="arrow">→</span></a>
-			<span class="apply-fine">회원가입 없이 이름과 연락처만 입력하면 됩니다.</span>
-			<span class="apply-fine"><a class="apply-mine" href="my.html">이미 신청하셨다면 · 내 예약 확인</a></span>
-		</section>
+</main>
+
+<footer class="closing">
+	<div class="shell">
+		<span class="eyebrow">Apply</span>
+		<h2>자리는 먼저 고른 사람의 것입니다</h2>
+		<p>1:1 면접·상담과 그룹 상담은 시간대마다 정원이 정해져 있습니다. 원하는 기업과 시간을 먼저 확보하세요.</p>
+
+		<div class="closing-act">
+			<a class="btn btn--big" href="book.html">면접 · 상담 시간 예약 <span class="arrow">→</span></a>
+			<a class="mine" href="my.html">이미 신청하셨다면 · 내 예약 확인</a>
+		</div>
+
+		<div class="colophon">
+			<p>회원가입 없이 이름과 연락처만 입력하면 됩니다.</p>
+			<p>주최 · EAST PEACE EDU | ㈜동화인터내셔널 — 참가비는 전액 주최사가 부담합니다.</p>
+		</div>
 	</div>
+</footer>
 
-	</main>
-
-	<footer class="foot">
-		<p>주최 · EAST PEACE EDU | ㈜동화인터내셔널</p>
-		<p>참가비는 전액 주최사가 부담합니다.</p>
-	</footer>
-
-</div>
-
+<script src="app.js"></script>
 <script>
 /* 남은 날짜를 화면에 박아두지 않고 매번 계산한다. 하루만 지나도 틀린 숫자가
  * 포스터처럼 남아 있는 것이 아무것도 안 쓰는 것보다 나쁘다.
@@ -632,32 +657,117 @@ body {
 const EVENT_DAY = '2026-08-25';
 const APPLY_BY = '2026-08-24';
 
-function daysUntil(ymd) {
+function daysUntil(ymdStr) {
 	const today = new Intl.DateTimeFormat('en-CA', {
 		timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit',
 	}).format(new Date());
-	return Math.round((Date.parse(ymd + 'T00:00:00Z') - Date.parse(today + 'T00:00:00Z')) / 86400000);
+	return Math.round((Date.parse(ymdStr + 'T00:00:00Z') - Date.parse(today + 'T00:00:00Z')) / 86400000);
 }
 
-const el = document.getElementById('dday');
 const toEvent = daysUntil(EVENT_DAY);
 const toApply = daysUntil(APPLY_BY);
 
+const ddayEl = document.getElementById('dday');
 if (toEvent > 0) {
-	el.textContent = 'D-' + toEvent;
+	ddayEl.textContent = 'D-' + toEvent;
 	// 신청 마감이 임박했거나 지났을 때만 색을 쓴다. 늘 빨간 화면은 아무것도 경고하지 못한다.
 	if (toApply <= 3) {
-		el.dataset.urgent = '';
-		el.textContent = toApply > 0 ? 'D-' + toEvent + ' · 신청 마감 ' + toApply + '일 전'
+		ddayEl.dataset.urgent = '';
+		ddayEl.textContent = toApply > 0 ? 'D-' + toEvent + ' · 신청 마감 ' + toApply + '일 전'
 			: toApply === 0 ? 'D-' + toEvent + ' · 신청 오늘 마감'
 			: 'D-' + toEvent + ' · 신청 마감';
 	}
 } else if (toEvent === 0) {
-	el.textContent = '오늘 진행';
-	el.dataset.urgent = '';
+	ddayEl.textContent = '오늘 진행';
+	ddayEl.dataset.urgent = '';
 } else {
-	el.textContent = '행사 종료';
+	ddayEl.textContent = '행사 종료';
 }
+
+/* ── 시간표 레일 ──────────────────────────────────────────
+ *
+ * 하루의 칸은 부스들의 운영시간을 합쳐서 만들고, 각 칸은 '한 부스라도 자리가 남았는가'로
+ * 칠한다. 슬롯 계산은 app.js의 slotGrid를 그대로 쓴다 — 예약 화면과 다른 시간표를
+ * 그리기 시작하면 여기 숫자를 아무도 믿을 수 없게 된다.
+ *
+ * 현황을 못 받아오면 칸만 그리고 숫자는 내보내지 않는다. 틀린 '남은 자리 0'은
+ * 아무 숫자도 없는 것보다 나쁘다 — 올 사람을 돌려보낸다. */
+(function () {
+	const track = document.getElementById('railTrack');
+	const label = document.getElementById('railCount');
+
+	function paint(cols, live) {
+		const now = Date.now();
+		track.replaceChildren();
+		cols.forEach((col, i) => {
+			const li = document.createElement('li');
+			li.className = 'slot ' + (!live ? '' : col.t < now ? 'is-past' : col.open ? 'is-open' : 'is-full');
+			li.style.setProperty('--i', i);
+
+			const bar = document.createElement('i');
+			bar.className = 'slot-bar';
+
+			const t = document.createElement('span');
+			t.className = 'slot-t';
+			t.textContent = hhmm(col.t);
+
+			li.append(bar, t);
+			track.append(li);
+		});
+		if (live) {
+			track.classList.add('is-live');
+			document.getElementById('railKey').hidden = false;
+		}
+	}
+
+	// 행사일의 뼈대. API가 없어도 하루의 모양은 보여준다.
+	const skeleton = slotGrid(EVENT_DAY, '10:00', '17:00', 30).map(d => ({ t: d.getTime(), open: false }));
+	paint(skeleton, false);
+
+	if (toEvent < 0) {
+		label.textContent = '행사가 종료되었습니다';
+		return;
+	}
+
+	(async function () {
+		const booths = await api('api/booths');
+		if (!booths || !booths.length) {
+			return;
+		}
+
+		const cols = new Map();
+		for (const b of booths) {
+			for (const d of slotGrid(b.eventDate, b.openFrom, b.openTo, b.slotMinutes)) {
+				if (!cols.has(d.getTime())) {
+					cols.set(d.getTime(), false);
+				}
+			}
+		}
+
+		// 부스 하나가 실패해도 나머지 현황은 살린다.
+		const lists = await Promise.all(
+			booths.map(b => api('api/booths/' + b.id + '/slots').catch(() => [])));
+		for (const list of lists) {
+			for (const iso of list) {
+				const t = Date.parse(iso);
+				if (cols.has(t)) {
+					cols.set(t, true);
+				}
+			}
+		}
+
+		const rows = [...cols.entries()].sort((a, b) => a[0] - b[0]).map(([t, open]) => ({ t, open }));
+		paint(rows, true);
+
+		const open = rows.filter(r => r.open).length;
+		label.innerHTML = '';
+		const n = document.createElement('b');
+		n.textContent = open;
+		label.append(n, document.createTextNode(' / ' + rows.length + ' 시간대 예약 가능'));
+	})().catch(() => {
+		/* 현황을 못 받았다. 뼈대는 이미 그려져 있고 라벨은 기본 문구로 둔다. */
+	});
+})();
 </script>
 
 </body>
