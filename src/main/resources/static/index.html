@@ -3,367 +3,637 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>부스 예약 · 취업박람회</title>
-<link rel="stylesheet" href="app.css">
+<title>온라인 채용박람회 · 2026.8.25 | EAST PEACE EDU</title>
+<meta name="description" content="2026년 8월 25일 화요일, ZOOM으로 열리는 온라인 채용박람회. 기업 채용설명회부터 1:1 면접·상담까지 하루에. 대학생·졸업생 대상, 참가비 무료.">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="온라인 채용박람회 · 2026.8.25">
+<meta property="og:description" content="이동 없이, 집에서 바로. 기업 채용설명회부터 1:1 면접·상담까지 하루에 끝내세요.">
+<meta property="og:locale" content="ko_KR">
+
+<style>
+/* 온라인 채용박람회 안내 — 단일 파일. 빌드도 의존성도 없다.
+ *
+ * 토큰은 예약 앱(app.css)에서 그대로 가져왔다. 새로 만들지 않은 이유:
+ * 이 페이지의 유일한 목적이 예약 앱으로 넘기는 것이라, 넘어간 화면이
+ * 다른 제품처럼 보이면 그 순간 신뢰가 깎인다.
+ *
+ * 시그니처는 앱의 '시간 레일'을 가로로 눕힌 것이다. 앱에서는 세로 눈금으로
+ * 하루를 그리고 남은 자리를 여백으로 보여준다. 여기서는 하루의 폭을 먼저 보여주고,
+ * 세 가지 참여 방식의 길이를 실제 비율(30:15:30)로 눕힌다. 파는 것이 시간이라는
+ * 사실을 장식이 아니라 구조로 말한다.
+ *
+ * 웹폰트는 받지 않는다. 대상이 대학생·졸업생이고 대부분 모바일로 열어보는데,
+ * 한글 웹폰트 한 벌이 본문 전체보다 무겁다. 대신 숫자를 모노스페이스 tabular로
+ * 크게 써서 계기(計器)의 성격을 만든다 — app.css와 같은 판단이다.
+ */
+
+:root {
+	--ink: #1C2024;
+	--ink-70: rgba(28, 32, 36, .70);
+	--ink-45: rgba(28, 32, 36, .45);
+	--ink-25: rgba(28, 32, 36, .25);
+	--field: #E4E7DF;
+	--paper: #FBFAF7;
+	--rail: #C7CBC1;
+	--pine: #1F5847;
+	--pine-deep: #163F33;
+	--on-pine: #F1F5F0;
+	--brick: #8C3A2B;
+
+	--mono: ui-monospace, "SF Mono", Menlo, Consolas, "Cascadia Mono", monospace;
+	--sans: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", Pretendard,
+		"Malgun Gothic", "Noto Sans KR", sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+	margin: 0;
+	background: var(--field);
+	color: var(--ink);
+	font-family: var(--sans);
+	font-size: 16px;
+	line-height: 1.55;
+	-webkit-text-size-adjust: 100%;
+}
+
+:focus-visible { outline: 2px solid var(--pine); outline-offset: 3px; }
+
+.wrap { max-width: 48rem; margin: 0 auto; padding: 0 1.25rem; }
+
+/* ── 상단 ──────────────────────────────────────────────── */
+
+.brand {
+	display: flex;
+	align-items: baseline;
+	gap: .625rem;
+	flex-wrap: wrap;
+	padding: 1.25rem 0 1.5rem;
+	font-size: .8125rem;
+	font-weight: 700;
+	letter-spacing: .16em;
+}
+
+.brand-sub {
+	font-weight: 400;
+	letter-spacing: .02em;
+	color: var(--ink-45);
+}
+
+.brand-link {
+	margin-left: auto;
+	font-weight: 400;
+	font-size: .8125rem;
+	letter-spacing: .02em;
+	color: var(--ink-70);
+	text-decoration: none;
+	border-bottom: 1px solid var(--rail);
+}
+.brand-link:hover { color: var(--ink); border-color: var(--ink-45); }
+
+/* ── 히어로 ────────────────────────────────────────────── */
+
+.hero { padding-bottom: 3rem; border-bottom: 1px solid var(--rail); }
+
+.hero-top {
+	display: flex;
+	align-items: center;
+	gap: 1rem;
+	flex-wrap: wrap;
+	margin-bottom: 1.25rem;
+}
+
+.badge {
+	font-family: var(--mono);
+	font-size: .6875rem;
+	letter-spacing: .12em;
+	color: var(--on-pine);
+	background: var(--pine);
+	padding: .375rem .625rem;
+	border-radius: 2px;
+}
+
+/* 남은 날짜. 마감이 지나면 벽돌색으로 바뀐다 — 이 페이지에서 유일한 경고색이다. */
+.dday {
+	font-family: var(--mono);
+	font-size: .8125rem;
+	letter-spacing: .1em;
+	color: var(--ink-45);
+	margin-left: auto;
+}
+.dday[data-urgent] { color: var(--brick); font-weight: 700; }
+
+.hero h1 {
+	font-size: clamp(2.5rem, 11vw, 4.25rem);
+	font-weight: 800;
+	letter-spacing: -.045em;
+	line-height: 1.02;
+	margin: 0 0 1rem;
+}
+
+.hero h1 .line2 { display: block; color: var(--pine); }
+
+.hero-lede {
+	font-size: clamp(1rem, 3.5vw, 1.125rem);
+	color: var(--ink-70);
+	margin: 0 0 2.5rem;
+	max-width: 30rem;
+}
+
+/* ── 시그니처: 하루 게이지 ─────────────────────────────── */
+
+.gauge { margin: 0 0 2.5rem; }
+
+.gauge-label {
+	font-family: var(--mono);
+	font-size: .6875rem;
+	letter-spacing: .14em;
+	color: var(--ink-45);
+	margin: 0 0 .625rem;
+}
+
+.gauge-ruler {
+	display: flex;
+	justify-content: space-between;
+	border-top: 1px solid var(--ink);
+	padding-top: .375rem;
+}
+
+.gauge-ruler span {
+	font-family: var(--mono);
+	font-size: .75rem;
+	font-variant-numeric: tabular-nums;
+	color: var(--ink-45);
+	position: relative;
+}
+
+/* 눈금선. 정시마다 자 눈금처럼 위로 세운다. */
+.gauge-ruler span::before {
+	content: "";
+	position: absolute;
+	top: -.4375rem;
+	left: 0;
+	width: 1px;
+	height: .3125rem;
+	background: var(--ink-25);
+}
+
+.formats {
+	list-style: none;
+	margin: 1.75rem 0 0;
+	padding: 0;
+	display: grid;
+	gap: .5rem;
+}
+
+.format {
+	display: grid;
+	grid-template-columns: 5.5rem 1fr auto;
+	align-items: center;
+	gap: .875rem;
+}
+
+.format-name { font-weight: 700; font-size: .9375rem; letter-spacing: -.01em; }
+
+/* 막대 길이가 곧 소요시간이다. --len은 분 단위, 30분을 100%로 잡는다.
+   1:1 면접이 절반 길이로 보이는 것이 이 그림의 요점이다 — 가장 짧고 가장 빨리 찬다. */
+.format-bar {
+	height: .875rem;
+	background: var(--pine);
+	border-radius: 2px;
+	width: calc(var(--len) / 30 * 100%);
+	transform-origin: left;
+}
+
+.format--lead .format-bar { background: var(--pine-deep); }
+
+.format-len {
+	font-family: var(--mono);
+	font-size: .8125rem;
+	font-variant-numeric: tabular-nums;
+	color: var(--ink-70);
+	white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	.format-bar { animation: grow .5s cubic-bezier(.2, .7, .3, 1) backwards; }
+	.formats li:nth-child(2) .format-bar { animation-delay: .08s; }
+	.formats li:nth-child(3) .format-bar { animation-delay: .16s; }
+	@keyframes grow { from { transform: scaleX(0); } }
+}
+
+/* ── 주요 행동 ─────────────────────────────────────────── */
+
+.cta {
+	display: inline-flex;
+	align-items: center;
+	gap: .625rem;
+	background: var(--pine);
+	color: var(--on-pine);
+	text-decoration: none;
+	font-weight: 700;
+	font-size: 1.0625rem;
+	letter-spacing: -.01em;
+	padding: .9375rem 1.5rem;
+	border: 1px solid var(--pine);
+	border-radius: 2px;
+	transition: background .12s;
+}
+.cta:hover { background: var(--pine-deep); }
+.cta:active { transform: translateY(1px); }
+.cta .arrow { font-family: var(--mono); }
+
+.cta-note {
+	font-size: .875rem;
+	color: var(--ink-70);
+	margin: .875rem 0 0;
+	max-width: 28rem;
+}
+
+/* ── 사실 표 ───────────────────────────────────────────── */
+
+.facts {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+	gap: 1.75rem 1.25rem;
+	margin: 0;
+	padding: 2.5rem 0;
+	border-bottom: 1px solid var(--rail);
+}
+
+.facts dt {
+	font-family: var(--mono);
+	font-size: .6875rem;
+	letter-spacing: .14em;
+	color: var(--ink-45);
+	margin-bottom: .375rem;
+}
+
+.facts dd {
+	margin: 0;
+	font-weight: 700;
+	font-size: 1.0625rem;
+	letter-spacing: -.01em;
+}
+
+.facts .num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.facts .fine { display: block; font-weight: 400; font-size: .8125rem; color: var(--ink-70); margin-top: .1875rem; }
+
+/* ── 구획 공통 ─────────────────────────────────────────── */
+
+.section { padding: 3rem 0; border-bottom: 1px solid var(--rail); }
+.section > h2 { font-size: 1.375rem; font-weight: 800; letter-spacing: -.025em; margin: 0 0 1.75rem; }
+
+/* ── 참여 기업 ─────────────────────────────────────────── */
+
+.firms { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: .5rem; }
+
+.firms li {
+	background: var(--paper);
+	border: 1px solid var(--rail);
+	border-radius: 2px;
+	padding: .5rem .875rem;
+	font-weight: 700;
+	font-size: .9375rem;
+	letter-spacing: -.01em;
+}
+
+.firms .more { background: transparent; border-style: dashed; font-weight: 400; color: var(--ink-70); }
+
+/* ── 진행 방식 ─────────────────────────────────────────── */
+
+/* 순서가 아니라 선택지다. 그래서 번호를 붙이지 않는다 —
+   구분자는 소요시간이고, 그게 실제로 다른 유일한 값이다. */
+.ways { list-style: none; margin: 0; padding: 0; display: grid; gap: .75rem; }
+
+.way {
+	background: var(--paper);
+	border: 1px solid var(--rail);
+	border-radius: 2px;
+	padding: 1.25rem;
+}
+
+.way--pick { border-color: var(--pine); box-shadow: inset 0 0 0 1px var(--pine); }
+
+.way-head {
+	display: flex;
+	align-items: baseline;
+	gap: .75rem;
+	flex-wrap: wrap;
+	margin-bottom: .5rem;
+}
+
+.way-head h3 { font-size: 1.0625rem; font-weight: 700; letter-spacing: -.015em; margin: 0; }
+
+.way-len {
+	font-family: var(--mono);
+	font-size: .75rem;
+	font-variant-numeric: tabular-nums;
+	color: var(--ink-45);
+	letter-spacing: .04em;
+	margin-left: auto;
+}
+
+.way p { margin: 0; font-size: .9375rem; color: var(--ink-70); }
+
+.way-tag {
+	display: inline-block;
+	font-family: var(--mono);
+	font-size: .6875rem;
+	letter-spacing: .1em;
+	color: var(--on-pine);
+	background: var(--pine);
+	padding: .1875rem .5rem;
+	border-radius: 2px;
+}
+
+/* ── 신청 일정 ─────────────────────────────────────────── */
+
+/* 여기는 진짜 순서다. 날짜가 순서를 지고 있으므로 번호 대신 날짜를 눈금으로 쓴다. */
+.plan { list-style: none; margin: 0; padding: 0; }
+
+.step {
+	display: grid;
+	grid-template-columns: 6.5rem 1fr;
+	gap: 1rem;
+	padding: .9375rem 0;
+	border-top: 1px solid var(--rail);
+}
+.plan li:last-child .step { border-bottom: 1px solid var(--rail); }
+
+.step-when {
+	font-family: var(--mono);
+	font-size: .8125rem;
+	font-variant-numeric: tabular-nums;
+	color: var(--ink-45);
+	letter-spacing: .02em;
+	padding-top: .0625rem;
+}
+
+.step-what { font-size: .9375rem; }
+.step-what b { font-weight: 700; letter-spacing: -.01em; }
+.step-fine { display: block; color: var(--ink-70); font-size: .8125rem; margin-top: .125rem; }
+
+/* 우리가 담당하는 단계. 나머지와 구분되어야 어디를 눌러야 하는지 헷갈리지 않는다. */
+.step--here .step-when { color: var(--pine); font-weight: 700; }
+.step--here .step-what b { color: var(--pine); }
+
+.step-link {
+	display: inline-block;
+	margin-top: .5rem;
+	font-weight: 700;
+	font-size: .875rem;
+	color: var(--pine);
+	text-decoration: none;
+	border-bottom: 2px solid var(--pine);
+	padding-bottom: .0625rem;
+}
+.step-link:hover { color: var(--pine-deep); border-color: var(--pine-deep); }
+
+/* ── 마무리 ────────────────────────────────────────────── */
+
+.close { padding: 3rem 0; text-align: center; }
+.close h2 { font-size: 1.5rem; font-weight: 800; letter-spacing: -.03em; margin: 0 0 .625rem; }
+.close p { color: var(--ink-70); margin: 0 0 1.75rem; }
+
+.foot {
+	padding: 2rem 0 3rem;
+	border-top: 1px solid var(--rail);
+	font-size: .8125rem;
+	color: var(--ink-45);
+}
+.foot p { margin: 0 0 .25rem; }
+
+@media (max-width: 34rem) {
+	.format { grid-template-columns: 4.75rem 1fr auto; gap: .625rem; }
+	.format-name { font-size: .875rem; }
+	.step { grid-template-columns: 1fr; gap: .25rem; }
+	.cta { width: 100%; justify-content: center; }
+}
+</style>
 </head>
 <body>
+
 <div class="wrap">
 
-	<header class="topbar">
-		<p class="mark">취업박람회 부스 예약</p>
-		<nav>
-			<a href="index.html" aria-current="page">예약하기</a>
-			<a href="my.html">내 예약</a>
-		</nav>
+	<header class="brand">
+		<span>EAST PEACE EDU</span>
+		<span class="brand-sub">㈜동화인터내셔널</span>
+		<!-- 이미 예약한 사람이 QR로 다시 들어왔을 때 돌아갈 곳. 안내만 있고 출구가 없으면 헤맨다. -->
+		<a class="brand-link" href="my.html">내 예약 확인</a>
 	</header>
 
-	<p class="eyebrow" id="eventDate">1:1 상담</p>
-	<h1>예약 시간을 지정해 주세요</h1>
-	<p class="lede">기업 부스마다 상담 시간이 정해져 있습니다. 한 시간대에 한 명씩만 배정되니 원하는 시간을 먼저 확보하세요. 회원가입은 없습니다.</p>
+	<main>
 
-	<div id="ticket"></div>
+	<section class="hero">
+		<div class="hero-top">
+			<span class="badge">참가비 무료 · 사전신청제</span>
+			<span class="dday" id="dday">2026. 8. 25.</span>
+		</div>
 
-	<h2>참가 기업</h2>
-	<div id="booths"><p class="empty">불러오는 중…</p></div>
+		<h1>온라인<span class="line2">채용박람회</span></h1>
 
-	<section id="day" hidden>
-		<h2 id="dayTitle"></h2>
-		<div id="rail"><p class="empty">불러오는 중…</p></div>
+		<p class="hero-lede">
+			이동 없이, 집에서 바로. 기업 채용설명회부터 1:1 면접·상담까지 하루에 끝내세요.
+		</p>
+
+		<figure class="gauge">
+			<p class="gauge-label">행사 당일 · 10:00 – 17:00</p>
+			<div class="gauge-ruler" aria-hidden="true">
+				<span>10</span><span>11</span><span>12</span><span>13</span>
+				<span>14</span><span>15</span><span>16</span><span>17</span>
+			</div>
+
+			<ul class="formats">
+				<li class="format">
+					<span class="format-name">채용설명회</span>
+					<span class="format-bar" style="--len: 30"></span>
+					<span class="format-len">30분</span>
+				</li>
+				<li class="format format--lead">
+					<span class="format-name">1:1 면접·상담</span>
+					<span class="format-bar" style="--len: 15"></span>
+					<span class="format-len">15분</span>
+				</li>
+				<li class="format">
+					<span class="format-name">그룹 상담</span>
+					<span class="format-bar" style="--len: 30"></span>
+					<span class="format-len">30분</span>
+				</li>
+			</ul>
+		</figure>
+
+		<a class="cta" href="book.html">
+			1:1 면접·상담 시간 예약<span class="arrow">→</span>
+		</a>
+		<p class="cta-note">
+			기업별로 시간이 정해져 있고 한 시간대에 한 명씩 배정됩니다. 회원가입 없이 이름과 연락처만 넣으면 됩니다.
+		</p>
 	</section>
+
+	<dl class="facts">
+		<div>
+			<dt>일시</dt>
+			<dd><span class="num">2026. 8. 25.</span><span class="fine">화요일 10:00 – 17:00</span></dd>
+		</div>
+		<div>
+			<dt>방식</dt>
+			<dd>온라인 ZOOM<span class="fine">PC · 모바일 참여 가능</span></dd>
+		</div>
+		<div>
+			<dt>대상</dt>
+			<dd>대학생 · 졸업생<span class="fine">취업 준비 중이라면 누구나</span></dd>
+		</div>
+		<div>
+			<dt>참가비</dt>
+			<dd>무료<span class="fine">전액 주최사 부담</span></dd>
+		</div>
+	</dl>
+
+	<section class="section">
+		<h2>참여 기업</h2>
+		<ul class="firms">
+			<li>시큐아이</li>
+			<li>세트렉아이</li>
+			<li>키사이트테크놀로지스코리아</li>
+			<li class="more">등 국내 우수기업</li>
+		</ul>
+	</section>
+
+	<section class="section">
+		<h2>이렇게 진행됩니다</h2>
+		<ul class="ways">
+			<li class="way">
+				<div class="way-head">
+					<h3>기업 채용설명회</h3>
+					<span class="way-len">기업별 30분</span>
+				</div>
+				<p>참여 기업이 채용 계획과 직무, 인재상을 직접 소개합니다. 관심 있는 기업을 골라 신청하세요.</p>
+			</li>
+			<li class="way way--pick">
+				<div class="way-head">
+					<h3>1:1 채용 면접 · 상담</h3>
+					<span class="way-len">1인 15분</span>
+				</div>
+				<p>현직 인사담당자와 일대일로 만나 실제 채용 면접 또는 진로 상담을 받습니다.</p>
+				<p style="margin-top:.75rem"><span class="way-tag">예약 필요</span></p>
+			</li>
+			<li class="way">
+				<div class="way-head">
+					<h3>그룹 상담</h3>
+					<span class="way-len">2~5명 · 30분</span>
+				</div>
+				<p>같은 기업을 지원하는 참가자들과 함께 궁금한 점을 묻고 답하는 소그룹 상담입니다.</p>
+			</li>
+		</ul>
+	</section>
+
+	<section class="section">
+		<h2>신청 일정</h2>
+		<ol class="plan">
+			<li>
+				<div class="step">
+					<span class="step-when">~ 8. 21. (금)</span>
+					<span class="step-what">
+						<b>참가 사전신청 · 희망 기업 선택</b>
+					</span>
+				</div>
+			</li>
+			<li>
+				<div class="step">
+					<span class="step-when">~ 8. 21. (금)</span>
+					<span class="step-what">
+						<b>서류(이력서) 접수</b>
+						<span class="step-fine">해당 기업에 한함</span>
+					</span>
+				</div>
+			</li>
+			<li>
+				<div class="step step--here">
+					<span class="step-when">~ 8. 24. (월)</span>
+					<span class="step-what">
+						<b>기업별 면접 · 상담 신청</b>
+						<span class="step-fine">원하는 기업과 시간을 직접 고릅니다. 먼저 신청한 순서대로 배정됩니다.</span>
+						<a class="step-link" href="book.html">시간 예약하러 가기</a>
+					</span>
+				</div>
+			</li>
+			<li>
+				<div class="step">
+					<span class="step-when">8. 24. (월) 18:00</span>
+					<span class="step-what">
+						<b>ZOOM 접속 링크 개별 안내</b>
+						<span class="step-fine">신청 시 남긴 연락처로 보내드립니다.</span>
+					</span>
+				</div>
+			</li>
+			<li>
+				<div class="step">
+					<span class="step-when">8. 25. (화)</span>
+					<span class="step-what">
+						<b>온라인 채용박람회 진행</b>
+					</span>
+				</div>
+			</li>
+		</ol>
+	</section>
+
+	<section class="close">
+		<h2>자리는 먼저 잡는 사람의 것입니다</h2>
+		<p>1:1 면접·상담은 한 시간대에 한 명씩만 배정됩니다.</p>
+		<a class="cta" href="book.html">
+			1:1 면접·상담 시간 예약<span class="arrow">→</span>
+		</a>
+	</section>
+
+	</main>
+
+	<footer class="foot">
+		<p>주최 · EAST PEACE EDU | ㈜동화인터내셔널</p>
+		<p>참가비는 전액 주최사가 부담합니다.</p>
+	</footer>
 
 </div>
 
-<dialog id="sheet">
-	<form method="dialog" id="bookForm">
-		<h2>상담 예약</h2>
-		<p class="when" id="sheetWhen"></p>
-
-		<label>
-			<span>이름</span>
-			<input name="name" required autocomplete="name" maxlength="40">
-		</label>
-		<label>
-			<span>연락처</span>
-			<input name="phone" required type="tel" inputmode="tel" autocomplete="tel"
-			       placeholder="010-1234-5678" maxlength="20">
-		</label>
-
-		<div id="sheetError"></div>
-
-		<div class="actions">
-			<button class="btn btn--ghost" type="button" id="sheetClose">닫기</button>
-			<button class="btn" type="submit" id="sheetSubmit">예약 확정</button>
-		</div>
-	</form>
-</dialog>
-
-<script src="app.js"></script>
 <script>
-const el = {
-	eventDate: document.getElementById('eventDate'),
-	booths: document.getElementById('booths'),
-	day: document.getElementById('day'),
-	dayTitle: document.getElementById('dayTitle'),
-	rail: document.getElementById('rail'),
-	ticket: document.getElementById('ticket'),
-	sheet: document.getElementById('sheet'),
-	sheetWhen: document.getElementById('sheetWhen'),
-	sheetError: document.getElementById('sheetError'),
-	sheetSubmit: document.getElementById('sheetSubmit'),
-	form: document.getElementById('bookForm'),
-};
+/* 남은 날짜를 화면에 박아두지 않고 매번 계산한다. 하루만 지나도 틀린 숫자가
+ * 포스터처럼 남아 있는 것이 아무것도 안 쓰는 것보다 나쁘다.
+ *
+ * 양쪽 다 UTC 자정으로 파싱해서 뺀다. 한쪽이라도 로컬 자정으로 두면
+ * KST 자정(=전날 15:00 UTC)에서 날짜가 하루 밀린다 — app.js의 addDays와 같은 이유다.
+ * 오늘 날짜도 브라우저 로컬이 아니라 Asia/Seoul로 뽑는다. 해외에서 열어도
+ * 행사 기준일은 한국 날짜여야 한다. */
+const EVENT_DAY = '2026-08-25';
+const APPLY_BY = '2026-08-24';
 
-let booths = [];
-let booth = null;
-let picked = null;
-/* 한 사람은 한 부스를 한 번만 잡을 수 있다. 이미 잡은 부스를 눌러보고 나서
- * 실패하게 두지 않으려면 화면이 먼저 알려줘야 한다. */
-let bookedBoothIds = new Set();
-
-init();
-
-async function init() {
-	try {
-		booths = await api('api/booths');
-	} catch (e) {
-		showError(el.booths, e.message);
-		return;
-	}
-	await loadMine();
-	if (!booths.length) {
-		el.booths.innerHTML = '<p class="empty">아직 등록된 부스가 없습니다.</p>';
-		return;
-	}
-	// 하루짜리 행사다. 부스들이 같은 날이면 날짜를 한 번만 크게 말해준다.
-	const dates = [...new Set(booths.map(b => b.eventDate))];
-	el.eventDate.textContent = dates.length === 1
-		? dayLabel(dates[0]) + ' · 1:1 상담'
-		: '1:1 상담';
-
-	renderBooths();
-	select(booths[0]);
+function daysUntil(ymd) {
+	const today = new Intl.DateTimeFormat('en-CA', {
+		timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit',
+	}).format(new Date());
+	return Math.round((Date.parse(ymd + 'T00:00:00Z') - Date.parse(today + 'T00:00:00Z')) / 86400000);
 }
 
-/** 확인 번호가 있으면 이미 잡은 부스를 미리 파악한다. 실패해도 예약을 막지 않는다 —
- *  최종 판정은 어차피 서버가 한다. */
-async function loadMine() {
-	if (!store.token) {
-		return;
+const el = document.getElementById('dday');
+const toEvent = daysUntil(EVENT_DAY);
+const toApply = daysUntil(APPLY_BY);
+
+if (toEvent > 0) {
+	el.textContent = 'D-' + toEvent;
+	// 신청 마감이 임박했거나 지났을 때만 색을 쓴다. 늘 빨간 화면은 아무것도 경고하지 못한다.
+	if (toApply <= 3) {
+		el.dataset.urgent = '';
+		el.textContent = toApply > 0 ? 'D-' + toEvent + ' · 신청 마감 ' + toApply + '일 전'
+			: toApply === 0 ? 'D-' + toEvent + ' · 신청 오늘 마감'
+			: 'D-' + toEvent + ' · 신청 마감';
 	}
-	try {
-		const list = await api('api/reservations/me/' + encodeURIComponent(store.token));
-		bookedBoothIds = new Set(
-			list.filter(r => r.status === 'RESERVED').map(r => r.boothId));
-	} catch {
-		bookedBoothIds = new Set();
-	}
-}
-
-function renderBooths() {
-	const list = document.createElement('ul');
-	list.className = 'booth-grid';
-	// list-style:none 을 주면 Safari/VoiceOver가 목록 의미를 버린다. 명시로 되돌린다.
-	list.setAttribute('role', 'list');
-	for (const b of booths) {
-		const li = document.createElement('li');
-		const btn = document.createElement('button');
-		btn.type = 'button';
-		btn.className = 'booth-card';
-		btn.dataset.id = b.id;
-		btn.setAttribute('aria-pressed', 'false');
-
-		// 부스번호를 먼저 읽는다 — 현장에서 찾아갈 때 쓰는 표식이다.
-		const no = document.createElement('div');
-		no.className = 'booth-meta';
-		no.style.margin = '0 0 .25rem';
-		no.textContent = b.boothNo;
-		btn.append(no);
-
-		const name = document.createElement('div');
-		name.className = 'booth-company';
-		name.textContent = b.companyName;
-		btn.append(name);
-
-		if (b.note) {
-			const t = document.createElement('div');
-			t.className = 'booth-note';
-			t.textContent = b.note;
-			btn.append(t);
-		}
-
-		const hours = document.createElement('div');
-		hours.className = 'booth-meta';
-		hours.textContent = bookedBoothIds.has(b.id)
-			? '예약함'
-			: `${b.openFrom.slice(0, 5)}–${b.openTo.slice(0, 5)} · ${b.slotMinutes}분`;
-		if (bookedBoothIds.has(b.id)) {
-			hours.classList.add('booth-meta--booked');
-		}
-		btn.append(hours);
-
-		btn.addEventListener('click', () => select(b));
-		li.append(btn);
-		list.append(li);
-	}
-	el.booths.replaceChildren(list);
-}
-
-function select(b) {
-	booth = b;
-	for (const btn of el.booths.querySelectorAll('.booth-card')) {
-		btn.setAttribute('aria-pressed', String(Number(btn.dataset.id) === b.id));
-	}
-	el.day.hidden = false;
-	el.dayTitle.textContent = `${b.boothNo} ${b.companyName} · ${dayLabel(b.eventDate)}`;
-
-	if (bookedBoothIds.has(b.id)) {
-		// 잡을 수 없는 시간을 초록으로 보여주면 눌러보고 실패한다. 아예 그리지 않는다.
-		el.rail.innerHTML = '';
-		const p = document.createElement('p');
-		p.className = 'empty';
-		p.textContent = '이 부스는 이미 예약하셨습니다. 한 부스당 한 번만 예약할 수 있습니다.';
-		const go = document.createElement('a');
-		go.className = 'btn';
-		go.style.cssText = 'display:inline-block;text-decoration:none;flex:none;padding:.625rem 1rem';
-		go.href = 'my.html';
-		go.textContent = '내 예약에서 확인·변경';
-		el.rail.append(p, go);
-		return;
-	}
-	loadSlots();
-}
-
-async function loadSlots() {
-	el.rail.innerHTML = '<p class="empty">불러오는 중…</p>';
-	let open;
-	try {
-		open = await api(`api/booths/${booth.id}/slots`);
-	} catch (e) {
-		showError(el.rail, e.message);
-		return;
-	}
-	renderRail(new Set(open.map(s => new Date(s).getTime())));
-}
-
-/* 레일: 운영시간 전체를 밴드로 깔고, 예약 가능한 시간만 채운다.
- * 마감·지난 시간을 빈 칸으로 남겨야 얼마나 차 있는지가 눈에 보인다. */
-function renderRail(openSet) {
-	const grid = slotGrid(booth.eventDate, booth.openFrom, booth.openTo, booth.slotMinutes);
-	if (!grid.length) {
-		el.rail.innerHTML = '<p class="empty">운영 시간이 설정되지 않았습니다.</p>';
-		return;
-	}
-
-	const now = Date.now();
-	const list = document.createElement('ol');
-	list.className = 'rail';
-	list.setAttribute('role', 'list');
-	list.setAttribute('aria-label', '예약 가능한 시간');
-	let lastHour = null;
-
-	for (const start of grid) {
-		const iso = start.toISOString();
-		const isOpen = openSet.has(start.getTime());
-		const li = document.createElement('li');
-
-		// 30분 슬롯이면 시각 눈금은 정시에만 찍는다 — 눈금이 촘촘하면 자가 아니라 노이즈가 된다.
-		const hh = hhmm(iso).slice(0, 2);
-		const hour = document.createElement('span');
-		hour.className = 'hour';
-		hour.textContent = hh === lastHour ? '' : hh;
-		lastHour = hh;
-
-		if (isOpen) {
-			li.className = 'band';
-			const btn = document.createElement('button');
-			btn.type = 'button';
-			btn.className = 'slot';
-			btn.innerHTML = '<span class="t"></span><span class="dur"></span>';
-			btn.querySelector('.t').textContent = hhmm(iso);
-			btn.querySelector('.dur').textContent = booth.slotMinutes + '분';
-			btn.addEventListener('click', () => openSheet(iso));
-			li.append(hour, btn);
-		} else {
-			li.className = 'band band--gone';
-			const gone = document.createElement('span');
-			gone.className = 'gone';
-			const t = document.createElement('span');
-			t.className = 't';
-			t.textContent = hhmm(iso);
-			const why = document.createElement('span');
-			why.textContent = start.getTime() < now ? '지난 시간' : '마감';
-			gone.append(t, why);
-			li.append(hour, gone);
-		}
-		list.append(li);
-	}
-
-	el.rail.replaceChildren(list);
-	if (!grid.some(s => openSet.has(s.getTime()))) {
-		const p = document.createElement('p');
-		p.className = 'empty';
-		p.textContent = '이 부스는 남은 시간이 없습니다. 다른 부스를 확인해 보세요.';
-		el.rail.append(p);
-	}
-}
-
-function openSheet(iso) {
-	picked = iso;
-	el.sheetWhen.textContent = `${booth.boothNo} ${booth.companyName} · ${fullWhen(iso)}`;
-	el.sheetError.innerHTML = '';
-	el.form.reset();
-	el.sheet.showModal();
-}
-
-document.getElementById('sheetClose').addEventListener('click', () => el.sheet.close());
-
-el.form.addEventListener('submit', async (event) => {
-	event.preventDefault();
-	const data = new FormData(el.form);
-	el.sheetSubmit.disabled = true;
-	el.sheetSubmit.textContent = '예약 중…';
-	el.sheetError.innerHTML = '';
-
-	try {
-		const result = await api('api/reservations', {
-			method: 'POST',
-			body: JSON.stringify({
-				boothId: booth.id,
-				startTime: picked,
-				name: data.get('name'),
-				phone: data.get('phone'),
-			}),
-		});
-		store.token = result.token;
-		bookedBoothIds.add(booth.id);
-		el.sheet.close();
-		renderTicket(result);
-		renderBooths();
-		select(booth);
-	} catch (e) {
-		showError(el.sheetError, e.message);
-		// 남이 먼저 잡은 슬롯이면 레일을 다시 그려야 한다. 안 그리면 방금 마감된 자리가
-		// 계속 초록으로 남아 있어 사용자가 같은 곳을 또 눌러 같은 실패를 반복한다.
-		// 통신이 끊겨 성공 여부가 불확실한 경우에도 여기서 실제 상태가 드러난다.
-		loadSlots();
-	} finally {
-		el.sheetSubmit.disabled = false;
-		el.sheetSubmit.textContent = '예약 확정';
-	}
-});
-
-/* 확인 번호를 잃으면 예약을 다시 열 수 없다. 현장에서 찾아갈 부스번호와 함께 표처럼 넘긴다. */
-function renderTicket(result) {
-	const box = document.createElement('div');
-	box.className = 'ticket';
-
-	const h = document.createElement('p');
-	h.className = 'eyebrow';
-	h.textContent = '예약 완료';
-
-	const where = document.createElement('p');
-	where.style.cssText = 'font-weight:700;font-size:1.125rem;margin:0 0 .25rem';
-	where.textContent = `${result.boothNo} ${result.companyName}`;
-
-	const when = document.createElement('p');
-	when.style.cssText = 'margin:0 0 .75rem;font-family:var(--mono);font-size:.875rem';
-	when.textContent = `${fullWhen(result.startTime)} · ${result.slotMinutes}분`;
-
-	const note = document.createElement('p');
-	note.style.cssText = 'margin:0;font-size:.875rem';
-	note.textContent = `당일 ${result.boothNo} 부스로 찾아오세요. 아래 확인 번호로 예약을 조회하고 취소할 수 있습니다.`;
-
-	const code = document.createElement('code');
-	code.textContent = result.token;
-
-	const actions = document.createElement('div');
-	actions.className = 'actions';
-
-	const copy = document.createElement('button');
-	copy.type = 'button';
-	copy.className = 'btn btn--ghost';
-	copy.textContent = '번호 복사';
-	copy.addEventListener('click', async () => {
-		try {
-			await navigator.clipboard.writeText(result.token);
-			copy.textContent = '복사됨';
-			setTimeout(() => { copy.textContent = '번호 복사'; }, 1500);
-		} catch {
-			copy.textContent = '직접 선택해 복사하세요';
-		}
-	});
-
-	const go = document.createElement('a');
-	go.className = 'btn';
-	go.style.cssText = 'text-align:center;text-decoration:none';
-	go.href = 'my.html';
-	go.textContent = '내 예약 보기';
-
-	actions.append(copy, go);
-	box.append(h, where, when, note, code, actions);
-	el.ticket.replaceChildren(box);
-	box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+} else if (toEvent === 0) {
+	el.textContent = '오늘 진행';
+	el.dataset.urgent = '';
+} else {
+	el.textContent = '행사 종료';
 }
 </script>
+
 </body>
 </html>
