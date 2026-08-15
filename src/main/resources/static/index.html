@@ -11,8 +11,14 @@
 <meta property="og:description" content="이동 없이, 집에서 바로. 기업 채용설명회부터 1:1 면접·상담까지 하루에 끝내세요.">
 <meta property="og:locale" content="ko_KR">
 
+<!-- 상대경로다. 브라우저가 알아서 찾는 /favicon.ico 는 오리진 루트라 eastAI 쪽으로 가버린다 —
+     /reserve/ 아래에서 우리 아이콘을 쓰려면 이 줄이 반드시 있어야 한다. -->
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+
 <style>
-/* 온라인 채용박람회 안내 — 단일 파일. 빌드도 의존성도 외부 요청도 없다.
+/* 온라인 채용박람회 안내 — 빌드도 의존성도 없다.
+ * 외부에서 받는 것은 브랜드 마크(favicon.svg) 하나뿐이고, 그건 탭 아이콘으로
+ * 어차피 요청되는 파일이라 로고에 다시 써도 요청이 늘지 않는다.
  *
  * 디자인은 배포된 포스터(채용박람회.png)를 그대로 따른다. 같은 행사를 알리는
  * 두 매체가 다르게 생기면 학생은 다른 행사로 읽는다. 그래서 예약 앱(app.css)의
@@ -79,22 +85,12 @@ body {
 	flex-wrap: wrap;
 }
 
-/* 포스터의 무지개 링 마크. 이미지 대신 conic-gradient 한 줄로 만든다. */
+/* 실제 브랜드 마크. favicon.svg와 같은 파일이라 브라우저가 탭 아이콘용으로
+   어차피 받는 것을 재사용한다 — 요청이 늘지 않는다. */
 .logo-mark {
 	width: 1.875rem;
 	height: 1.875rem;
 	flex: none;
-	border-radius: 50%;
-	background: conic-gradient(from 210deg,
-		#F5A623, #EC5F8A, #A96CD8, #4C8DF6, #35B8C4, #F5A623);
-	position: relative;
-}
-.logo-mark::after {
-	content: "";
-	position: absolute;
-	inset: 30%;
-	border-radius: 50%;
-	background: var(--white);
 }
 
 .logo-div { color: var(--line); font-weight: 400; }
@@ -403,7 +399,7 @@ body {
 <div class="page">
 
 	<header class="logo">
-		<span class="logo-mark" aria-hidden="true"></span>
+		<img class="logo-mark" src="favicon.svg" alt="" width="30" height="30">
 		<span>EAST PEACE EDU</span>
 		<span class="logo-div">|</span>
 		<span class="logo-org">㈜동화인터내셔널</span>
