@@ -334,6 +334,53 @@ class ReservationServiceTest {
 			.isInstanceOf(IllegalArgumentException.class);
 	}
 
+	// ── 남은 자리 수 ──────────────────────────────────────────────
+
+	/**
+	 * 이게 없으면 안내 페이지의 시간표가 정원 5인 부스에서 다섯 명이 찰 때까지 꿈쩍하지 않아,
+	 * 방문자는 자기 신청이 반영됐는지 알 수 없다.
+	 */
+	@Test
+	void 슬롯마다_남은_자리_수를_돌려준다() {
+		Booth group = groupBooth();
+		service.book(group.getId(), slot, "참가자1", "01011110001");
+		service.book(group.getId(), slot, "참가자2", "01011110002");
+
+		List<ReservationService.SlotSeats> open = service.openSlots(group.getId());
+
+		assertThat(open).filteredOn(s -> s.startTime().equals(slot))
+			.singleElement()
+			.satisfies(s -> {
+				assertThat(s.remaining()).isEqualTo(3);
+				assertThat(s.capacity()).isEqualTo(5);
+			});
+		// 예약이 없는 슬롯은 정원 그대로다.
+		assertThat(open).filteredOn(s -> !s.startTime().equals(slot))
+			.allSatisfy(s -> assertThat(s.remaining()).isEqualTo(5));
+	}
+
+	@Test
+	void 정원이_다_차면_그_슬롯은_빠진다() {
+		Booth group = groupBooth();
+		for (int i = 1; i <= 5; i++) {
+			service.book(group.getId(), slot, "참가자" + i, "0101111000" + i);
+		}
+
+		assertThat(service.openSlots(group.getId()))
+			.noneMatch(s -> s.startTime().equals(slot));
+	}
+
+	/** 두 메서드가 같은 규칙을 따로 갖고 있으면 화면과 예약 목록이 언젠가 어긋난다. */
+	@Test
+	void 예약_가능_시각은_남은_자리_목록과_일치한다() {
+		Booth group = groupBooth();
+		service.book(group.getId(), slot, "참가자1", "01011110001");
+
+		assertThat(service.availableSlots(group.getId()))
+			.isEqualTo(service.openSlots(group.getId()).stream()
+				.map(ReservationService.SlotSeats::startTime).toList());
+	}
+
 	// ── 이름 + 연락처 본인 확인 ────────────────────────────────────
 
 	@Test

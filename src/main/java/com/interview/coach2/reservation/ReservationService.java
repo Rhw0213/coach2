@@ -44,6 +44,22 @@ public class ReservationService {
 
 	@Transactional(readOnly = true)
 	public List<Instant> availableSlots(Long boothId) {
+		return openSlots(boothId).stream().map(SlotSeats::startTime).toList();
+	}
+
+	/** 남은 좌석이 하나라도 있는 슬롯과 그 자리 수. */
+	public record SlotSeats(Instant startTime, int remaining, int capacity) {
+	}
+
+	/**
+	 * availableSlots는 '자리가 있나'만 답한다. 정원이 여럿인 부스에서는 한 명이 예약해도
+	 * 그 답이 바뀌지 않아, 화면이 예약을 받은 티를 전혀 내지 못한다. 남은 수까지 돌려준다.
+	 *
+	 * 이미 지난 슬롯과 다 찬 슬롯은 여기서도 빼므로, availableSlots는 이 결과의 시각만
+	 * 뽑으면 된다 — 두 곳에서 같은 규칙을 따로 쓰면 언젠가 서로 어긋난다.
+	 */
+	@Transactional(readOnly = true)
+	public List<SlotSeats> openSlots(Long boothId) {
 		Booth booth = activeBooth(boothId);
 		// 슬롯마다 몇 명이 찼는지 센다. 정원이 1이면 예전처럼 '있으면 마감'과 같아진다.
 		Map<Instant, Long> taken = reservations
@@ -52,9 +68,12 @@ public class ReservationService {
 			.collect(Collectors.groupingBy(Reservation::getStartTime, Collectors.counting()));
 
 		Instant now = Instant.now();
+		int capacity = booth.getCapacity();
 		return Slots.forBooth(booth).stream()
 			.filter(slot -> slot.isAfter(now))
-			.filter(slot -> taken.getOrDefault(slot, 0L) < booth.getCapacity())
+			.map(slot -> new SlotSeats(slot,
+				capacity - taken.getOrDefault(slot, 0L).intValue(), capacity))
+			.filter(s -> s.remaining() > 0)
 			.toList();
 	}
 

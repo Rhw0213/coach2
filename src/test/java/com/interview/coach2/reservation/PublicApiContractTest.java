@@ -118,6 +118,25 @@ class PublicApiContractTest {
 		assertThat(get("/api/admin/reservations?date=" + Slots.today()).statusCode()).isEqualTo(401);
 	}
 
+	/** 안내 페이지의 시간표가 읽는 필드다. 빠지면 화면은 조용히 뼈대로 물러나고 서버는 초록불이다. */
+	@Test
+	void 남은_자리_응답이_시각과_자리수를_담는다() throws Exception {
+		Booth group = booths.save(new Booth("동해기업", "A-12", null,
+			Slots.today().plusDays(7), LocalTime.of(10, 0), LocalTime.of(17, 0), 30, 5));
+		Instant slot = Slots.forBooth(group).get(0);
+		post("/api/reservations", """
+			{"boothId":%d,"startTime":"%s","name":"홍길동","phone":"010-1111-2222"}
+			""".formatted(group.getId(), slot));
+
+		HttpResponse<String> res = get("/api/booths/" + group.getId() + "/availability");
+
+		assertThat(res.statusCode()).isEqualTo(200);
+		assertThat(res.body())
+			.contains("\"startTime\":\"" + slot + "\"")
+			.contains("\"remaining\":4")
+			.contains("\"capacity\":5");
+	}
+
 	@Test
 	void 이름과_연락처로_예약을_조회한다() throws Exception {
 		Booth booth = saveBooth();

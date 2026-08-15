@@ -59,6 +59,18 @@ public class ReservationController {
 		return service.availableSlots(boothId);
 	}
 
+	/**
+	 * /slots와 같은 슬롯 목록에 남은 자리 수를 얹은 것. 예약 화면이 쓰는 /slots는 그대로 둔다 —
+	 * 응답 모양을 바꾸면 행사 열흘 전에 예약 경로까지 건드리게 된다.
+	 *
+	 * 안내 페이지의 시간표가 이걸 쓴다. '자리가 있나'만으로는 정원이 여럿인 부스에서
+	 * 예약이 들어와도 화면이 그대로여서, 방문자가 신청이 반영됐는지 알 수 없다.
+	 */
+	@GetMapping("/booths/{boothId}/availability")
+	public List<ReservationService.SlotSeats> availability(@PathVariable Long boothId) {
+		return service.openSlots(boothId);
+	}
+
 	@PostMapping("/reservations")
 	public BookResponse book(@RequestBody BookRequest request) {
 		ReservationService.BookResult result = service.book(

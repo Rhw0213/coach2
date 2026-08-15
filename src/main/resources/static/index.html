@@ -258,22 +258,34 @@ body {
    자리를 먹어 칸이 20px 아래로 내려가기 때문이다 — 라벨(약 24px)이 서로 겹쳐 못 읽는다. */
 @media (max-width: 46rem) { .g-axis li:nth-child(even) .g-t { visibility: hidden; } }
 
+/* 칸은 그릇이고, 안의 막대가 남은 자리다. 정원이 5인 부스는 한 명 예약할 때마다 5분의 1씩
+   내려간다 — '자리가 있나' 이진값만 그리면 그 부스는 다섯 명이 찰 때까지 꿈쩍하지 않는다. */
 .cell {
 	display: block;
+	position: relative;
+	overflow: hidden;
 	height: 1.75rem;
 	border-radius: 3px;
 	transform-origin: bottom;
-	background: rgba(213, 233, 224, .13);
+	/* 필드보다 어둡게 파둔다. 바탕보다 밝게 두면 한 자리 빠진 칸이 가득 찬 칸과 구별되지 않는다. */
+	background: rgba(3, 22, 18, .55);
 }
-/* 열려 있는 칸이 빛난다. 반대로 칠하면 페이지가 '자리 없음'을 먼저 말하게 된다. */
-.is-open .cell { background: var(--mint-400); }
+.cell b {
+	position: absolute;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	height: calc(var(--seat, 1) * 100%);
+	background: var(--mint-400);
+}
 .is-full .cell { background: transparent; box-shadow: inset 0 0 0 1px rgba(213, 233, 224, .34); }
 .is-past .cell { background: transparent; box-shadow: inset 0 0 0 1px rgba(213, 233, 224, .1); }
 /* 그 기업이 그 시간에 아예 열지 않는다. 마감과 같게 그리면 없는 자리를 있다고 말하게 된다. */
 .is-off  .cell { background: none; box-shadow: none; }
 
-/* 뼈대(현황 전)는 하루의 모양만 보여주므로 한 줄로 두껍게 둔다. */
-.rail-grid.is-blank .cell { height: 3.25rem; }
+/* 뼈대(현황 전)는 하루의 모양만 보여주므로 한 줄로 두껍게 둔다.
+   채울 막대가 없으니 홈 색을 그대로 두면 바탕에 묻힌다 — 밝은 중립색으로 되돌린다. */
+.rail-grid.is-blank .cell { height: 3.25rem; background: rgba(213, 233, 224, .13); }
 
 @media (max-width: 34rem) {
 	.rail-grid { grid-template-columns: minmax(0, 1fr); gap: .375rem; }
@@ -295,9 +307,11 @@ body {
 .key { display: flex; align-items: center; gap: 1rem; font-size: .75rem; color: rgba(213, 233, 224, .75); }
 .key[hidden] { display: none; }
 .key span { display: flex; align-items: center; gap: .375rem; }
-.key i { width: .75rem; height: .75rem; border-radius: 2px; }
+.key i { width: .75rem; height: .75rem; border-radius: 2px; background: rgba(3, 22, 18, .55); }
 .key .k-open { background: var(--mint-400); }
-.key .k-full { box-shadow: inset 0 0 0 1px rgba(213, 233, 224, .35); }
+/* 반만 찬 견본. 막대 높이가 무슨 뜻인지 말로 설명하는 것보다 하나 보여주는 편이 짧다. */
+.key .k-half { background: linear-gradient(to top, var(--mint-400) 50%, rgba(3, 22, 18, .55) 50%); }
+.key .k-full { background: none; box-shadow: inset 0 0 0 1px rgba(213, 233, 224, .35); }
 
 /* 데이터가 도착할 때 한 번만 도는 연출. 하루가 왼쪽부터 채워지는 모양이다. */
 @keyframes rise { from { transform: scaleY(.18); opacity: 0; } to { transform: scaleY(1); opacity: 1; } }
@@ -360,15 +374,8 @@ body {
 
 .prog { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--rule); }
 
-.prog li {
-	display: grid;
-	grid-template-columns: 1fr auto;
-	gap: .75rem 1.5rem;
-	align-items: start;
-	padding: 1.75rem 0;
-	border-bottom: 1px solid var(--rule);
-}
-@media (min-width: 40rem) { .prog li { gap: 2.5rem; padding: 2rem 0; } }
+.prog li { padding: 1.75rem 0; border-bottom: 1px solid var(--rule); }
+@media (min-width: 40rem) { .prog li { padding: 2rem 0; } }
 
 .prog-no { display: block; color: var(--pine-500); margin-bottom: .375rem; }
 .prog h3 { font-size: clamp(1.125rem, 3.4vw, 1.375rem); font-weight: 800; letter-spacing: -.025em; margin: 0 0 .5rem; }
@@ -387,11 +394,8 @@ body {
 	border-radius: 999px;
 }
 
-/* 소요시간이 이 표의 닻이다. 셋을 나란히 놓으면 30 / 15 / 30 의 리듬이 그대로 보인다. */
-.dur { text-align: right; white-space: nowrap; line-height: 1; }
-.dur-n { font-size: clamp(2rem, 7vw, 2.75rem); font-weight: 700; letter-spacing: -.04em; color: var(--pine-700); }
-.dur-n span { font-size: .38em; font-weight: 600; margin-left: .125rem; }
-.dur-w { display: block; margin-top: .5rem; font-size: .75rem; color: var(--ink-60); letter-spacing: 0; }
+/* 정원처럼 확정된 값만 붙인다. 소요시간은 아직 정해지지 않아 넣지 않는다. */
+.need--calm { background: none; color: var(--ink-60); box-shadow: inset 0 0 0 1px var(--rule); }
 
 /* ── 신청 일정 ──────────────────────────────────────────── */
 
@@ -520,7 +524,8 @@ body {
 		<div class="rail">
 			<div class="rail-head">
 				<span class="eyebrow">면접 · 상담 시간표</span>
-				<span class="rail-count" id="railCount">10:00 – 17:00 · 30분 단위</span>
+				<!-- 현황을 못 받았을 때 남는 문구. 운영시간만 말한다 — 상담 길이는 아직 미정이다. -->
+				<span class="rail-count" id="railCount">10:00 – 17:00</span>
 			</div>
 
 			<!-- 칸 하나하나를 읽어주면 수십 번 반복될 뿐이라, 화면낭독기에는 위의 요약만 남긴다. -->
@@ -528,7 +533,8 @@ body {
 
 			<div class="rail-foot">
 				<p class="key" id="railKey" hidden>
-					<span><i class="k-open"></i> 예약 가능</span>
+					<span><i class="k-open"></i> 자리 있음</span>
+					<span><i class="k-half"></i> 일부 참</span>
 					<span><i class="k-full"></i> 마감</span>
 				</p>
 				<a class="btn" href="book.html">시간 예약하기 <span class="arrow">→</span></a>
@@ -574,37 +580,19 @@ body {
 
 			<ol class="prog">
 				<li>
-					<div>
-						<span class="prog-no eyebrow num">01</span>
-						<h3>기업 채용설명회</h3>
-						<p>참여 기업이 채용 계획과 직무, 인재상을 직접 소개합니다. 관심 있는 기업을 골라 신청하세요.</p>
-					</div>
-					<p class="dur">
-						<span class="dur-n num">30<span>분</span></span>
-						<span class="dur-w">기업별</span>
-					</p>
+					<span class="prog-no eyebrow num">01</span>
+					<h3>기업 채용설명회</h3>
+					<p>참여 기업이 채용 계획과 직무, 인재상을 직접 소개합니다. 관심 있는 기업을 골라 신청하세요.</p>
 				</li>
 				<li>
-					<div>
-						<span class="prog-no eyebrow num">02</span>
-						<h3>1:1 채용 면접 · 상담<span class="need">예약 필요</span></h3>
-						<p>현직 인사담당자와 일대일로 만나 실제 채용 면접 또는 진로 상담을 받습니다.</p>
-					</div>
-					<p class="dur">
-						<span class="dur-n num">15<span>분</span></span>
-						<span class="dur-w">1인</span>
-					</p>
+					<span class="prog-no eyebrow num">02</span>
+					<h3>1:1 채용 면접 · 상담<span class="need">예약 필요</span></h3>
+					<p>현직 인사담당자와 일대일로 만나 실제 채용 면접 또는 진로 상담을 받습니다.</p>
 				</li>
 				<li>
-					<div>
-						<span class="prog-no eyebrow num">03</span>
-						<h3>그룹 상담<span class="need">예약 필요</span></h3>
-						<p>같은 기업을 지원하는 참가자들과 함께 궁금한 점을 묻고 답하는 소그룹 상담입니다.</p>
-					</div>
-					<p class="dur">
-						<span class="dur-n num">30<span>분</span></span>
-						<span class="dur-w">2~5명</span>
-					</p>
+					<span class="prog-no eyebrow num">03</span>
+					<h3>그룹 상담<span class="need need--calm">2~5명</span><span class="need">예약 필요</span></h3>
+					<p>같은 기업을 지원하는 참가자들과 함께 궁금한 점을 묻고 답하는 소그룹 상담입니다.</p>
 				</li>
 			</ol>
 		</div>
@@ -781,12 +769,21 @@ if (toEvent > 0) {
 			ol.className = 'g-track';
 			times.forEach((t, i) => {
 				const li = document.createElement('li');
-				li.className = !row.own.has(t) ? 'is-off'
+				const left = row.own.get(t);
+				li.className = left === undefined ? 'is-off'
 					: t < now ? 'is-past'
-					: row.own.get(t) ? 'is-open' : 'is-full';
+					: left > 0 ? 'is-open' : 'is-full';
 				li.style.setProperty('--i', i);
+
 				const cell = document.createElement('i');
 				cell.className = 'cell';
+				if (li.className === 'is-open') {
+					// 남은 자리 비율만큼 채운다. 정원 1인 부스는 늘 가득이라 예전과 같아 보인다.
+					const fill = document.createElement('b');
+					fill.style.setProperty('--seat', left / row.booth.capacity);
+					cell.append(fill);
+				}
+
 				li.append(cell);
 				ol.append(li);
 			});
@@ -803,8 +800,10 @@ if (toEvent > 0) {
 	}
 
 	(async function () {
-		const booths = await api('api/booths');
-		if (!booths || !booths.length) {
+		// 이 페이지는 하루짜리 행사를 알린다. 다른 날짜의 부스(지난 행사·시험용)를 같이 그리면
+		// 축이 두 날의 합집합이 되고, 라벨은 HH:MM뿐이라 같은 시각이 두 번 나온다.
+		const booths = (await api('api/booths')).filter(b => b.eventDate === EVENT_DAY);
+		if (!booths.length) {
 			return;
 		}
 
@@ -814,19 +813,20 @@ if (toEvent > 0) {
 			const own = new Map();
 			for (const d of slotGrid(b.eventDate, b.openFrom, b.openTo, b.slotMinutes)) {
 				axis.add(d.getTime());
-				own.set(d.getTime(), false);
+				own.set(d.getTime(), 0); // 응답에 없는 슬롯은 남은 자리 0 — 마감이다.
 			}
 			return { booth: b, own };
 		});
 
 		// 한 부스라도 못 받으면 통째로 뼈대에 머문다. 실패를 '자리 없음'으로 칠하면
 		// 멀쩡히 열려 있는 기업을 마감으로 보여주게 된다 — 올 사람을 돌려보낸다.
-		const lists = await Promise.all(booths.map(b => api('api/booths/' + b.id + '/slots')));
+		const lists = await Promise.all(
+			booths.map(b => api('api/booths/' + b.id + '/availability')));
 		lists.forEach((list, i) => {
-			for (const iso of list) {
-				const t = Date.parse(iso);
+			for (const slot of list) {
+				const t = Date.parse(slot.startTime);
 				if (rows[i].own.has(t)) {
-					rows[i].own.set(t, true);
+					rows[i].own.set(t, slot.remaining);
 				}
 			}
 		});
@@ -834,20 +834,20 @@ if (toEvent > 0) {
 		const times = [...axis].sort((a, b) => a - b);
 		paint(times, rows);
 
-		let open = 0;
-		let total = 0;
+		// 칸이 아니라 자리를 센다. 정원이 여럿인 부스는 예약 한 건에 칸이 안 바뀌므로,
+		// 칸으로 세면 신청이 들어와도 이 숫자가 그대로다.
+		let left = 0;
+		let seats = 0;
 		for (const row of rows) {
-			for (const isOpen of row.own.values()) {
-				total++;
-				if (isOpen) {
-					open++;
-				}
+			for (const remaining of row.own.values()) {
+				seats += row.booth.capacity;
+				left += remaining;
 			}
 		}
 		label.innerHTML = '';
 		const n = document.createElement('b');
-		n.textContent = open;
-		label.append(n, document.createTextNode(' / ' + total + '칸 예약 가능'));
+		n.textContent = left;
+		label.append(n, document.createTextNode(' / ' + seats + ' 자리 남음'));
 	})().catch(() => {
 		/* 현황을 못 받았다. 뼈대는 이미 그려져 있고 라벨은 기본 문구로 둔다. */
 	});
