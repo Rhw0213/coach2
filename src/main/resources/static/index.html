@@ -224,33 +224,64 @@ body {
 	margin-right: .125rem;
 }
 
-.rail-track { display: flex; gap: .25rem; list-style: none; margin: 0; padding: 0; }
+/* 기업 × 시간 격자. 한 줄로 합치면 '한 부스라도 열려 있으면 열림'이 되어, 정원 1인 부스에
+   예약이 차도 화면이 꿈쩍하지 않는다. 기업이라는 축을 지우면 안 된다.
+   라벨 열 너비를 줄마다 맞춰야 하므로 격자 하나에 이름·트랙을 번갈아 넣는다. */
+/* 트랙 열은 1fr이 아니라 minmax(0,1fr)이어야 한다. 그리드 아이템은 min-width가 auto여서
+   1fr만 주면 안쪽 flex 트랙이 최소 폭 밑으로 안 줄고 그대로 넘친다. 게다가 .hero가
+   overflow:hidden이라 그 넘침이 잘려나가 가로 스크롤 검사에도 안 걸린다. */
+.rail-grid { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: .5rem .875rem; align-items: center; margin: 0; }
 
-.slot { flex: 1 1 0; min-width: 0; text-align: center; }
+.g-axis, .g-track { display: flex; gap: .25rem; list-style: none; margin: 0; padding: 0; }
+.g-axis li, .g-track li { flex: 1 1 0; min-width: 0; text-align: center; }
 
-.slot-bar {
-	display: block;
-	height: 3.25rem;
-	border-radius: 3px;
-	transform-origin: bottom;
-	background: rgba(213, 233, 224, .13);
+/* 기업명이 길어도 트랙을 밀어내지 않게 폭을 묶고 줄바꿈을 허용한다.
+   '키사이트테크놀로지스코리아' 같은 이름을 말줄임으로 자르면 어느 기업인지 못 읽는다. */
+.g-name { font-size: .8125rem; font-weight: 700; letter-spacing: -.01em; max-width: 10rem; line-height: 1.3; }
+.g-name b {
+	font-family: var(--mono);
+	font-weight: 400;
+	font-size: .6875rem;
+	color: var(--mint-400);
+	margin-left: .375rem;
 }
-/* 열려 있는 칸이 빛난다. 반대로 칠하면 페이지가 '자리 없음'을 먼저 말하게 된다. */
-.slot.is-open  .slot-bar { background: var(--mint-400); }
-.slot.is-full  .slot-bar { background: transparent; box-shadow: inset 0 0 0 1px rgba(213, 233, 224, .34); }
-.slot.is-past  .slot-bar { background: transparent; box-shadow: inset 0 0 0 1px rgba(213, 233, 224, .1); }
 
-.slot-t {
+.g-t {
 	display: block;
-	margin-top: .5rem;
 	font-family: var(--mono);
 	font-variant-numeric: tabular-nums;
 	font-size: .625rem;
 	letter-spacing: -.02em;
 	color: rgba(213, 233, 224, .78);
 }
-/* 좁은 화면에서는 정시만 남긴다 — 서른 분 단위 라벨이 붙으면 서로 겹쳐 못 읽는다. */
-@media (max-width: 34rem) { .slot:nth-child(even) .slot-t { visibility: hidden; } }
+/* 정시만 남기는 구간. 기준이 34rem이 아니라 46rem인 이유는, 그 사이 폭에서는 기업명 열이
+   자리를 먹어 칸이 20px 아래로 내려가기 때문이다 — 라벨(약 24px)이 서로 겹쳐 못 읽는다. */
+@media (max-width: 46rem) { .g-axis li:nth-child(even) .g-t { visibility: hidden; } }
+
+.cell {
+	display: block;
+	height: 1.75rem;
+	border-radius: 3px;
+	transform-origin: bottom;
+	background: rgba(213, 233, 224, .13);
+}
+/* 열려 있는 칸이 빛난다. 반대로 칠하면 페이지가 '자리 없음'을 먼저 말하게 된다. */
+.is-open .cell { background: var(--mint-400); }
+.is-full .cell { background: transparent; box-shadow: inset 0 0 0 1px rgba(213, 233, 224, .34); }
+.is-past .cell { background: transparent; box-shadow: inset 0 0 0 1px rgba(213, 233, 224, .1); }
+/* 그 기업이 그 시간에 아예 열지 않는다. 마감과 같게 그리면 없는 자리를 있다고 말하게 된다. */
+.is-off  .cell { background: none; box-shadow: none; }
+
+/* 뼈대(현황 전)는 하루의 모양만 보여주므로 한 줄로 두껍게 둔다. */
+.rail-grid.is-blank .cell { height: 3.25rem; }
+
+@media (max-width: 34rem) {
+	.rail-grid { grid-template-columns: minmax(0, 1fr); gap: .375rem; }
+	.g-corner { display: none; }
+	.g-name { max-width: none; margin-top: .5rem; }
+	/* 칸이 좁아지므로 높이도 낮춘다 — 안 그러면 시간 막대가 아니라 알약처럼 보인다. */
+	.cell { height: 1.375rem; }
+}
 
 .rail-foot {
 	display: flex;
@@ -270,7 +301,8 @@ body {
 
 /* 데이터가 도착할 때 한 번만 도는 연출. 하루가 왼쪽부터 채워지는 모양이다. */
 @keyframes rise { from { transform: scaleY(.18); opacity: 0; } to { transform: scaleY(1); opacity: 1; } }
-.rail-track.is-live .slot-bar { animation: rise .42s cubic-bezier(.2, .8, .3, 1) backwards; animation-delay: calc(var(--i) * 24ms); }
+/* 열 단위로만 지연을 준다 — 모든 기업의 같은 시간대가 함께 채워지며 왼쪽에서 오른쪽으로 쓸린다. */
+.rail-grid.is-live .cell { animation: rise .42s cubic-bezier(.2, .8, .3, 1) backwards; animation-delay: calc(var(--i) * 24ms); }
 
 /* ── 버튼 ──────────────────────────────────────────────── */
 
@@ -491,8 +523,8 @@ body {
 				<span class="rail-count" id="railCount">10:00 – 17:00 · 30분 단위</span>
 			</div>
 
-			<!-- 칸 하나하나를 읽어주면 열네 번 반복될 뿐이라, 화면낭독기에는 위의 요약만 남긴다. -->
-			<ol class="rail-track" id="railTrack" aria-hidden="true"></ol>
+			<!-- 칸 하나하나를 읽어주면 수십 번 반복될 뿐이라, 화면낭독기에는 위의 요약만 남긴다. -->
+			<div class="rail-grid" id="railGrid" aria-hidden="true"></div>
 
 			<div class="rail-foot">
 				<p class="key" id="railKey" hidden>
@@ -693,36 +725,77 @@ if (toEvent > 0) {
  * 현황을 못 받아오면 칸만 그리고 숫자는 내보내지 않는다. 틀린 '남은 자리 0'은
  * 아무 숫자도 없는 것보다 나쁘다 — 올 사람을 돌려보낸다. */
 (function () {
-	const track = document.getElementById('railTrack');
+	const grid = document.getElementById('railGrid');
 	const label = document.getElementById('railCount');
 
-	function paint(cols, live) {
-		const now = Date.now();
-		track.replaceChildren();
-		cols.forEach((col, i) => {
+	function axisRow(times) {
+		const corner = document.createElement('span');
+		corner.className = 'g-corner';
+		const ol = document.createElement('ol');
+		ol.className = 'g-axis';
+		for (const t of times) {
 			const li = document.createElement('li');
-			li.className = 'slot ' + (!live ? '' : col.t < now ? 'is-past' : col.open ? 'is-open' : 'is-full');
-			li.style.setProperty('--i', i);
-
-			const bar = document.createElement('i');
-			bar.className = 'slot-bar';
-
-			const t = document.createElement('span');
-			t.className = 'slot-t';
-			t.textContent = hhmm(col.t);
-
-			li.append(bar, t);
-			track.append(li);
-		});
-		if (live) {
-			track.classList.add('is-live');
-			document.getElementById('railKey').hidden = false;
+			const s = document.createElement('span');
+			s.className = 'g-t';
+			s.textContent = hhmm(t);
+			li.append(s);
+			ol.append(li);
 		}
+		return [corner, ol];
 	}
 
-	// 행사일의 뼈대. API가 없어도 하루의 모양은 보여준다.
-	const skeleton = slotGrid(EVENT_DAY, '10:00', '17:00', 30).map(d => ({ t: d.getTime(), open: false }));
-	paint(skeleton, false);
+	/* 뼈대 — 부스를 알기 전의 하루 모양. 기업명 없이 한 줄만 둔다. */
+	function blank() {
+		const times = slotGrid(EVENT_DAY, '10:00', '17:00', 30).map(d => d.getTime());
+		grid.className = 'rail-grid is-blank';
+		grid.replaceChildren(...axisRow(times));
+		const name = document.createElement('span');
+		name.className = 'g-name';
+		const ol = document.createElement('ol');
+		ol.className = 'g-track';
+		for (let i = 0; i < times.length; i++) {
+			const li = document.createElement('li');
+			const cell = document.createElement('i');
+			cell.className = 'cell';
+			li.append(cell);
+			ol.append(li);
+		}
+		grid.append(name, ol);
+	}
+
+	/* 현황 — 기업마다 한 줄. 한 줄로 합치면 정원 1인 부스가 차도 화면이 안 변한다. */
+	function paint(times, rows) {
+		const now = Date.now();
+		grid.className = 'rail-grid is-live';
+		grid.replaceChildren(...axisRow(times));
+
+		for (const row of rows) {
+			const name = document.createElement('span');
+			name.className = 'g-name';
+			name.textContent = row.booth.companyName;
+			const no = document.createElement('b');
+			no.textContent = row.booth.boothNo;
+			name.append(no);
+
+			const ol = document.createElement('ol');
+			ol.className = 'g-track';
+			times.forEach((t, i) => {
+				const li = document.createElement('li');
+				li.className = !row.own.has(t) ? 'is-off'
+					: t < now ? 'is-past'
+					: row.own.get(t) ? 'is-open' : 'is-full';
+				li.style.setProperty('--i', i);
+				const cell = document.createElement('i');
+				cell.className = 'cell';
+				li.append(cell);
+				ol.append(li);
+			});
+			grid.append(name, ol);
+		}
+		document.getElementById('railKey').hidden = false;
+	}
+
+	blank();
 
 	if (toEvent < 0) {
 		label.textContent = '행사가 종료되었습니다';
@@ -735,35 +808,46 @@ if (toEvent > 0) {
 			return;
 		}
 
-		const cols = new Map();
-		for (const b of booths) {
+		// 시간 축은 모든 부스의 합집합이다. 기업마다 운영시간이 달라도 줄이 어긋나지 않는다.
+		const axis = new Set();
+		const rows = booths.map(b => {
+			const own = new Map();
 			for (const d of slotGrid(b.eventDate, b.openFrom, b.openTo, b.slotMinutes)) {
-				if (!cols.has(d.getTime())) {
-					cols.set(d.getTime(), false);
-				}
+				axis.add(d.getTime());
+				own.set(d.getTime(), false);
 			}
-		}
+			return { booth: b, own };
+		});
 
-		// 부스 하나가 실패해도 나머지 현황은 살린다.
-		const lists = await Promise.all(
-			booths.map(b => api('api/booths/' + b.id + '/slots').catch(() => [])));
-		for (const list of lists) {
+		// 한 부스라도 못 받으면 통째로 뼈대에 머문다. 실패를 '자리 없음'으로 칠하면
+		// 멀쩡히 열려 있는 기업을 마감으로 보여주게 된다 — 올 사람을 돌려보낸다.
+		const lists = await Promise.all(booths.map(b => api('api/booths/' + b.id + '/slots')));
+		lists.forEach((list, i) => {
 			for (const iso of list) {
 				const t = Date.parse(iso);
-				if (cols.has(t)) {
-					cols.set(t, true);
+				if (rows[i].own.has(t)) {
+					rows[i].own.set(t, true);
+				}
+			}
+		});
+
+		const times = [...axis].sort((a, b) => a - b);
+		paint(times, rows);
+
+		let open = 0;
+		let total = 0;
+		for (const row of rows) {
+			for (const isOpen of row.own.values()) {
+				total++;
+				if (isOpen) {
+					open++;
 				}
 			}
 		}
-
-		const rows = [...cols.entries()].sort((a, b) => a[0] - b[0]).map(([t, open]) => ({ t, open }));
-		paint(rows, true);
-
-		const open = rows.filter(r => r.open).length;
 		label.innerHTML = '';
 		const n = document.createElement('b');
 		n.textContent = open;
-		label.append(n, document.createTextNode(' / ' + rows.length + ' 시간대 예약 가능'));
+		label.append(n, document.createTextNode(' / ' + total + '칸 예약 가능'));
 	})().catch(() => {
 		/* 현황을 못 받았다. 뼈대는 이미 그려져 있고 라벨은 기본 문구로 둔다. */
 	});
