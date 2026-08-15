@@ -132,7 +132,12 @@ public class ReservationService {
 
 	@Transactional(readOnly = true)
 	public List<Reservation> myReservations(String token) {
-		return reservations.findByVisitorIdOrderByStartTimeDesc(visitorByToken(token).getId());
+		return reservationsOf(visitorByToken(token).getId());
+	}
+
+	@Transactional(readOnly = true)
+	public List<Reservation> reservationsOf(Long visitorId) {
+		return reservations.findByVisitorIdOrderByStartTimeDesc(visitorId);
 	}
 
 	@Transactional
@@ -177,6 +182,44 @@ public class ReservationService {
 			throw notFound("예약을 찾을 수 없습니다");
 		}
 		return visitors.findByToken(token).orElseThrow(() -> notFound("예약을 찾을 수 없습니다"));
+	}
+
+	/**
+	 * 이름 + 연락처로 사람을 찾는다. 로그인이 없으므로 이 조합이 본인 확인의 전부다.
+	 *
+	 * 번호가 없을 때와 이름이 어긋날 때를 같은 404·같은 문구로 돌려준다. 메시지를 나누면
+	 * "이 번호가 예약자인가"를 확인하는 오라클이 되어, 번호만 아는 사람에게 참가 여부와
+	 * 지원 기업이 새어 나간다.
+	 *
+	 * ponytail: 호출 횟수 제한이 없다. 이름까지 맞아야 하므로 무작위 대입은 무의미하지만,
+	 * 명단이 있는 표적 열거까지 막으려면 IP·번호 단위 제한이 필요하다. nginx의 limit_req는
+	 * limit_req_zone을 http 블록에 둬야 해서 eastAI 설정을 건드리게 된다 — 넣는다면 앱 쪽에.
+	 */
+	@Transactional(readOnly = true)
+	public Visitor visitorByNameAndPhone(String name, String rawPhone) {
+		String phone = PhoneNumbers.normalize(rawPhone);
+		if (phone == null) {
+			throw badRequest("연락처를 확인해 주세요");
+		}
+		if (name == null || name.isBlank()) {
+			throw badRequest("이름을 입력해 주세요");
+		}
+		// 두 실패가 한 문구를 공유하는 것이 위 오라클 방어의 전부다. 안내를 덧붙이더라도
+		// 갈래마다 다른 말을 하면 안 된다.
+		return visitors.findByPhone(phone)
+			.filter(v -> sameName(v.getName(), name))
+			.orElseThrow(() -> notFound(
+				"예약을 찾을 수 없습니다. 예약할 때 적으신 이름과 연락처가 맞는지 확인해 주세요"));
+	}
+
+	/**
+	 * 공백과 대소문자는 무시한다 — "홍 길동"과 "홍길동"이 갈리면 본인이 자기 예약을 못 찾는다.
+	 *
+	 * 비교 대상은 저장된 이름이다. findOrCreateVisitor가 번호로만 사람을 찾으므로,
+	 * 두 번째 예약에서 이름을 다르게 적어도 Visitor의 이름은 첫 예약 때 것으로 남는다.
+	 */
+	private static boolean sameName(String stored, String given) {
+		return stored.replaceAll("\\s", "").equalsIgnoreCase(given.replaceAll("\\s", ""));
 	}
 
 	private Visitor findOrCreateVisitor(String name, String phone) {

@@ -48,6 +48,15 @@ class PublicApiContractTest {
 			HttpResponse.BodyHandlers.ofString());
 	}
 
+	private HttpResponse<String> post(String path, String json) throws Exception {
+		return http.send(
+			HttpRequest.newBuilder(URI.create("http://localhost:" + port + path))
+				.header("Content-Type", "application/json")
+				.POST(HttpRequest.BodyPublishers.ofString(json))
+				.build(),
+			HttpResponse.BodyHandlers.ofString());
+	}
+
 	private Booth saveBooth() {
 		return booths.save(new Booth("동해기업", "A-12", "백엔드 개발자 모집",
 			Slots.today().plusDays(7), LocalTime.of(10, 0), LocalTime.of(17, 0), 30));
@@ -107,6 +116,41 @@ class PublicApiContractTest {
 	void 관리자_API는_시크릿_없이_열리지_않는다() throws Exception {
 		assertThat(get("/api/admin/booths").statusCode()).isEqualTo(401);
 		assertThat(get("/api/admin/reservations?date=" + Slots.today()).statusCode()).isEqualTo(401);
+	}
+
+	@Test
+	void 이름과_연락처로_예약을_조회한다() throws Exception {
+		Booth booth = saveBooth();
+		post("/api/reservations", """
+			{"boothId":%d,"startTime":"%s","name":"홍길동","phone":"010-1111-2222"}
+			""".formatted(booth.getId(), Slots.forBooth(booth).get(0)));
+
+		HttpResponse<String> res = post("/api/reservations/lookup", """
+			{"name":"홍길동","phone":"01011112222"}
+			""");
+
+		// my.html이 읽는 두 가지 — 취소에 쓸 토큰과, 목록에 그릴 부스 정보.
+		assertThat(res.statusCode()).isEqualTo(200);
+		assertThat(res.body())
+			.contains("\"token\":")
+			.contains("\"companyName\":\"동해기업\"")
+			.contains("\"boothNo\":\"A-12\"");
+	}
+
+	/** 연락처만으로는 열리지 않아야 한다 — 번호는 비밀이 아니다. */
+	@Test
+	void 연락처가_맞아도_이름이_다르면_열리지_않는다() throws Exception {
+		Booth booth = saveBooth();
+		post("/api/reservations", """
+			{"boothId":%d,"startTime":"%s","name":"홍길동","phone":"010-1111-2222"}
+			""".formatted(booth.getId(), Slots.forBooth(booth).get(0)));
+
+		HttpResponse<String> res = post("/api/reservations/lookup", """
+			{"name":"김철수","phone":"010-1111-2222"}
+			""");
+
+		assertThat(res.statusCode()).isEqualTo(404);
+		assertThat(res.body()).doesNotContain("token");
 	}
 
 	@Test

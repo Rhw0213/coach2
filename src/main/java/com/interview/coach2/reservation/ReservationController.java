@@ -10,8 +10,8 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * 방문자용 공개 API. 로그인이 없다 — 신원은 예약 시 발급되는 불투명 토큰이다.
- * 토큰은 조회·취소에만 쓰이고 아무 권한도 주지 않는다.
+ * 방문자용 공개 API. 로그인이 없다 — 본인 확인은 예약할 때 적은 이름 + 연락처다.
+ * 토큰은 그 확인을 통과한 화면이 쥐는 손잡이일 뿐 조회·취소 외에 아무 권한도 주지 않는다.
  */
 @RestController
 @RequestMapping("/api")
@@ -71,7 +71,34 @@ public class ReservationController {
 
 	@GetMapping("/reservations/me/{token}")
 	public List<ReservationView> myReservations(@PathVariable String token) {
-		List<Reservation> list = service.myReservations(token);
+		return toViews(service.myReservations(token));
+	}
+
+	public record LookupRequest(String name, String phone) {
+	}
+
+	/**
+	 * 토큰을 함께 내려준다. 취소는 여전히 토큰으로 하므로, 조회한 화면이 그것을 들고 있으면
+	 * 취소 경로를 그대로 쓸 수 있다. 이름·연락처를 맞힌 사람에게만 나가므로 권한은 같다.
+	 */
+	public record LookupResponse(String token, List<ReservationView> reservations) {
+	}
+
+	/**
+	 * 이름 + 연락처로 내 예약을 찾는다.
+	 *
+	 * GET이 아니라 POST다 — 연락처가 경로에 실리면 nginx 액세스 로그와 브라우저 방문기록에
+	 * 평문으로 남고, 외부 링크를 타면 Referer로도 새어 나간다.
+	 */
+	@PostMapping("/reservations/lookup")
+	public LookupResponse lookup(@RequestBody LookupRequest request) {
+		Visitor visitor = service.visitorByNameAndPhone(request.name(), request.phone());
+		return new LookupResponse(visitor.getToken(),
+			toViews(service.reservationsOf(visitor.getId())));
+	}
+
+	/** 예약에 부스 정보를 붙인다. 부스가 지워졌더라도 목록이 통째로 사라지지는 않게 한다. */
+	private List<ReservationView> toViews(List<Reservation> list) {
 		Map<Long, Booth> byId = booths.findAllById(
 				list.stream().map(Reservation::getBoothId).distinct().toList())
 			.stream().collect(Collectors.toMap(Booth::getId, b -> b, (a, b) -> a));

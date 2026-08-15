@@ -15,6 +15,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowable;
 
 /**
  * 트랜잭션 롤백에 기대지 않는다 — 예약 INSERT는 REQUIRES_NEW로 별도 커밋되므로
@@ -331,5 +332,80 @@ class ReservationServiceTest {
 		assertThatThrownBy(() -> new Booth("영정원", "X-00", null,
 			booth.getEventDate(), LocalTime.of(10, 0), LocalTime.of(17, 0), 30, 0))
 			.isInstanceOf(IllegalArgumentException.class);
+	}
+
+	// ── 이름 + 연락처 본인 확인 ────────────────────────────────────
+
+	@Test
+	void 이름과_연락처로_내_예약을_찾는다() {
+		String token = service.book(booth.getId(), slot, "홍길동", "010-1234-5678").visitorToken();
+
+		Visitor found = service.visitorByNameAndPhone("홍길동", "010-1234-5678");
+
+		assertThat(found.getToken()).isEqualTo(token);
+		assertThat(service.reservationsOf(found.getId())).hasSize(1);
+	}
+
+	@Test
+	void 연락처는_표기가_달라도_같은_사람으로_찾는다() {
+		service.book(booth.getId(), slot, "홍길동", "010-1234-5678");
+
+		assertThat(service.visitorByNameAndPhone("홍길동", "01012345678").getName())
+			.isEqualTo("홍길동");
+	}
+
+	@Test
+	void 이름의_공백과_대소문자는_무시한다() {
+		service.book(booth.getId(), slot, "Hong Gildong", "01012345678");
+
+		// 띄어쓰기나 대소문자가 어긋난다고 본인이 자기 예약을 못 찾으면 안 된다.
+		assertThat(service.visitorByNameAndPhone("honggildong", "01012345678")).isNotNull();
+	}
+
+	@Test
+	void 이름이_다르면_찾지_못한다() {
+		service.book(booth.getId(), slot, "홍길동", "01012345678");
+
+		assertThatThrownBy(() -> service.visitorByNameAndPhone("김철수", "01012345678"))
+			.isInstanceOf(ResponseStatusException.class)
+			.satisfies(e -> assertStatus(e, HttpStatus.NOT_FOUND));
+	}
+
+	/**
+	 * 번호가 아예 없을 때와 이름만 어긋날 때가 구분되면, 번호만 아는 사람이
+	 * "이 사람이 박람회에 왔는가"를 확인할 수 있게 된다. 두 경우의 응답이 같아야 한다.
+	 */
+	@Test
+	void 없는_번호와_이름_불일치는_구분되지_않는다() {
+		service.book(booth.getId(), slot, "홍길동", "01012345678");
+
+		Throwable wrongName = catchThrowable(
+			() -> service.visitorByNameAndPhone("김철수", "01012345678"));
+		Throwable noSuchPhone = catchThrowable(
+			() -> service.visitorByNameAndPhone("김철수", "01099998888"));
+
+		assertStatus(wrongName, HttpStatus.NOT_FOUND);
+		assertStatus(noSuchPhone, HttpStatus.NOT_FOUND);
+		assertThat(wrongName.getMessage()).isEqualTo(noSuchPhone.getMessage());
+	}
+
+	@Test
+	void 연락처가_비어_있으면_400이다() {
+		assertThatThrownBy(() -> service.visitorByNameAndPhone("홍길동", "번호아님"))
+			.isInstanceOf(ResponseStatusException.class)
+			.satisfies(e -> assertStatus(e, HttpStatus.BAD_REQUEST));
+	}
+
+	/** 예약이 아직 없는 사람은 찾히되 빈 목록이 나온다 — 예약 완료 직후 취소한 경우다. */
+	@Test
+	void 예약이_없는_사람은_빈_목록을_돌려준다() {
+		ReservationService.BookResult booked =
+			service.book(booth.getId(), slot, "홍길동", "01012345678");
+		service.cancel(booked.reservation().getId(), booked.visitorToken());
+
+		Visitor found = service.visitorByNameAndPhone("홍길동", "01012345678");
+
+		assertThat(service.reservationsOf(found.getId()))
+			.allMatch(r -> r.getStatus() == ReservationStatus.CANCELLED);
 	}
 }

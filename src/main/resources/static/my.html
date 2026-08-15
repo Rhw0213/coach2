@@ -21,13 +21,17 @@
 
 	<p class="eyebrow">확인 · 취소</p>
 	<h1>내 예약</h1>
-	<p class="lede">예약할 때 받은 확인 번호를 넣으면 잡아둔 부스와 시간을 보고 취소할 수 있습니다.</p>
+	<p class="lede">예약할 때 적은 이름과 연락처를 넣으면 잡아둔 부스와 시간을 보고 취소할 수 있습니다.</p>
 
 	<form id="lookup">
 		<label>
-			<span>확인 번호</span>
-			<input name="token" required autocomplete="off" spellcheck="false"
-			       placeholder="예약 완료 화면에서 받은 번호">
+			<span>이름</span>
+			<input name="name" required autocomplete="name" maxlength="40">
+		</label>
+		<label>
+			<span>연락처</span>
+			<input name="phone" required type="tel" inputmode="tel" autocomplete="tel"
+			       placeholder="010-1234-5678" maxlength="20">
 		</label>
 		<div class="actions">
 			<button class="btn" type="submit">예약 조회</button>
@@ -41,35 +45,49 @@
 <script src="app.js"></script>
 <script>
 const form = document.getElementById('lookup');
-const input = form.token;
 const out = document.getElementById('out');
 
-/* 링크로 바로 열 수 있게 ?t= 를 받고, 없으면 지난 예약에서 저장해 둔 번호를 쓴다. */
-const fromUrl = new URLSearchParams(location.search).get('t');
-const initial = fromUrl || store.token;
+/* 같은 브라우저로 돌아온 사람에게는 이름·연락처를 다시 묻지 않는다. ?t= 링크도 그대로 받는다.
+ * 어디까지나 지름길이다 — 실패하면 조용히 넘기고 아래 조회 폼으로 들어오게 둔다. */
+const initial = new URLSearchParams(location.search).get('t') || store.token;
 if (initial) {
-	input.value = initial;
-	load(initial);
+	load(initial, true);
 }
 
-form.addEventListener('submit', (event) => {
+form.addEventListener('submit', async (event) => {
 	event.preventDefault();
-	const token = input.value.trim();
-	if (token) {
-		store.token = token;
-		load(token);
+	const data = new FormData(form);
+	out.innerHTML = '<p class="empty">불러오는 중…</p>';
+
+	let result;
+	try {
+		result = await api('api/reservations/lookup', {
+			method: 'POST',
+			body: JSON.stringify({ name: data.get('name'), phone: data.get('phone') }),
+		});
+	} catch (e) {
+		showError(out, e.message);
+		return;
 	}
+	store.token = result.token;
+	render(result.token, result.reservations);
 });
 
-async function load(token) {
+async function load(token, quiet) {
 	out.innerHTML = '<p class="empty">불러오는 중…</p>';
 	let list;
 	try {
 		list = await api('api/reservations/me/' + encodeURIComponent(token));
 	} catch (e) {
-		showError(out, e.message);
+		// 저장된 값이 낡았을 뿐일 수 있다. 사용자가 아무것도 안 눌렀는데 뜨는 에러는 숨긴다.
+		if (quiet) {
+			out.replaceChildren();
+		} else {
+			showError(out, e.message);
+		}
 		return;
 	}
+	store.token = token;
 	render(token, list);
 }
 

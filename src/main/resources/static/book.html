@@ -316,7 +316,7 @@ el.form.addEventListener('submit', async (event) => {
 	}
 });
 
-/* 확인 번호를 잃으면 예약을 다시 열 수 없다. 예약한 기업·시간과 함께 표처럼 넘긴다. */
+/* 예약한 기업·시간을 표처럼 넘긴다. 조회는 이름·연락처로 하므로 따로 적어둘 번호는 없다. */
 function renderTicket(result) {
 	const box = document.createElement('div');
 	box.className = 'ticket';
@@ -337,27 +337,10 @@ function renderTicket(result) {
 	note.style.cssText = 'margin:0;font-size:.875rem';
 	// 온라인 행사다. 어디로 오라고 하지 않는다 — 참여자가 할 일은 링크를 기다리는 것뿐이다.
 	note.textContent = '예약한 시간에 ZOOM으로 참여합니다. 접속 링크는 행사 전날 신청하신 연락처로 보내드립니다. '
-		+ '아래 확인 번호로 예약을 조회하고 취소할 수 있습니다.';
-
-	const code = document.createElement('code');
-	code.textContent = result.token;
+		+ '「내 예약」에서 방금 적으신 이름과 연락처로 조회하고 취소할 수 있습니다.';
 
 	const actions = document.createElement('div');
 	actions.className = 'actions';
-
-	const copy = document.createElement('button');
-	copy.type = 'button';
-	copy.className = 'btn btn--ghost';
-	copy.textContent = '번호 복사';
-	copy.addEventListener('click', async () => {
-		try {
-			await navigator.clipboard.writeText(result.token);
-			copy.textContent = '복사됨';
-			setTimeout(() => { copy.textContent = '번호 복사'; }, 1500);
-		} catch {
-			copy.textContent = '직접 선택해 복사하세요';
-		}
-	});
 
 	const go = document.createElement('a');
 	go.className = 'btn';
@@ -365,8 +348,8 @@ function renderTicket(result) {
 	go.href = 'my.html';
 	go.textContent = '내 예약 보기';
 
-	actions.append(copy, go);
-	box.append(h, where, when, note, code, actions);
+	actions.append(go);
+	box.append(h, where, when, note, actions);
 	el.ticket.replaceChildren(box);
 	box.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
