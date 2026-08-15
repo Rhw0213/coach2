@@ -58,7 +58,16 @@ function render(data) {
 	mark.textContent = `${data.boothNo} ${data.companyName}`;
 	document.title = `${data.boothNo} ${data.companyName} · 예약 현황`;
 
-	const byTime = new Map(data.reservations.map(r => [new Date(r.startTime).getTime(), r]));
+	// 한 시각에 여러 명이 올 수 있다(그룹면접 정원 5). Map에 한 건씩만 담으면 나중 값이
+	// 앞사람을 덮어써서 담당자에게는 5명 중 1명만 보인다 — 현장에서 확인할 방법이 없는 화면이다.
+	const byTime = new Map();
+	for (const r of data.reservations) {
+		const key = new Date(r.startTime).getTime();
+		if (!byTime.has(key)) {
+			byTime.set(key, []);
+		}
+		byTime.get(key).push(r);
+	}
 	const grid = slotGrid(data.eventDate, data.openFrom, data.openTo, data.slotMinutes);
 	const now = Date.now();
 
@@ -70,7 +79,9 @@ function render(data) {
 		.filter(r => r.ms + r.slotMinutes * 60_000 > now)
 		.sort((a, b) => a.ms - b.ms);
 
-	out.append(nextCard(upcoming[0], now));
+	// 그룹면접이면 같은 시각에 여러 명이 온다. 다음 칸에 오는 사람을 전부 넘긴다 —
+	// 한 명만 보여주면 담당자가 나머지를 모른 채 상담을 시작한다.
+	out.append(nextCard(upcoming.filter(r => r.ms === upcoming[0]?.ms), now));
 
 	// ── 요약 ──
 	const summary = document.createElement('p');
@@ -78,7 +89,10 @@ function render(data) {
 	summary.style.margin = '2rem 0 .5rem';
 	summary.textContent =
 		`${dayLabel(data.eventDate)} · ${data.openFrom.slice(0, 5)}–${data.openTo.slice(0, 5)}`
-		+ ` · 예약 ${data.reservations.length}건 / 전체 ${grid.length}칸`;
+		// 정원이 1이 아니면 '칸 수'가 곧 정원이 아니다. 전체 좌석으로 말해야 담당자가
+		// 얼마나 찼는지 안다 — 14칸 × 정원 5면 70석이지 14석이 아니다.
+		+ ` · 예약 ${data.reservations.length}건 / 전체 ${grid.length * data.capacity}석`
+		+ (data.capacity > 1 ? ` (${grid.length}칸 × 정원 ${data.capacity}명)` : '');
 	out.append(summary);
 
 	if (!data.active) {
@@ -95,10 +109,10 @@ function render(data) {
 	let lastHour = null;
 
 	for (const start of grid) {
-		const r = byTime.get(start.getTime());
+		const here = byTime.get(start.getTime()) ?? [];
 		const iso = start.toISOString();
 		const li = document.createElement('li');
-		li.className = r ? 'band' : 'band band--gone';
+		li.className = here.length ? 'band' : 'band band--gone';
 
 		const hh = hhmm(iso).slice(0, 2);
 		const hour = document.createElement('span');
@@ -106,26 +120,33 @@ function render(data) {
 		hour.textContent = hh === lastHour ? '' : hh;
 		lastHour = hh;
 
-		if (r) {
-			const box = document.createElement('div');
-			box.className = 'booked' + (start.getTime() + r.slotMinutes * 60_000 <= now ? ' booked--done' : '');
+		if (here.length) {
+			const stack = document.createElement('div');
+			for (const r of here) {
+				const box = document.createElement('div');
+				box.className = 'booked'
+					+ (start.getTime() + r.slotMinutes * 60_000 <= now ? ' booked--done' : '');
 
-			const t = document.createElement('span');
-			t.className = 'booked-time';
-			t.textContent = hhmm(iso);
+				// 시각은 그 칸의 첫 사람에게만 찍는다. 같은 시각이 세로로 반복되면
+				// 몇 시 칸인지가 아니라 몇 명인지가 안 읽힌다.
+				const t = document.createElement('span');
+				t.className = 'booked-time';
+				t.textContent = r === here[0] ? hhmm(iso) : '';
 
-			const who = document.createElement('span');
-			who.className = 'booked-who';
-			who.textContent = r.visitorName;
+				const who = document.createElement('span');
+				who.className = 'booked-who';
+				who.textContent = r.visitorName;
 
-			// 연락처는 tel: 링크로 — 담당자가 현장에서 바로 걸 수 있어야 한다.
-			const tel = document.createElement('a');
-			tel.className = 'booked-tel';
-			tel.href = 'tel:' + r.visitorPhone;
-			tel.textContent = r.visitorPhone;
+				// 연락처는 tel: 링크로 — 담당자가 현장에서 바로 걸 수 있어야 한다.
+				const tel = document.createElement('a');
+				tel.className = 'booked-tel';
+				tel.href = 'tel:' + r.visitorPhone;
+				tel.textContent = r.visitorPhone;
 
-			box.append(t, who, tel);
-			li.append(hour, box);
+				box.append(t, who, tel);
+				stack.append(box);
+			}
+			li.append(hour, stack);
 		} else {
 			const gone = document.createElement('span');
 			gone.className = 'gone';
@@ -142,7 +163,8 @@ function render(data) {
 	out.append(list);
 }
 
-function nextCard(next, now) {
+/** group: 같은 시각에 오는 사람들. 1:1이면 한 명, 그룹면접이면 정원만큼. */
+function nextCard(group, now) {
 	const box = document.createElement('div');
 	box.className = 'ticket';
 	box.style.marginTop = '0';
@@ -151,7 +173,7 @@ function nextCard(next, now) {
 	label.className = 'eyebrow';
 	label.style.margin = '0 0 .375rem';
 
-	if (!next) {
+	if (!group.length) {
 		label.textContent = '다음 상담';
 		const none = document.createElement('p');
 		none.style.cssText = 'margin:0;font-weight:700;font-size:1.125rem';
@@ -160,26 +182,55 @@ function nextCard(next, now) {
 		return box;
 	}
 
-	const started = next.ms <= now;
-	label.textContent = started ? '진행 중' : '다음 상담';
-
-	const who = document.createElement('p');
-	who.style.cssText = 'margin:0;font-weight:800;font-size:1.5rem;letter-spacing:-.02em';
-	who.textContent = next.visitorName;
+	const first = group[0];
+	const started = first.ms <= now;
+	label.textContent = (started ? '진행 중' : '다음 상담')
+		+ (group.length > 1 ? ` · ${group.length}명` : '');
 
 	const when = document.createElement('p');
 	when.style.cssText = 'margin:.25rem 0 .75rem;font-family:var(--mono);font-size:.9375rem';
-	when.textContent = `${hhmm(next.startTime)} · ${next.slotMinutes}분`
-		+ (started ? '' : ` · ${minutesUntil(next.ms, now)}`);
+	when.textContent = `${hhmm(first.startTime)} · ${first.slotMinutes}분`
+		+ (started ? '' : ` · ${minutesUntil(first.ms, now)}`);
 
-	const tel = document.createElement('a');
-	tel.className = 'btn';
-	tel.style.cssText = 'display:inline-block;text-decoration:none;flex:none;padding:.625rem 1rem';
-	tel.href = 'tel:' + next.visitorPhone;
-	tel.textContent = next.visitorPhone;
+	box.append(label);
 
-	box.append(label, who, when, tel);
+	if (group.length === 1) {
+		const who = document.createElement('p');
+		who.style.cssText = 'margin:0;font-weight:800;font-size:1.5rem;letter-spacing:-.02em';
+		who.textContent = first.visitorName;
+
+		// 1:1일 때는 연락처가 유일한 행동이므로 버튼으로 크게 둔다.
+		const call = document.createElement('a');
+		call.className = 'btn';
+		call.style.cssText = 'display:inline-block;text-decoration:none;flex:none;padding:.625rem 1rem';
+		call.href = 'tel:' + first.visitorPhone;
+		call.textContent = first.visitorPhone;
+
+		box.append(who, when, call);
+		return box;
+	}
+
+	// 여러 명이면 이름을 하나씩 크게 세우지 않는다 — 명단으로 읽혀야 한다.
+	box.append(when);
+	for (const p of group) {
+		const row = document.createElement('p');
+		row.style.cssText = 'display:flex;align-items:baseline;gap:.75rem;margin:0 0 .5rem';
+		const who = document.createElement('span');
+		who.style.cssText = 'font-weight:800;font-size:1.0625rem;letter-spacing:-.01em';
+		who.textContent = p.visitorName;
+		row.append(who, tel(p));
+		box.append(row);
+	}
 	return box;
+}
+
+function tel(r) {
+	const a = document.createElement('a');
+	a.className = 'booked-tel';
+	a.style.marginLeft = '0';
+	a.href = 'tel:' + r.visitorPhone;
+	a.textContent = r.visitorPhone;
+	return a;
 }
 
 function minutesUntil(ms, now) {

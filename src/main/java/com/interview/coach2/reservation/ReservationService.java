@@ -58,7 +58,21 @@ public class ReservationService {
 			.toList();
 	}
 
-	@Transactional
+	/**
+	 * ⚠ 이 메서드에 @Transactional을 붙이지 말 것. 커넥션 풀이 데드락한다.
+	 *
+	 * 실제 INSERT는 ReservationWriter가 REQUIRES_NEW로 자기 트랜잭션에서 한다(제약 위반이
+	 * 바깥을 오염시키지 않게 하려고). 여기에 바깥 트랜잭션까지 있으면 요청 하나가 커넥션을
+	 * 동시에 두 개 쥐게 되고, HikariCP 기본 풀 10개에서는 열 요청이 각자 하나씩 잡은 채
+	 * 두 번째를 기다리다 전원이 타임아웃한다.
+	 *
+	 * 실측: 정원 1인 슬롯에 40명이 동시에 예약하면 40건 전부
+	 * CannotCreateTransactionException(500)으로 실패했다. ConcurrentBookingTest가 이걸 지킨다.
+	 *
+	 * 트랜잭션이 없어도 안전하다. 이 메서드의 조회들은 서로 원자적일 필요가 없고
+	 * (사전검사는 원래 경합을 막지 못한다 — 진짜 방어선은 유니크 제약이다),
+	 * 엔티티에 지연로딩 연관관계가 하나도 없어 세션 밖에서 필드를 읽어도 문제가 없다.
+	 */
 	public BookResult book(Long boothId, Instant startTime, String name, String rawPhone) {
 		Booth booth = activeBooth(boothId);
 

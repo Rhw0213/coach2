@@ -100,7 +100,8 @@ public class ReservationController {
 
 	public record StaffView(String companyName, String boothNo, String note,
 	                        LocalDate eventDate, LocalTime openFrom, LocalTime openTo,
-	                        int slotMinutes, boolean active, List<StaffReservation> reservations) {
+	                        int slotMinutes, int capacity, boolean active,
+	                        List<StaffReservation> reservations) {
 	}
 
 	@GetMapping("/staff/{staffToken}")
@@ -120,7 +121,7 @@ public class ReservationController {
 
 		return new StaffView(booth.getCompanyName(), booth.getBoothNo(), booth.getNote(),
 			booth.getEventDate(), booth.getOpenFrom(), booth.getOpenTo(),
-			booth.getSlotMinutes(), booth.isActive(), rows);
+			booth.getSlotMinutes(), booth.getCapacity(), booth.isActive(), rows);
 	}
 
 	static BoothView toView(Booth b) {

@@ -441,6 +441,10 @@ input:focus, select:focus { border-color: var(--pine); }
 
 .gate { max-width: 24rem; margin: 4rem auto; }
 
+/* 표가 좁은 화면을 밀어내지 않게 자기 안에서 스크롤시킨다. .num이 nowrap이라
+   운영진이 휴대폰으로 현황을 볼 때 페이지 전체가 가로로 밀린다. */
+.admin-wrap { overflow-x: auto; }
+
 .admin-table { width: 100%; border-collapse: collapse; font-size: .875rem; }
 .admin-table th {
 	text-align: left;

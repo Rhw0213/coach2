@@ -1,9 +1,12 @@
 package com.interview.coach2;
 
+import com.interview.coach2.reservation.BoothRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * 컨테이너 healthcheck와 CI가 의존하는 계약을 고정한다.
@@ -16,7 +19,14 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class HealthControllerTest {
 
-	private final MockMvcTester mvc = MockMvcTester.of(new HealthController());
+	// DB 왕복은 스텁으로 대신한다. 여기서 고정하려는 건 응답 계약이고,
+	// DB가 실제로 살아 있어야 200이 난다는 성질은 운영의 healthcheck가 검증한다.
+	private final BoothRepository booths = mock(BoothRepository.class);
+	private final MockMvcTester mvc = MockMvcTester.of(new HealthController(booths));
+
+	{
+		when(booths.count()).thenReturn(3L);
+	}
 
 	@Test
 	void health_returns_ok() {

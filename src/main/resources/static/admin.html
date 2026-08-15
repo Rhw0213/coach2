@@ -172,7 +172,15 @@ function render(list) {
 		tbody.append(tr);
 	}
 	table.append(tbody);
-	bookings.replaceChildren(table);
+	bookings.replaceChildren(wrapTable(table));
+}
+
+/** 표를 자기 스크롤 상자에 넣는다 — 좁은 화면에서 페이지가 통째로 밀리지 않게. */
+function wrapTable(table) {
+	const box = document.createElement('div');
+	box.className = 'admin-wrap';
+	box.append(table);
+	return box;
 }
 
 function cell(text, cls) {
@@ -278,7 +286,7 @@ async function loadBooths() {
 		tbody.append(tr);
 	}
 	table.append(tbody);
-	boothList.replaceChildren(table);
+	boothList.replaceChildren(wrapTable(table));
 }
 
 function fillForm(b) {
