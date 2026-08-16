@@ -77,9 +77,12 @@ public class ReservationService {
 		}
 
 		// 슬롯마다 몇 명이 찼는지 센다. 정원이 1이면 예전처럼 '있으면 마감'과 같아진다.
+		// 좌석을 차지한 것만 센다 — 좌석 없는 설명회 신청(seatNo=0)이 섞여 있으면
+		// 남은 자리가 음수가 되어 멀쩡한 슬롯이 목록에서 통째로 사라진다.
 		Map<Instant, Long> taken = reservations
 			.findByBoothIdAndStatus(boothId, ReservationStatus.RESERVED)
 			.stream()
+			.filter(r -> r.getSeatNo() > 0)
 			.collect(Collectors.groupingBy(Reservation::getStartTime, Collectors.counting()));
 
 		int capacity = booth.getCapacity();
@@ -183,8 +186,10 @@ public class ReservationService {
 
 		// 아래 세 검사는 흔한 경우에 무엇이 문제인지 알려주기 위한 것이다.
 		// 동시 요청은 이걸로 막지 못한다 — 진짜 방어선은 Reservation의 유니크 제약이다.
-		if (!booth.isUnlimited() && reservations.countByBoothIdAndStartTimeAndStatus(
-				boothId, startTime, ReservationStatus.RESERVED) >= booth.getCapacity()) {
+		// 좌석을 차지한 건수만 센다(seatNo > 0). 설명회 신청은 좌석을 잡지 않으므로,
+		// 그것까지 세면 설명회를 면접으로 되돌리는 순간 실제로는 빈 시각이 영구히 마감된다.
+		if (!booth.isUnlimited() && reservations.countByBoothIdAndStartTimeAndStatusAndSeatNoGreaterThan(
+				boothId, startTime, ReservationStatus.RESERVED, 0) >= booth.getCapacity()) {
 			// 1:1이면 '이미 예약된', 그룹이면 '정원이 찬' 것이다. 사용자가 읽는 문장이므로 구분한다.
 			throw conflict(booth.getCapacity() == 1
 				? "이미 예약된 시간입니다"

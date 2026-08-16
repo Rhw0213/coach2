@@ -171,6 +171,31 @@ class BoothKindTest {
 			});
 	}
 
+	/**
+	 * 설명회 신청은 좌석을 잡지 않는다(seatNo=0). 그런데 정원 계산이 건수만 세면,
+	 * 신청이 남은 채로 부스를 면접으로 되돌리는 순간 실제로는 빈 시각이 영구히 마감된다.
+	 * 원인이 DB에 흔적을 남기지 않아 관리자가 왜 안 되는지 알 방법도 없다.
+	 */
+	@Test
+	void 신청이_남은_설명회를_면접으로_되돌려도_그_시각이_마감되지_않는다() {
+		Long id = admin.createBooth(request("b5", BoothKind.BRIEFING)).id();
+		Booth briefing = booths.findById(id).orElseThrow();
+		Instant slot = Slots.forBooth(briefing).get(0);
+
+		for (int i = 1; i <= 3; i++) {
+			service.book(id, slot, who("참가자" + i, "0102222000" + i), null);
+		}
+
+		// 정원 1짜리 면접으로 되돌린다.
+		admin.updateBooth(id, request("b5", BoothKind.INTERVIEW));
+
+		assertThat(service.availableSlots(id)).as("좌석 없는 신청이 슬롯을 막으면 안 된다").contains(slot);
+		service.book(id, slot, who("면접자", "01099998888"), null);
+
+		assertThat(reservations.countByBoothIdAndStartTimeAndStatusAndSeatNoGreaterThan(
+			id, slot, ReservationStatus.RESERVED, 0)).isEqualTo(1);
+	}
+
 	/** 화면이 '인원 제한 없음'을 스스로 계산하지 않도록 서버가 알려준다. */
 	@Test
 	void 공개_부스_응답이_무제한_여부를_담는다() {
