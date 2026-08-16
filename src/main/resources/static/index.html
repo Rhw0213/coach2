@@ -145,23 +145,51 @@ body {
 .band { padding: 4rem 0; }
 .band + .band { padding-top: 0; }
 
-/* 참여기업. 사실 넷과 같은 왼쪽 민트 실선을 써서 이 페이지의 조형 안에 둔다 —
-   여기만 테두리 상자로 만들면 다른 사이트에서 붙여온 것처럼 보인다. */
-.firm-grid { display: grid; gap: 1.5rem; }
-@media (min-width: 40rem) { .firm-grid { grid-template-columns: repeat(2, 1fr); gap: 1.75rem 2.5rem; } }
+/* 참여기업. 포스터의 '이렇게 진행됩니다' 카드와 같은 조형이다 — 연한 민트 바탕에 둥근
+   모서리, 아래쪽에 알약 태그. 같은 인쇄물에서 온 화면이라는 것이 그 형태로 읽힌다.
+   눌러서 들어가는 카드이므로 바탕과 그림자로 만질 수 있는 것처럼 보이게 한다. */
+.firm-grid { display: grid; gap: 1rem; }
+@media (min-width: 40rem) { .firm-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 64rem) { .firm-grid { grid-template-columns: repeat(3, 1fr); } }
 
 .firm {
-	display: block;
-	padding-left: 1.25rem;
-	border-left: 2px solid var(--mint-100);
+	display: flex;
+	flex-direction: column;
+	background: var(--mint-50);
+	border: 1px solid transparent;
+	border-radius: 1rem;
+	padding: 1.25rem 1.375rem 1.125rem;
 	text-decoration: none;
 	color: inherit;
-	transition: border-color .12s ease;
+	transition: border-color .12s ease, transform .12s ease, box-shadow .12s ease;
 }
-.firm:hover { border-color: var(--pine-500); }
+.firm:hover, .firm:focus-visible {
+	border-color: var(--pine-500);
+	transform: translateY(-2px);
+	box-shadow: 0 .5rem 1.25rem rgba(14, 58, 48, .10);
+}
 .firm b { font-size: 1.0625rem; font-weight: 800; letter-spacing: -.02em; }
-.firm .cat { font-size: .75rem; font-weight: 700; letter-spacing: .02em; color: var(--pine-500); margin-left: .5rem; white-space: nowrap; }
-.firm p { margin: .3125rem 0 0; font-size: .875rem; color: var(--ink-60); }
+.firm p { margin: .4375rem 0 0; font-size: .875rem; color: var(--ink-60); }
+
+/* 카드 아래를 가로지르는 줄. 왼쪽은 분류, 오른쪽은 '눌러서 들어간다'는 신호다. */
+.firm-foot {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: .75rem;
+	margin-top: auto;
+	padding-top: 1.125rem;
+}
+.firm .cat {
+	background: var(--mint-100);
+	color: var(--pine-700);
+	font-size: .75rem;
+	font-weight: 800;
+	padding: .3125rem .75rem;
+	border-radius: 999px;
+	white-space: nowrap;
+}
+.firm .go { font-size: .8125rem; font-weight: 800; color: var(--pine-500); white-space: nowrap; }
 
 /* 기업 정보를 못 받아왔을 때 남는 포스터 문구. */
 .firm-fallback { margin: 0; font-weight: 700; letter-spacing: -.015em; }
@@ -486,17 +514,29 @@ const companiesReady = (async function () {
 		name.textContent = c.name;
 		card.append(name);
 
-		if (c.category) {
-			const cat = document.createElement('span');
-			cat.className = 'cat';
-			cat.textContent = c.category;
-			card.append(cat);
-		}
 		if (c.summary) {
 			const p = document.createElement('p');
 			p.textContent = c.summary;
 			card.append(p);
 		}
+
+		const foot = document.createElement('div');
+		foot.className = 'firm-foot';
+		if (c.category) {
+			const cat = document.createElement('span');
+			cat.className = 'cat';
+			cat.textContent = c.category;
+			foot.append(cat);
+		} else {
+			// 분류가 없어도 오른쪽 신호는 끝에 붙어 있어야 한다.
+			foot.append(document.createElement('span'));
+		}
+		const go = document.createElement('span');
+		go.className = 'go';
+		go.textContent = '채용정보 →';
+		foot.append(go);
+		card.append(foot);
+
 		grid.append(card);
 	}
 	box.append(grid);
