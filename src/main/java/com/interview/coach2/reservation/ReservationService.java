@@ -18,13 +18,16 @@ public class ReservationService {
 	private final BoothRepository booths;
 	private final VisitorRepository visitors;
 	private final ReservationRepository reservations;
+	private final ApprovalRepository approvals;
 	private final ReservationWriter writer;
 
 	public ReservationService(BoothRepository booths, VisitorRepository visitors,
-	                          ReservationRepository reservations, ReservationWriter writer) {
+	                          ReservationRepository reservations, ApprovalRepository approvals,
+	                          ReservationWriter writer) {
 		this.booths = booths;
 		this.visitors = visitors;
 		this.reservations = reservations;
+		this.approvals = approvals;
 		this.writer = writer;
 	}
 
@@ -93,7 +96,20 @@ public class ReservationService {
 	 * 엔티티에 지연로딩 연관관계가 하나도 없어 세션 밖에서 필드를 읽어도 문제가 없다.
 	 */
 	public BookResult book(Long boothId, Instant startTime, String name, String rawPhone) {
+		return book(boothId, startTime, name, rawPhone, null);
+	}
+
+	public BookResult book(Long boothId, Instant startTime, String name, String rawPhone,
+	                       String approvalToken) {
 		Booth booth = activeBooth(boothId);
+
+		if (booth.isApprovalRequired()) {
+			// 이름·연락처는 명단에 적힌 것을 쓴다. 화면이 보낸 값을 그대로 믿으면 남의 링크를
+			// 받아 자기 번호로 그 자리를 가져갈 수 있다. 토큰이 곧 그 사람이다.
+			Approval approval = approvalFor(approvalToken, boothId);
+			name = approval.getName();
+			rawPhone = approval.getPhone();
+		}
 
 		String phone = PhoneNumbers.normalize(rawPhone);
 		if (phone == null) {
@@ -241,6 +257,34 @@ public class ReservationService {
 		return stored.replaceAll("\\s", "").equalsIgnoreCase(given.replaceAll("\\s", ""));
 	}
 
+	/**
+	 * 개별 안내 링크가 가리키는 합격자. 링크를 연 화면이 자기 이름과 어느 기업인지 확인하는 데 쓴다.
+	 *
+	 * 토큰이 틀렸을 때 404다. 403으로 답하면 '있긴 한데 권한이 없다'는 뜻이 되어, 토큰을
+	 * 넣어보며 유효한 링크를 찾는 데 단서를 준다.
+	 */
+	@Transactional(readOnly = true)
+	public Approval approvalByToken(String token) {
+		if (token == null || token.isBlank()) {
+			throw notFound("링크를 확인할 수 없습니다");
+		}
+		return approvals.findByToken(token)
+			.orElseThrow(() -> notFound("링크를 확인할 수 없습니다"));
+	}
+
+	/**
+	 * 예약 시점의 검사. 여기서는 403이다 — 예약하려는 부스가 무엇인지는 이미 공개된 정보이고,
+	 * 사용자에게 '왜 안 되는지'를 알려주지 않으면 링크를 받고도 헤맨다.
+	 */
+	private Approval approvalFor(String token, Long boothId) {
+		if (token == null || token.isBlank()) {
+			throw forbidden("서류 합격자에게 보내드린 개별 링크로만 예약할 수 있습니다");
+		}
+		return approvals.findByToken(token)
+			.filter(a -> a.isFor(boothId))
+			.orElseThrow(() -> forbidden("이 링크로는 이 면접을 예약할 수 없습니다. 안내받은 링크를 다시 확인해 주세요"));
+	}
+
 	private Visitor findOrCreateVisitor(String name, String phone) {
 		return visitors.findByPhone(phone).orElseGet(() -> {
 			try {
@@ -266,6 +310,10 @@ public class ReservationService {
 
 	private static ResponseStatusException conflict(String message) {
 		return new ResponseStatusException(HttpStatus.CONFLICT, message);
+	}
+
+	private static ResponseStatusException forbidden(String message) {
+		return new ResponseStatusException(HttpStatus.FORBIDDEN, message);
 	}
 
 	private static ResponseStatusException notFound(String message) {

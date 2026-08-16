@@ -29,6 +29,7 @@ class ReservationServiceTest {
 	@Autowired BoothRepository booths;
 	@Autowired VisitorRepository visitors;
 	@Autowired ReservationRepository reservations;
+	@Autowired ApprovalRepository approvals;
 
 	private Booth booth;
 	private Instant slot;
@@ -37,6 +38,7 @@ class ReservationServiceTest {
 	void setUp() {
 		reservations.deleteAll();
 		visitors.deleteAll();
+		approvals.deleteAll();
 		booths.deleteAll();
 
 		// 항상 미래인 날을 고른다 — 실행 시점에 따라 깨지지 않게.
@@ -332,6 +334,77 @@ class ReservationServiceTest {
 		assertThatThrownBy(() -> new Booth("영정원", "X-00", null,
 			booth.getEventDate(), LocalTime.of(10, 0), LocalTime.of(17, 0), 30, 0))
 			.isInstanceOf(IllegalArgumentException.class);
+	}
+
+	// ── 서류 합격자 전용 부스 ─────────────────────────────────────
+
+	private Booth approvalBooth() {
+		Booth b = booths.save(new Booth("동해기업 1:1", "I-01", "서류 합격자 대상",
+			booth.getEventDate(), LocalTime.of(10, 0), LocalTime.of(17, 0), 30, 1));
+		b.setApprovalRequired(true);
+		return booths.save(b);
+	}
+
+	@Test
+	void 합격자_전용_부스는_링크_없이_예약되지_않는다() {
+		Booth gated = approvalBooth();
+
+		assertThatThrownBy(() -> service.book(gated.getId(), slot, "홍길동", "01012345678"))
+			.isInstanceOf(ResponseStatusException.class)
+			.satisfies(e -> assertStatus(e, HttpStatus.FORBIDDEN));
+	}
+
+	/** 거절된 요청이 사람을 만들어두면 안 된다 — 검사는 Visitor 생성보다 앞에 있어야 한다. */
+	@Test
+	void 거절된_예약은_방문자를_만들지_않는다() {
+		Booth gated = approvalBooth();
+
+		assertThatThrownBy(() -> service.book(gated.getId(), slot, "홍길동", "01012345678"))
+			.isInstanceOf(ResponseStatusException.class);
+
+		assertThat(visitors.count()).isZero();
+	}
+
+	@Test
+	void 다른_부스의_링크로는_예약되지_않는다() {
+		Booth gated = approvalBooth();
+		Booth other = approvalBooth();
+		Approval mine = approvals.save(new Approval(other.getId(), "홍길동", "01012345678"));
+
+		assertThatThrownBy(() ->
+			service.book(gated.getId(), slot, "홍길동", "01012345678", mine.getToken()))
+			.isInstanceOf(ResponseStatusException.class)
+			.satisfies(e -> assertStatus(e, HttpStatus.FORBIDDEN));
+	}
+
+	/**
+	 * 화면이 보낸 이름·연락처를 그대로 믿으면, 남의 링크를 받은 사람이 자기 번호를 넣어
+	 * 그 자리를 가져갈 수 있다. 예약은 반드시 명단에 적힌 사람으로 기록되어야 한다.
+	 */
+	@Test
+	void 링크로_예약하면_명단의_이름과_번호로_기록된다() {
+		Booth gated = approvalBooth();
+		Approval approved = approvals.save(new Approval(gated.getId(), "홍길동", "01012345678"));
+
+		service.book(gated.getId(), slot, "가로채기", "01099998888", approved.getToken());
+
+		assertThat(visitors.findAll()).singleElement().satisfies(v -> {
+			assertThat(v.getName()).isEqualTo("홍길동");
+			assertThat(v.getPhone()).isEqualTo("01012345678");
+		});
+	}
+
+	@Test
+	void 합격_제한이_없는_부스는_링크_없이_예약된다() {
+		assertThat(service.book(booth.getId(), slot, "홍길동", "01012345678").visitorToken())
+			.isNotBlank();
+	}
+
+	@Test
+	void 없는_토큰_조회는_404다() {
+		assertThatThrownBy(() -> service.approvalByToken("없는토큰"))
+			.isInstanceOf(ResponseStatusException.class)
+			.satisfies(e -> assertStatus(e, HttpStatus.NOT_FOUND));
 	}
 
 	// ── 남은 자리 수 ──────────────────────────────────────────────

@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>참여기업 · 온라인 채용박람회</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="app.css">
+<style>
+/* 채용정보(JD) 상세. 예약 화면과 같은 app.css 위에, 이 페이지에만 필요한 것만 얹는다. */
+
+/* app.css의 조형을 따른다 — 각진 2px 모서리, 1px --rail 테두리, --paper 바탕.
+   둥근 알약이나 들어올리는 hover를 쓰면 이 페이지만 다른 사이트에서 온 것처럼 보인다.
+   특히 배경이 --field이므로 배지 바탕을 --field로 두면 아예 보이지 않는다. */
+.cat, .gated {
+	display: inline-block;
+	background: var(--paper);
+	border: 1px solid var(--rail);
+	border-radius: 2px;
+	font-size: .75rem;
+	font-weight: 700;
+	letter-spacing: .02em;
+	padding: .1875rem .5rem;
+	white-space: nowrap;
+}
+.cat { color: var(--ink-70); vertical-align: .2em; margin-left: .5rem; }
+.gated { color: var(--pine); }
+
+/* 기업 기본정보 — 짧은 값들이라 표처럼 눕힌다. */
+.facts { display: grid; gap: 1rem; margin: 1.5rem 0 2.5rem; }
+@media (min-width: 34rem) { .facts { grid-template-columns: repeat(2, 1fr); gap: 1rem 2rem; } }
+
+.facts div { border-top: 1px solid var(--rail); padding-top: .625rem; }
+.facts dt { font-size: .75rem; font-weight: 800; letter-spacing: .04em; color: var(--ink-45); }
+.facts dd { margin: .1875rem 0 0; font-weight: 700; letter-spacing: -.01em; }
+
+/* JD 본문. 원문의 ①②③ 줄바꿈을 그대로 살린다 —
+   관리자가 넣은 글이므로 innerHTML로 그리지 않는다. 저장형 XSS가 된다. */
+.jd { margin: 0 0 2rem; }
+.jd h2 { font-size: 1.0625rem; margin: 0 0 .5rem; }
+.jd p {
+	margin: 0;
+	white-space: pre-wrap;
+	line-height: 1.7;
+	color: var(--ink);
+}
+
+.sessions { display: grid; gap: .75rem; margin: 0 0 2rem; }
+.session {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1rem;
+	flex-wrap: wrap;
+	background: var(--paper);
+	border: 1px solid var(--rail);
+	border-radius: 2px;
+	padding: 1rem 1.125rem;
+}
+/* app.css의 .btn은 flex:1이다 — 여기선 행 전체로 늘어나므로 묶어둔다. */
+.session .btn {
+	flex: none;
+	display: inline-block;
+	text-decoration: none;
+	padding: .625rem 1rem;
+}
+.session b { font-size: 1.0625rem; letter-spacing: -.02em; }
+/* app.css의 .when은 등폭에 아래 여백까지 붙어 있다. 여기서는 한 줄 설명이므로 따로 둔다. */
+.sess-when { display: block; font-size: .875rem; color: var(--ink-45); margin-top: .1875rem; }
+
+/* 목록 화면 */
+.firm-grid { display: grid; gap: .75rem; }
+@media (min-width: 40rem) { .firm-grid { grid-template-columns: repeat(2, 1fr); } }
+
+.firm {
+	display: block;
+	background: var(--paper);
+	border: 1px solid var(--rail);
+	border-radius: 2px;
+	padding: 1.125rem 1.25rem;
+	text-decoration: none;
+	color: inherit;
+	transition: border-color .12s ease;
+}
+.firm:hover { border-color: var(--pine); }
+.firm b { font-size: 1.0625rem; letter-spacing: -.02em; }
+.firm p { margin: .375rem 0 0; font-size: .875rem; color: var(--ink-45); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+	<header class="topbar">
+		<p class="mark">온라인 채용박람회</p>
+		<nav>
+			<a href="index.html">행사 안내</a>
+			<a href="company.html" aria-current="page">참여기업</a>
+			<a href="book.html">예약하기</a>
+			<a href="my.html">내 예약</a>
+		</nav>
+	</header>
+
+	<div id="out"><p class="empty">불러오는 중…</p></div>
+
+</div>
+
+<script src="app.js"></script>
+<script>
+const out = document.getElementById('out');
+const wanted = new URLSearchParams(location.search).get('id');
+
+/** 값이 없는 항목은 제목까지 통째로 뺀다 — 빈 제목만 줄줄이 있으면 정보가 없다는 인상만 남는다. */
+function block(title, text) {
+	if (!text) {
+		return null;
+	}
+	const section = document.createElement('section');
+	section.className = 'jd';
+	const h = document.createElement('h2');
+	h.textContent = title;
+	const p = document.createElement('p');
+	p.textContent = text;
+	section.append(h, p);
+	return section;
+}
+
+function fact(label, value) {
+	if (!value) {
+		return null;
+	}
+	const box = document.createElement('div');
+	const dt = document.createElement('dt');
+	dt.textContent = label;
+	const dd = document.createElement('dd');
+	dd.textContent = value;
+	box.append(dt, dd);
+	return box;
+}
+
+async function renderList() {
+	let list;
+	try {
+		list = await api('api/companies');
+	} catch (e) {
+		showError(out, e.message);
+		return;
+	}
+	out.replaceChildren();
+
+	const h1 = document.createElement('h1');
+	h1.textContent = '참여기업';
+	const lede = document.createElement('p');
+	lede.className = 'lede';
+	lede.textContent = '기업을 누르면 채용 직무와 자격 요건을 볼 수 있습니다. 관심 있는 기업을 고른 뒤 면접·상담 시간을 예약하세요.';
+	out.append(h1, lede);
+
+	if (!list.length) {
+		const empty = document.createElement('p');
+		empty.className = 'empty';
+		empty.textContent = '참여기업 정보를 준비하고 있습니다.';
+		out.append(empty);
+		return;
+	}
+
+	const grid = document.createElement('div');
+	grid.className = 'firm-grid';
+	for (const c of list) {
+		const card = document.createElement('a');
+		card.className = 'firm';
+		card.href = 'company.html?id=' + encodeURIComponent(c.id);
+
+		const name = document.createElement('b');
+		name.textContent = c.name;
+		card.append(name);
+
+		if (c.category) {
+			const cat = document.createElement('span');
+			cat.className = 'cat';
+			cat.textContent = c.category;
+			card.append(cat);
+		}
+		if (c.summary) {
+			const p = document.createElement('p');
+			p.textContent = c.summary;
+			card.append(p);
+		}
+		grid.append(card);
+	}
+	out.append(grid);
+}
+
+async function renderOne(id) {
+	let c;
+	try {
+		c = await api('api/companies/' + encodeURIComponent(id));
+	} catch (e) {
+		showError(out, e.message);
+		return;
+	}
+	out.replaceChildren();
+
+	const back = document.createElement('p');
+	back.className = 'eyebrow';
+	const backLink = document.createElement('a');
+	backLink.href = 'company.html';
+	backLink.textContent = '← 참여기업';
+	back.append(backLink);
+
+	const h1 = document.createElement('h1');
+	h1.textContent = c.name;
+	if (c.category) {
+		const cat = document.createElement('span');
+		cat.className = 'cat';
+		cat.textContent = c.category;
+		h1.append(cat);
+	}
+	out.append(back, h1);
+
+	if (c.summary) {
+		const lede = document.createElement('p');
+		lede.className = 'lede';
+		lede.textContent = c.summary;
+		out.append(lede);
+	}
+
+	const facts = document.createElement('dl');
+	facts.className = 'facts';
+	for (const [label, value] of [
+			['업종 · 주력사업', c.industry], ['업력', c.founded],
+			['매출액', c.revenue], ['채용 인원', c.headcount]]) {
+		const box = fact(label, value);
+		if (box) {
+			facts.append(box);
+		}
+	}
+	if (facts.children.length) {
+		out.append(facts);
+	}
+
+	if (c.homepage) {
+		const link = document.createElement('p');
+		const a = document.createElement('a');
+		// 관리자가 넣은 주소다. javascript: 같은 스킴이 그대로 링크가 되지 않도록 http(s)만 건다.
+		a.href = /^https?:\/\//i.test(c.homepage) ? c.homepage : 'https://' + c.homepage;
+		a.textContent = c.homepage;
+		a.rel = 'noopener noreferrer';
+		a.target = '_blank';
+		link.append(a);
+		out.append(link);
+	}
+
+	for (const [title, text] of [
+			['채용 직무', c.roles], ['주요 업무', c.duties],
+			['자격 요건', c.requirements], ['희망 전공', c.majors], ['인재상', c.talent]]) {
+		const section = block(title, text);
+		if (section) {
+			out.append(section);
+		}
+	}
+
+	const h2 = document.createElement('h2');
+	h2.textContent = '면접 · 상담 예약';
+	out.append(h2);
+
+	if (!c.sessions.length) {
+		const empty = document.createElement('p');
+		empty.className = 'empty';
+		empty.textContent = '이 기업은 아직 예약을 열지 않았습니다.';
+		out.append(empty);
+		return;
+	}
+
+	const list = document.createElement('div');
+	list.className = 'sessions';
+	for (const s of c.sessions) {
+		const row = document.createElement('div');
+		row.className = 'session';
+
+		const left = document.createElement('div');
+		const title = document.createElement('b');
+		title.textContent = s.capacity > 1 ? `그룹 상담 · ${s.capacity}명` : '1:1 면접 · 상담';
+		const when = document.createElement('span');
+		when.className = 'sess-when';
+		when.textContent = `${dayLabel(s.eventDate)} · ${s.openFrom.slice(0, 5)}~${s.openTo.slice(0, 5)}`
+			+ (s.approvalRequired ? ' · 서류 합격자 전용' : '');
+		left.append(title, when);
+		row.append(left);
+
+		// 합격자 전용은 개별 안내 링크로만 들어온다. 여기에 예약 버튼을 두면
+		// 누른 사람은 예약 화면까지 갔다가 거절당한다.
+		if (s.approvalRequired) {
+			const note = document.createElement('span');
+			note.className = 'gated';
+			note.textContent = '개별 안내 링크로 예약';
+			row.append(note);
+		} else {
+			const go = document.createElement('a');
+			go.className = 'btn';
+			go.href = 'book.html';
+			go.textContent = '시간 예약하기';
+			row.append(go);
+		}
+		list.append(row);
+	}
+	out.append(list);
+}
+
+if (wanted) {
+	renderOne(wanted);
+} else {
+	renderList();
+}
+</script>
+</body>
+</html>

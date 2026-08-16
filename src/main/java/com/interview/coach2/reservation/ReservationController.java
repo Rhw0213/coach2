@@ -1,6 +1,8 @@
 package com.interview.coach2.reservation;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -20,12 +22,14 @@ public class ReservationController {
 	private final ReservationService service;
 	private final BoothRepository booths;
 	private final VisitorRepository visitors;
+	private final CompanyRepository companies;
 
 	public ReservationController(ReservationService service, BoothRepository booths,
-	                             VisitorRepository visitors) {
+	                             VisitorRepository visitors, CompanyRepository companies) {
 		this.service = service;
 		this.booths = booths;
 		this.visitors = visitors;
+		this.companies = companies;
 	}
 
 	/**
@@ -35,10 +39,12 @@ public class ReservationController {
 	 */
 	public record BoothView(Long id, String companyName, String boothNo, String note,
 	                        LocalDate eventDate, LocalTime openFrom, LocalTime openTo,
-	                        int slotMinutes, int capacity) {
+	                        int slotMinutes, int capacity, boolean approvalRequired) {
 	}
 
-	public record BookRequest(Long boothId, Instant startTime, String name, String phone) {
+	/** approvalToken은 서류 합격자 전용 부스에서만 쓰인다. 그 부스에서는 이름·연락처를 보내도 무시된다. */
+	public record BookRequest(Long boothId, Instant startTime, String name, String phone,
+	                          String approvalToken) {
 	}
 
 	public record BookResponse(Long reservationId, String token, Instant startTime,
@@ -71,10 +77,50 @@ public class ReservationController {
 		return service.openSlots(boothId);
 	}
 
+	// ── 참여 기업 · 채용정보(JD) ──────────────────────────────────
+
+	/** 목록 카드용. 긴 JD 항목은 싣지 않는다 — 목록에서 읽지도 않는데 응답만 몇 배가 된다. */
+	public record CompanyCard(Long id, String name, String category, String summary) {
+	}
+
+	/** 기업 상세. sessions는 그 기업이 연 면접·상담이며, 예약 화면으로 넘어가는 통로다. */
+	public record CompanyDetail(Long id, String name, String category, String summary,
+	                            String industry, String founded, String revenue, String homepage,
+	                            String headcount, String roles, String duties, String requirements,
+	                            String majors, String talent, List<BoothView> sessions) {
+	}
+
+	@GetMapping("/companies")
+	public List<CompanyCard> companies() {
+		return companies.findByActiveTrueOrderByNameAsc().stream()
+			.map(c -> new CompanyCard(c.getId(), c.getName(), c.getCategory(), c.getSummary()))
+			.toList();
+	}
+
+	@GetMapping("/companies/{companyId}")
+	public CompanyDetail company(@PathVariable Long companyId) {
+		Company c = companies.findById(companyId)
+			.filter(Company::isActive)
+			.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "기업을 찾을 수 없습니다"));
+
+		// 부스와는 회사명으로 이어져 있다. 아직 부스를 열지 않은 기업이면 빈 목록이 나간다 —
+		// 소개만 보고 나중에 예약하러 오는 것도 정상적인 흐름이다.
+		List<BoothView> sessions = service.activeBooths().stream()
+			.filter(b -> c.getName().equals(b.getCompanyName()))
+			.map(ReservationController::toView)
+			.toList();
+
+		return new CompanyDetail(c.getId(), c.getName(), c.getCategory(), c.getSummary(),
+			c.getIndustry(), c.getFounded(), c.getRevenue(), c.getHomepage(), c.getHeadcount(),
+			c.getRoles(), c.getDuties(), c.getRequirements(), c.getMajors(), c.getTalent(),
+			sessions);
+	}
+
 	@PostMapping("/reservations")
 	public BookResponse book(@RequestBody BookRequest request) {
 		ReservationService.BookResult result = service.book(
-			request.boothId(), request.startTime(), request.name(), request.phone());
+			request.boothId(), request.startTime(), request.name(), request.phone(),
+			request.approvalToken());
 		Reservation r = result.reservation();
 		Booth booth = service.booth(r.getBoothId());
 		return new BookResponse(r.getId(), result.visitorToken(), r.getStartTime(),
@@ -124,6 +170,23 @@ public class ReservationController {
 		}).toList();
 	}
 
+	/** 개별 안내 링크가 가리키는 것. 화면이 '누구로', '어느 기업 면접을' 잡는지 보여주는 데 쓴다. */
+	public record ApprovalView(String name, String phoneMasked, Long boothId,
+	                           String companyName, String boothNo) {
+	}
+
+	/**
+	 * 링크는 문자로 돌아다니다 남의 손에 들어갈 수 있다. 그래서 연락처는 가려서 내려준다 —
+	 * 본인은 앞뒤 몇 자리로 자기 번호를 알아보고, 주운 사람은 온전한 번호를 얻지 못한다.
+	 */
+	@GetMapping("/approvals/{token}")
+	public ApprovalView approval(@PathVariable String token) {
+		Approval approval = service.approvalByToken(token);
+		Booth booth = service.booth(approval.getBoothId());
+		return new ApprovalView(approval.getName(), PhoneNumbers.mask(approval.getPhone()),
+			booth.getId(), booth.getCompanyName(), booth.getBoothNo());
+	}
+
 	@DeleteMapping("/reservations/{reservationId}")
 	public void cancel(@PathVariable Long reservationId, @RequestParam String token) {
 		service.cancel(reservationId, token);
@@ -165,6 +228,7 @@ public class ReservationController {
 
 	static BoothView toView(Booth b) {
 		return new BoothView(b.getId(), b.getCompanyName(), b.getBoothNo(), b.getNote(),
-			b.getEventDate(), b.getOpenFrom(), b.getOpenTo(), b.getSlotMinutes(), b.getCapacity());
+			b.getEventDate(), b.getOpenFrom(), b.getOpenTo(), b.getSlotMinutes(), b.getCapacity(),
+			b.isApprovalRequired());
 	}
 }

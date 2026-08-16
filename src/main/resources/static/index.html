@@ -366,6 +366,9 @@ body {
 .firms dt { font-size: .75rem; font-weight: 700; letter-spacing: .06em; color: var(--pine-500); flex: none; }
 .firms dd { margin: 0; font-weight: 700; letter-spacing: -.015em; }
 .firms .etc { font-weight: 400; color: var(--ink-60); }
+.firms a { color: inherit; text-decoration: none; border-bottom: 2px solid var(--mint-100); }
+.firms a:hover { border-color: var(--pine-500); }
+.firms .all { font-weight: 400; color: var(--pine-500); border-bottom: 0; white-space: nowrap; }
 
 /* ── 진행 방식 — 행사 프로그램표 ─────────────────────────── */
 
@@ -567,9 +570,11 @@ body {
 				</div>
 			</dl>
 
+			<!-- 기본값은 포스터 문구 그대로다. 기업 정보가 등록되어 있으면 아래 스크립트가
+			     실제 목록으로 바꾸고, 각 이름이 그 기업의 채용정보로 들어가는 문이 된다. -->
 			<dl class="firms">
 				<dt>참여기업</dt>
-				<dd>시큐아이 · 세트렉아이 · 키사이트테크놀로지스코리아 <span class="etc">등 국내 우수기업 참여</span></dd>
+				<dd id="firms">시큐아이 · 쎄트렉아이 · 키사이트테크놀로지스코리아 <span class="etc">등 국내 우수기업 참여</span></dd>
 			</dl>
 		</div>
 	</section>
@@ -703,6 +708,38 @@ if (toEvent > 0) {
 } else {
 	ddayEl.textContent = '행사 종료';
 }
+
+/* 참여기업. 등록된 것이 있으면 포스터 문구를 실제 목록으로 바꾸고 각 이름에 링크를 건다.
+ * 실패하거나 아직 비어 있으면 기본 문구가 그대로 남는다 — 안내가 사라지는 것보다 낫다. */
+(async function () {
+	let list;
+	try {
+		list = await api('api/companies');
+	} catch {
+		return;
+	}
+	if (!list || !list.length) {
+		return;
+	}
+
+	const dd = document.getElementById('firms');
+	dd.replaceChildren();
+	list.forEach((c, i) => {
+		if (i) {
+			dd.append(document.createTextNode(' · '));
+		}
+		const a = document.createElement('a');
+		a.href = 'company.html?id=' + encodeURIComponent(c.id);
+		a.textContent = c.name;
+		dd.append(a);
+	});
+
+	const all = document.createElement('a');
+	all.className = 'all';
+	all.href = 'company.html';
+	all.textContent = '채용정보 보기 →';
+	dd.append(document.createTextNode(' '), all);
+})();
 
 /* ── 시간표 레일 ──────────────────────────────────────────
  *

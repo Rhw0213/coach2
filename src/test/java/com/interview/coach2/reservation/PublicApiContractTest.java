@@ -32,6 +32,7 @@ class PublicApiContractTest {
 	@Autowired BoothRepository booths;
 	@Autowired ReservationRepository reservations;
 	@Autowired VisitorRepository visitors;
+	@Autowired ApprovalRepository approvals;
 
 	private final HttpClient http = HttpClient.newHttpClient();
 
@@ -39,6 +40,7 @@ class PublicApiContractTest {
 	void setUp() {
 		reservations.deleteAll();
 		visitors.deleteAll();
+		approvals.deleteAll();
 		booths.deleteAll();
 	}
 
@@ -172,12 +174,58 @@ class PublicApiContractTest {
 		assertThat(res.body()).doesNotContain("token");
 	}
 
+	/** 링크가 문자로 돌아다니다 남의 손에 들어가도 온전한 연락처를 넘겨주면 안 된다. */
+	@Test
+	void 합격자_링크_조회는_연락처를_가려서_준다() throws Exception {
+		Booth gated = saveBooth();
+		gated.setApprovalRequired(true);
+		booths.save(gated);
+		Approval approved = approvals.save(new Approval(gated.getId(), "홍길동", "01012345678"));
+
+		HttpResponse<String> res = get("/api/approvals/" + approved.getToken());
+
+		assertThat(res.statusCode()).isEqualTo(200);
+		assertThat(res.body())
+			.contains("\"name\":\"홍길동\"")
+			.contains("\"companyName\":\"동해기업\"")
+			.contains("010****5678")
+			.doesNotContain("01012345678");
+	}
+
+	@Test
+	void 없는_링크는_404다() throws Exception {
+		assertThat(get("/api/approvals/아무거나").statusCode()).isEqualTo(404);
+	}
+
+	/** 공개 부스 목록이 이 값을 안 주면 예약 화면이 어느 부스가 합격자 전용인지 모른다. */
+	@Test
+	void 공개_부스_응답이_합격자_전용_여부를_담는다() throws Exception {
+		Booth gated = saveBooth();
+		gated.setApprovalRequired(true);
+		booths.save(gated);
+
+		assertThat(get("/api/booths").body()).contains("\"approvalRequired\":true");
+	}
+
+	@Test
+	void 합격자_전용_부스는_링크_없이_예약되지_않는다() throws Exception {
+		Booth gated = saveBooth();
+		gated.setApprovalRequired(true);
+		booths.save(gated);
+
+		HttpResponse<String> res = post("/api/reservations", """
+			{"boothId":%d,"startTime":"%s","name":"홍길동","phone":"010-1111-2222"}
+			""".formatted(gated.getId(), Slots.forBooth(gated).get(0)));
+
+		assertThat(res.statusCode()).isEqualTo(403);
+	}
+
 	@Test
 	void 정적_화면이_서비스된다() throws Exception {
 		// 셋 다 실제로 서빙되지 않으면 배포는 성공해도 사용자는 아무것도 못 본다.
 		for (String page : new String[]{
-				"/index.html", "/book.html", "/my.html", "/admin.html", "/booth.html",
-				"/app.css", "/app.js", "/favicon.svg"}) {
+				"/index.html", "/book.html", "/my.html", "/company.html", "/admin.html",
+				"/booth.html", "/app.css", "/app.js", "/favicon.svg"}) {
 			assertThat(get(page).statusCode()).as(page).isEqualTo(200);
 		}
 	}

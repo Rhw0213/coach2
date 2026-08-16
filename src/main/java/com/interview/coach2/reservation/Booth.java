@@ -62,6 +62,18 @@ public class Booth {
 	private boolean active = true;
 
 	/**
+	 * 켜면 서류 합격자만 예약할 수 있다(1:1 면접). 끄면 누구나(그룹 상담).
+	 *
+	 * 정원으로 대신 판단하지 않는다. 정원 1이 곧 1:1이긴 하지만, '몇 명이 들어오나'와
+	 * '아무나 들어와도 되나'는 다른 질문이다. 나중에 합격자만 받는 그룹 상담이 생겨도
+	 * 이 값 하나만 켜면 된다.
+	 */
+	// capacity와 같은 이유로 DEFAULT를 DDL에 박는다 — 행이 있는 운영 테이블에서
+	// ADD COLUMN NOT NULL 이 실패해도 ddl-auto=update는 로그만 남기고 넘어간다.
+	@Column(columnDefinition = "boolean default false not null")
+	private boolean approvalRequired = false;
+
+	/**
 	 * 부스 담당자용 링크의 열쇠. 주최측이 관리자 화면에서 복사해 각 참가 기업에 전달한다.
 	 * 이 토큰으로는 자기 부스의 예약만 볼 수 있고 설정은 바꿀 수 없다 —
 	 * 담당자에게 ADMIN_SECRET을 주면 남의 기업 예약자 연락처까지 전부 열린다.
@@ -125,6 +137,11 @@ public class Booth {
 		// 이미 그 정원만큼 찬 슬롯이 있어도 줄이는 것을 막지 않는다. 기존 예약은 그대로 두고
 		// 새 예약만 막히는 편이, 이미 확정된 사람을 밀어내는 것보다 낫다.
 		this.capacity = capacity;
+	}
+
+	/** 이미 잡힌 예약은 건드리지 않는다. 켜는 순간부터 새 예약만 합격자로 제한된다. */
+	public void setApprovalRequired(boolean required) {
+		this.approvalRequired = required;
 	}
 
 	public void updateInfo(String companyName, String boothNo, String note) {
