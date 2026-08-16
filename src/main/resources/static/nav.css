@@ -38,25 +38,12 @@
 }
 .sitenav-home img { width: 1.5rem; height: 1.5rem; }
 
-.sitenav-links { display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap; }
+/* 메뉴는 전부 같은 상자다. 읽기만 하는 메뉴와 신청 메뉴를 왼쪽·오른쪽에 다른 모양으로
+   나눠 두었더니 상단바가 두 벌처럼 보였다 — 무엇을 하는 메뉴인지는 글자가 말한다. */
+.sitenav-links { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; margin-left: auto; }
 
-.sitenav-links a {
-	text-decoration: none;
-	color: #16201C;
-	font-size: .875rem;
-	font-weight: 700;
-	white-space: nowrap;
-	padding: .25rem 0;
-	border-bottom: 2px solid transparent;
-}
-.sitenav-links a:hover { border-color: #2A7A66; }
-.sitenav-links a[aria-current] { color: #1A5A4A; border-color: #1A5A4A; }
-
-/* 신청으로 이어지는 셋은 테두리를 둘러 구분한다 — 구성안이 그렇게 나눠 두었고,
-   읽기만 하는 메뉴와 무언가를 내는 메뉴는 성격이 다르다. */
-.sitenav-acts { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; margin-left: auto; }
-
-.sitenav-acts a {
+/* 내 예약만 이 상자에서 뺀다(아래 참고). :not이 없으면 이 규칙이 더 구체적이라 이긴다. */
+.sitenav-links a:not(.sitenav-mine) {
 	text-decoration: none;
 	font-size: .8125rem;
 	font-weight: 700;
@@ -66,15 +53,15 @@
 	border-radius: 2px;
 	color: #1A5A4A;
 }
-.sitenav-acts a:hover { border-color: #2A7A66; background: #E9F3EF; }
-.sitenav-acts a[aria-current] { background: #1A5A4A; border-color: #1A5A4A; color: #FFFFFF; }
+.sitenav-links a:not(.sitenav-mine):hover { border-color: #2A7A66; background: #E9F3EF; }
+.sitenav-links a:not(.sitenav-mine)[aria-current] { background: #1A5A4A; border-color: #1A5A4A; color: #FFFFFF; }
 
-/* 내 예약은 신청이 아니라 확인이다. 셋과 같은 무게로 두면 처음 온 사람이 여기부터 누른다. */
+/* 내 예약은 신청이 아니라 확인이다. 다른 메뉴와 같은 무게로 두면 처음 온 사람이 여기부터 누른다. */
 .sitenav-mine { font-size: .8125rem; color: #66746E; text-decoration: none; white-space: nowrap; }
 .sitenav-mine:hover { color: #1A5A4A; }
 
 @media (max-width: 46rem) {
 	.sitenav-in { gap: .5rem .875rem; padding: .625rem 1.25rem; }
-	.sitenav-acts { margin-left: 0; width: 100%; }
-	.sitenav-links { gap: .875rem; }
+	/* 로고 옆에 다섯을 붙일 수 없다. 한 줄을 통째로 내주고 왼쪽부터 채운다. */
+	.sitenav-links { margin-left: 0; width: 100%; }
 }

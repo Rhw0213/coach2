@@ -87,16 +87,16 @@ function renderNav(current) {
 		parent.append(a);
 	};
 
+	// 넷을 한 덩어리로 오른쪽에 붙인다. 읽는 메뉴와 신청 메뉴를 왼쪽·오른쪽으로 갈라 두었더니
+	// 상단바가 두 벌인 것처럼 보였다.
 	const links = document.createElement('nav');
 	links.className = 'sitenav-links';
 	add(links, 'about', 'about.html', '행사 개요');
 	add(links, 'company', 'company.html', '채용관');
-	box.append(links);
+	add(links, 'briefing', 'briefing.html', '기업 설명회');
+	add(links, 'docs', 'docs.html', '서류 등록');
 
-	const acts = document.createElement('div');
-	acts.className = 'sitenav-acts';
-	add(acts, 'briefing', 'briefing.html', '기업 설명회');
-	add(acts, 'docs', 'docs.html', '서류 등록');
+	// 내 예약은 신청이 아니라 확인이다. 같은 상자에 넣으면 처음 온 사람이 여기부터 누른다.
 	const mine = document.createElement('a');
 	mine.className = 'sitenav-mine';
 	mine.href = 'my.html';
@@ -104,8 +104,8 @@ function renderNav(current) {
 	if (current === 'mine') {
 		mine.setAttribute('aria-current', 'page');
 	}
-	acts.append(mine);
-	box.append(acts);
+	links.append(mine);
+	box.append(links);
 
 	host.replaceChildren(box);
 }
