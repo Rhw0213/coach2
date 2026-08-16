@@ -139,6 +139,38 @@ class BoothKindTest {
 			.isInstanceOf(ResponseStatusException.class);
 	}
 
+	/**
+	 * 설명회도 누가 신청했는지 남아야 한다. 면접은 되는데 설명회만 빠지면
+	 * 기업이 명단 없이 웨비나를 열게 된다.
+	 */
+	@Test
+	void 설명회_신청자도_담당자_화면과_관리자_목록에_나온다() {
+		Booth briefing = booths.findById(
+			admin.createBooth(request("b4", BoothKind.BRIEFING)).id()).orElseThrow();
+		Instant slot = Slots.forBooth(briefing).get(0);
+
+		service.book(briefing.getId(), slot, new ReservationService.Applicant(
+			"홍길동", "01011112222", "건국대학교", "컴퓨터공학과", "4학년", true), null);
+
+		assertThat(publicApi.staffView(briefing.getStaffToken()).reservations())
+			.singleElement()
+			.satisfies(r -> {
+				assertThat(r.visitorName()).isEqualTo("홍길동");
+				assertThat(r.visitorPhone()).isEqualTo("01011112222");
+				assertThat(r.visitorSchool()).isEqualTo("건국대학교");
+				assertThat(r.visitorMajor()).isEqualTo("컴퓨터공학과");
+				assertThat(r.visitorStanding()).isEqualTo("4학년");
+			});
+
+		assertThat(admin.reservationsOn(briefing.getEventDate()))
+			.singleElement()
+			.satisfies(r -> {
+				assertThat(r.boothNo()).isEqualTo("b4");
+				assertThat(r.visitorName()).isEqualTo("홍길동");
+				assertThat(r.visitorSchool()).isEqualTo("건국대학교");
+			});
+	}
+
 	/** 화면이 '인원 제한 없음'을 스스로 계산하지 않도록 서버가 알려준다. */
 	@Test
 	void 공개_부스_응답이_무제한_여부를_담는다() {
