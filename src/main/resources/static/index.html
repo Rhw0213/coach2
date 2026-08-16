@@ -139,10 +139,22 @@ body {
 .top-div { color: rgba(213, 233, 224, .35); font-weight: 400; }
 .top-org { font-weight: 500; color: var(--mint-100); }
 
+/* 사전신청은 eastAI 쪽 페이지가 맡는다. 이 페이지에서 나가는 유일한 바깥 링크라
+   버튼으로 만들지 않는다 — 여기서 할 일(예약)보다 세게 보이면 순서가 뒤집힌다. */
+.top-link {
+	margin-left: auto;
+	color: var(--mint-100);
+	font-size: .8125rem;
+	font-weight: 700;
+	text-decoration: none;
+	border-bottom: 1px solid rgba(213, 233, 224, .4);
+	white-space: nowrap;
+}
+.top-link:hover { color: var(--paper); border-color: var(--mint-400); }
+
 /* 남은 날짜. 포스터에는 없다 — 인쇄물과 달리 웹은 매일 다시 열리므로,
    마감이 지났는지가 가장 먼저 알아야 할 정보다. */
 .dday {
-	margin-left: auto;
 	font-family: var(--mono);
 	font-variant-numeric: tabular-nums;
 	font-size: .8125rem;
@@ -512,6 +524,9 @@ body {
 			<span>EAST PEACE EDU</span>
 			<span class="top-div">|</span>
 			<span class="top-org">㈜동화인터내셔널</span>
+			<!-- 사전신청은 eastAI의 사전 등록 페이지가 맡는다. 포스터 일정의 첫 단계다.
+			     code는 그 행사를 가리키는 공개 코드이므로 행사가 바뀌면 이 값을 바꾼다. -->
+			<a class="top-link" href="https://eastpeace.kr/conference-register.html?code=5f70f757">참가 사전신청 →</a>
 			<span class="dday" id="dday">2026. 8. 25.</span>
 		</header>
 
