@@ -30,15 +30,17 @@ public class AdminController {
 	private final VisitorRepository visitors;
 	private final ApprovalRepository approvals;
 	private final CompanyRepository companies;
+	private final ReservationRepository reservations;
 
 	public AdminController(ReservationService service, BoothRepository booths,
 	                       VisitorRepository visitors, ApprovalRepository approvals,
-	                       CompanyRepository companies) {
+	                       CompanyRepository companies, ReservationRepository reservations) {
 		this.service = service;
 		this.booths = booths;
 		this.visitors = visitors;
 		this.approvals = approvals;
 		this.companies = companies;
+		this.reservations = reservations;
 	}
 
 	// @DateTimeFormat은 @RequestBody(JSON) 바인딩에 관여하지 않는다 — Jackson이 ISO-8601을
@@ -284,6 +286,41 @@ public class AdminController {
 
 	private static ApprovalView toView(Approval a) {
 		return new ApprovalView(a.getId(), a.getName(), a.getPhone(), a.getToken(), a.getCreatedAt());
+	}
+
+	public record DeletedBooth(Long id, String companyName, String boothNo,
+	                          int reservations, int approvals) {
+	}
+
+	/**
+	 * 부스를 지운다. 시험용으로 만든 부스를 치우거나 잘못 만든 것을 되돌릴 때 쓴다.
+	 *
+	 * 내린 부스만 지울 수 있다. 한 번에 지우게 두면 오타 하나로 예약이 잡혀 있는 부스가
+	 * 통째로 사라진다 — 내리는 순간 공개 화면에서 빠지므로, 그 사이에 무엇이 없어지는지
+	 * 확인할 수 있다.
+	 *
+	 * 딸린 예약과 합격자 명단도 함께 지운다. 부스가 없어진 뒤에 남은 예약은 어느 기업의
+	 * 무엇이었는지 알 수 없는 행이고, 합격자 명단은 그 부스를 가리키는 자격이라 의미가 없다.
+	 * 무엇이 몇 건 사라졌는지 응답에 담는다 — 조용히 지우지 않는다.
+	 */
+	@DeleteMapping("/booths/{boothId}")
+	@Transactional
+	public DeletedBooth deleteBooth(@PathVariable Long boothId) {
+		Booth booth = booths.findById(boothId)
+			.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "부스를 찾을 수 없습니다"));
+		if (booth.isActive()) {
+			throw new ResponseStatusException(HttpStatus.CONFLICT,
+				"운영 중인 부스는 지울 수 없습니다. 먼저 부스를 내려 주세요");
+		}
+
+		List<Reservation> attached = reservations.findByBoothId(boothId);
+		List<Approval> approved = approvals.findByBoothIdOrderByNameAsc(boothId);
+		reservations.deleteAll(attached);
+		approvals.deleteAll(approved);
+		booths.delete(booth);
+
+		return new DeletedBooth(boothId, booth.getCompanyName(), booth.getBoothNo(),
+			attached.size(), approved.size());
 	}
 
 	@GetMapping("/reservations")

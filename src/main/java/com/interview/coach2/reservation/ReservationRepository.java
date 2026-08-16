@@ -9,6 +9,9 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
 
 	List<Reservation> findByBoothIdAndStatus(Long boothId, ReservationStatus status);
 
+	/** 부스를 지울 때 딸린 예약을 걷어내는 용도. 상태를 가리지 않는다. */
+	List<Reservation> findByBoothId(Long boothId);
+
 	// Between은 양끝을 포함한다. 하루 범위를 [자정, 다음날 자정)으로 잡아야 하므로
 	// 끝은 LessThan을 쓴다 — 이름은 길지만 경계에서 틀리지 않는다.
 	List<Reservation> findByStatusAndStartTimeGreaterThanEqualAndStartTimeLessThanOrderByStartTime(
