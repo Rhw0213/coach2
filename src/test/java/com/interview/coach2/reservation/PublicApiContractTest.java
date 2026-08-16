@@ -89,7 +89,8 @@ class PublicApiContractTest {
 			HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/reservations"))
 				.header("Content-Type", "application/json")
 				.POST(HttpRequest.BodyPublishers.ofString("""
-					{"boothId":%d,"startTime":"%s","name":"홍길동","phone":"010-1111-2222"}
+					{"boothId":%d,"startTime":"%s","name":"홍길동","phone":"010-1111-2222",
+					 "school":"건국대","major":"컴퓨터공학","standing":"4학년","agreed":true}
 					""".formatted(booth.getId(), slot)))
 				.build(),
 			HttpResponse.BodyHandlers.ofString());
@@ -100,6 +101,55 @@ class PublicApiContractTest {
 			.contains("\"boothNo\":\"A-12\"")
 			.contains("\"companyName\":\"동해기업\"")
 			.contains("\"token\":");
+	}
+
+	/**
+	 * 체크박스는 화면의 required만으로 지켜지지 않는다 — curl 한 줄이면 그대로 넘어온다.
+	 * 동의 없이 들어온 요청이 통과하면 개인정보를 받을 근거 없이 저장하게 된다.
+	 */
+	@Test
+	void 개인정보_동의_없이는_예약되지_않는다() throws Exception {
+		Booth booth = saveBooth();
+
+		HttpResponse<String> res = post("/api/reservations", """
+			{"boothId":%d,"startTime":"%s","name":"홍길동","phone":"010-1111-2222",
+			 "school":"건국대","major":"컴퓨터공학","standing":"4학년","agreed":false}
+			""".formatted(booth.getId(), Slots.forBooth(booth).get(0)));
+
+		assertThat(res.statusCode()).isEqualTo(400);
+		assertThat(reservations.count()).isZero();
+		// 동의 전에는 사람도 만들지 않는다. 이름·연락처가 남으면 저장한 것이 없다고 할 수 없다.
+		assertThat(visitors.count()).isZero();
+	}
+
+	@Test
+	void 학교_전공_학년이_없으면_예약되지_않는다() throws Exception {
+		Booth booth = saveBooth();
+
+		HttpResponse<String> res = post("/api/reservations", """
+			{"boothId":%d,"startTime":"%s","name":"홍길동","phone":"010-1111-2222","agreed":true}
+			""".formatted(booth.getId(), Slots.forBooth(booth).get(0)));
+
+		assertThat(res.statusCode()).isEqualTo(400);
+		assertThat(reservations.count()).isZero();
+	}
+
+	/** 기업 담당자가 명단에서 읽는 값이다. 받아만 두고 안 내려주면 받은 의미가 없다. */
+	@Test
+	void 담당자_화면이_학교_전공_학년을_받는다() throws Exception {
+		Booth booth = saveBooth();
+		post("/api/reservations", """
+			{"boothId":%d,"startTime":"%s","name":"홍길동","phone":"010-1111-2222",
+			 "school":"건국대","major":"컴퓨터공학","standing":"4학년","agreed":true}
+			""".formatted(booth.getId(), Slots.forBooth(booth).get(0)));
+
+		HttpResponse<String> res = get("/api/staff/" + booth.getStaffToken());
+
+		assertThat(res.statusCode()).isEqualTo(200);
+		assertThat(res.body())
+			.contains("\"visitorSchool\":\"건국대\"")
+			.contains("\"visitorMajor\":\"컴퓨터공학\"")
+			.contains("\"visitorStanding\":\"4학년\"");
 	}
 
 	@Test
@@ -127,7 +177,8 @@ class PublicApiContractTest {
 			Slots.today().plusDays(7), LocalTime.of(10, 0), LocalTime.of(17, 0), 30, 5));
 		Instant slot = Slots.forBooth(group).get(0);
 		post("/api/reservations", """
-			{"boothId":%d,"startTime":"%s","name":"홍길동","phone":"010-1111-2222"}
+			{"boothId":%d,"startTime":"%s","name":"홍길동","phone":"010-1111-2222",
+					 "school":"건국대","major":"컴퓨터공학","standing":"4학년","agreed":true}
 			""".formatted(group.getId(), slot));
 
 		HttpResponse<String> res = get("/api/booths/" + group.getId() + "/availability");
@@ -143,7 +194,8 @@ class PublicApiContractTest {
 	void 이름과_연락처로_예약을_조회한다() throws Exception {
 		Booth booth = saveBooth();
 		post("/api/reservations", """
-			{"boothId":%d,"startTime":"%s","name":"홍길동","phone":"010-1111-2222"}
+			{"boothId":%d,"startTime":"%s","name":"홍길동","phone":"010-1111-2222",
+					 "school":"건국대","major":"컴퓨터공학","standing":"4학년","agreed":true}
 			""".formatted(booth.getId(), Slots.forBooth(booth).get(0)));
 
 		HttpResponse<String> res = post("/api/reservations/lookup", """
@@ -163,7 +215,8 @@ class PublicApiContractTest {
 	void 연락처가_맞아도_이름이_다르면_열리지_않는다() throws Exception {
 		Booth booth = saveBooth();
 		post("/api/reservations", """
-			{"boothId":%d,"startTime":"%s","name":"홍길동","phone":"010-1111-2222"}
+			{"boothId":%d,"startTime":"%s","name":"홍길동","phone":"010-1111-2222",
+					 "school":"건국대","major":"컴퓨터공학","standing":"4학년","agreed":true}
 			""".formatted(booth.getId(), Slots.forBooth(booth).get(0)));
 
 		HttpResponse<String> res = post("/api/reservations/lookup", """
@@ -214,7 +267,8 @@ class PublicApiContractTest {
 		booths.save(gated);
 
 		HttpResponse<String> res = post("/api/reservations", """
-			{"boothId":%d,"startTime":"%s","name":"홍길동","phone":"010-1111-2222"}
+			{"boothId":%d,"startTime":"%s","name":"홍길동","phone":"010-1111-2222",
+					 "school":"건국대","major":"컴퓨터공학","standing":"4학년","agreed":true}
 			""".formatted(gated.getId(), Slots.forBooth(gated).get(0)));
 
 		assertThat(res.statusCode()).isEqualTo(403);

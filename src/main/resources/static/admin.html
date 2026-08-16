@@ -280,7 +280,8 @@ function render(list) {
 	}
 	const table = document.createElement('table');
 	table.className = 'admin-table';
-	table.innerHTML = '<thead><tr><th>시각</th><th>부스</th><th>기업</th><th>예약자</th><th>연락처</th></tr></thead>';
+	table.innerHTML = '<thead><tr><th>시각</th><th>부스</th><th>기업</th><th>예약자</th>'
+		+ '<th>소속</th><th>연락처</th></tr></thead>';
 	const tbody = document.createElement('tbody');
 	for (const r of list) {
 		const tr = document.createElement('tr');
@@ -289,6 +290,8 @@ function render(list) {
 			cell(r.boothNo, 'num'),
 			cell(r.companyName),
 			cell(r.visitorName),
+			// 학교·전공·학년을 한 칸에 넣는다. 셋으로 나누면 표가 여덟 열이 되어 못 읽는다.
+			cell([r.visitorSchool, r.visitorMajor, r.visitorStanding].filter(Boolean).join(' · ')),
 			cell(r.visitorPhone, 'num'));
 		tbody.append(tr);
 	}

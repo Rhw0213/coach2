@@ -64,7 +64,9 @@ public class AdminController {
 
 	public record AdminReservationView(Long id, Long boothId, String companyName, String boothNo,
 	                                   Instant startTime, int slotMinutes,
-	                                   String visitorName, String visitorPhone) {
+	                                   String visitorName, String visitorPhone,
+	                                   String visitorSchool, String visitorMajor,
+	                                   String visitorStanding) {
 	}
 
 	@GetMapping("/booths")
@@ -351,7 +353,10 @@ public class AdminController {
 				booth == null ? "-" : booth.getBoothNo(),
 				r.getStartTime(), r.getSlotMinutes(),
 				visitor == null ? "-" : visitor.getName(),
-				visitor == null ? "-" : visitor.getPhone());
+				visitor == null ? "-" : visitor.getPhone(),
+				visitor == null ? null : visitor.getSchool(),
+				visitor == null ? null : visitor.getMajor(),
+				visitor == null ? null : visitor.getStanding());
 		}).toList();
 	}
 

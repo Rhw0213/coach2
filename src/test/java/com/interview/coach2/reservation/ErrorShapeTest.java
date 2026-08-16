@@ -73,7 +73,8 @@ class ErrorShapeTest {
 
 		HttpResponse<String> res = post("/api/reservations",
 			"""
-			{"boothId":%d,"startTime":"%s","name":"홍길동","phone":"01011112222"}
+			{"boothId":%d,"startTime":"%s","name":"홍길동","phone":"01011112222",
+			 "school":"건국대","major":"컴퓨터공학","standing":"4학년","agreed":true}
 			""".formatted(booth.getId(), offGrid));
 
 		assertThat(res.statusCode()).isEqualTo(400);
@@ -85,7 +86,8 @@ class ErrorShapeTest {
 		Booth booth = saveBooth();
 		String slot = Slots.forBooth(booth).get(0).toString();
 		String body = """
-			{"boothId":%d,"startTime":"%s","name":"%s","phone":"%s"}
+			{"boothId":%d,"startTime":"%s","name":"%s","phone":"%s",
+			 "school":"건국대","major":"컴퓨터공학","standing":"4학년","agreed":true}
 			""";
 
 		assertThat(post("/api/reservations", body.formatted(booth.getId(), slot, "홍길동", "01011112222"))

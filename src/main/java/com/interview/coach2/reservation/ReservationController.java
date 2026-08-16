@@ -42,8 +42,19 @@ public class ReservationController {
 	                        int slotMinutes, int capacity, boolean approvalRequired, BoothKind kind) {
 	}
 
-	/** approvalToken은 서류 합격자 전용 부스에서만 쓰인다. 그 부스에서는 이름·연락처를 보내도 무시된다. */
+	/**
+	 * approvalToken은 서류 합격자 전용 부스에서만 쓰인다. 그 부스에서는 이름·연락처를 보내도
+	 * 무시된다 — 학교·전공·학년은 명단에 없으므로 그 경우에도 신청서에서 받는다.
+	 *
+	 * agreed는 개인정보 수집·이용 동의다. 화면의 required만으로는 막을 수 없으므로
+	 * 서버가 다시 본다.
+	 *
+	 * boolean이 아니라 Boolean이다. Jackson 3(부트 4)은 FAIL_ON_NULL_FOR_PRIMITIVES가
+	 * 기본으로 켜져 있어, 이 필드를 빼고 보내면 역직렬화가 통째로 실패한다 —
+	 * 그러면 "동의해 주세요" 대신 사유 없는 400이 나가고 화면은 이유를 말하지 못한다.
+	 */
 	public record BookRequest(Long boothId, Instant startTime, String name, String phone,
+	                          String school, String major, String standing, Boolean agreed,
 	                          String approvalToken) {
 	}
 
@@ -124,7 +135,9 @@ public class ReservationController {
 	@PostMapping("/reservations")
 	public BookResponse book(@RequestBody BookRequest request) {
 		ReservationService.BookResult result = service.book(
-			request.boothId(), request.startTime(), request.name(), request.phone(),
+			request.boothId(), request.startTime(),
+			new ReservationService.Applicant(request.name(), request.phone(), request.school(),
+				request.major(), request.standing(), Boolean.TRUE.equals(request.agreed())),
 			request.approvalToken());
 		Reservation r = result.reservation();
 		Booth booth = service.booth(r.getBoothId());
@@ -202,7 +215,9 @@ public class ReservationController {
 	// 예약자 연락처가 실리므로 토큰이 곧 접근 권한이다 — 공개 목록에는 나가지 않는다.
 
 	public record StaffReservation(Instant startTime, int slotMinutes,
-	                               String visitorName, String visitorPhone) {
+	                               String visitorName, String visitorPhone,
+	                               String visitorSchool, String visitorMajor,
+	                               String visitorStanding) {
 	}
 
 	public record StaffView(String companyName, String boothNo, String note,
@@ -223,7 +238,9 @@ public class ReservationController {
 		List<StaffReservation> rows = list.stream().map(r -> {
 			Visitor v = visitorById.get(r.getVisitorId());
 			return new StaffReservation(r.getStartTime(), r.getSlotMinutes(),
-				v == null ? "-" : v.getName(), v == null ? "-" : v.getPhone());
+				v == null ? "-" : v.getName(), v == null ? "-" : v.getPhone(),
+				v == null ? null : v.getSchool(), v == null ? null : v.getMajor(),
+				v == null ? null : v.getStanding());
 		}).toList();
 
 		return new StaffView(booth.getCompanyName(), booth.getBoothNo(), booth.getNote(),

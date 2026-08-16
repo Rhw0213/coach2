@@ -288,6 +288,9 @@ h2 {
 
 .booked-who { font-weight: 700; letter-spacing: -.01em; }
 
+/* 학교 · 전공 · 학년. 이름 옆에 한 줄로 붙여 누가 오는지 명단에서 바로 읽히게 한다. */
+.booked-at { font-size: .8125rem; opacity: .8; }
+
 .booked-tel {
 	margin-left: auto;
 	font-family: var(--mono);

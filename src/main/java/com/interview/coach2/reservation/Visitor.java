@@ -32,6 +32,24 @@ public class Visitor {
 	@Column(nullable = false, unique = true)
 	private String token;
 
+	/*
+	 * 학교·전공·학년 구분. 기업 담당자가 명단에서 읽는 값이라 예약과 함께 받는다.
+	 *
+	 * nullable이다. 운영 DB는 SPRING_JPA_HIBERNATE_DDL_AUTO=update로 굴러가는데,
+	 * 이미 행이 있는 테이블에 NOT NULL 컬럼을 붙이면 ALTER가 실패하고 컬럼이 아예
+	 * 안 생긴다. 필수 여부는 ReservationService가 강제한다 — 화면에서 오는 모든
+	 * 예약은 셋 다 채워져야 통과한다. 비어 있는 행은 이 기능 이전에 잡힌 예약뿐이다.
+	 */
+	@Column(length = 60)
+	private String school;
+
+	@Column(length = 60)
+	private String major;
+
+	/** '3학년', '졸업생' 같은 표시 문자열. 화면의 선택지가 그대로 들어온다. */
+	@Column(length = 20)
+	private String standing;
+
 	@Column(nullable = false)
 	private Instant createdAt;
 
@@ -39,6 +57,10 @@ public class Visitor {
 	}
 
 	public Visitor(String name, String normalizedPhone) {
+		this(name, normalizedPhone, null, null, null);
+	}
+
+	public Visitor(String name, String normalizedPhone, String school, String major, String standing) {
 		if (name == null || name.isBlank()) {
 			throw new IllegalArgumentException("이름은 비어 있을 수 없다");
 		}
@@ -47,6 +69,9 @@ public class Visitor {
 		}
 		this.name = name;
 		this.phone = normalizedPhone;
+		this.school = school;
+		this.major = major;
+		this.standing = standing;
 		this.token = UUID.randomUUID().toString().replace("-", "");
 		this.createdAt = Instant.now();
 	}

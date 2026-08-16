@@ -7,6 +7,26 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="nav.css">
 <link rel="stylesheet" href="app.css">
+<style>
+/* 신청서가 두 칸에서 여섯 칸으로 늘었다. 작은 화면에서는 화면 높이를 넘기므로
+   시트 자체를 스크롤시킨다 — dialog는 기본값으로 넘친 내용을 잘라버린다. */
+#sheet { max-height: min(90vh, 44rem); overflow: auto; }
+#sheet label { margin-bottom: .75rem; }
+
+/* 체크박스 줄. app.css의 label/label span은 세로로 쌓는 입력칸용이라 여기서만 되돌린다. */
+.agree { display: flex; align-items: flex-start; gap: .5rem; margin: 1.25rem 0 .5rem; }
+.agree input { width: auto; flex: none; margin: .1875rem 0 0; }
+.agree span { display: inline; margin: 0; font-size: .875rem; font-weight: 400; line-height: 1.5; }
+.agree b { color: var(--brick); }
+
+/* 고지 내용. 접어 두되 반드시 읽을 수 있어야 한다 — 동의만 받고 무엇에 동의했는지
+   보여주지 않으면 그 동의는 받은 적 없는 것과 같다. */
+.terms { font-size: .8125rem; color: var(--ink-70); margin: 0 0 .5rem; }
+.terms summary { cursor: pointer; color: var(--pine); font-weight: 700; }
+.terms ul { margin: .625rem 0 0; padding-left: 1.125rem; }
+.terms li { margin: 0 0 .25rem; }
+.terms p { margin: .625rem 0 0; }
+</style>
 </head>
 <body>
 <header id="sitenav"></header>
@@ -47,7 +67,44 @@
 		</div>
 		<!-- 개별 안내 링크로 들어온 경우. 이름·연락처는 명단에 적힌 것으로 정해져 있어
 		     고칠 수 없다 — 서버도 화면이 보낸 값을 쓰지 않는다. -->
-		<p id="whoFixed" class="lede" style="margin:0" hidden></p>
+		<p id="whoFixed" class="lede" style="margin:0 0 1rem" hidden></p>
+
+		<!-- 학교·전공·학년은 합격자 명단에도 없다. 링크로 들어온 경우에도 여기서 받는다. -->
+		<label>
+			<span>학교</span>
+			<input name="school" required autocomplete="organization" maxlength="60"
+			       placeholder="○○대학교">
+		</label>
+		<label>
+			<span>전공</span>
+			<input name="major" required maxlength="60" placeholder="○○학과">
+		</label>
+		<label>
+			<span>학년 구분</span>
+			<select name="standing" required>
+				<option value="">선택해 주세요</option>
+				<option>1학년</option>
+				<option>2학년</option>
+				<option>3학년</option>
+				<option>4학년</option>
+				<option>졸업생</option>
+			</select>
+		</label>
+
+		<label class="agree">
+			<input type="checkbox" name="agreed" required>
+			<span>개인정보 수집·이용에 동의합니다 <b>(필수)</b></span>
+		</label>
+		<details class="terms">
+			<summary>수집 항목 · 이용 목적 · 보유 기간</summary>
+			<ul>
+				<li><b>수집 항목</b> — 이름, 연락처, 학교, 전공, 학년 구분</li>
+				<li><b>이용 목적</b> — 신청자 확인, ZOOM 접속 링크 안내, 신청하신 기업에 참가자 명단 제공</li>
+				<!-- 보유 기간은 주최사가 정하는 값이다. 확정되면 이 줄만 고치면 된다. -->
+				<li><b>보유 기간</b> — 행사 종료 후 3개월 이내 파기</li>
+			</ul>
+			<p>동의를 거부하실 수 있습니다. 다만 신청자 확인과 기업 전달을 할 수 없어 신청이 제한됩니다.</p>
+		</details>
 
 		<div id="sheetError"></div>
 
@@ -373,6 +430,11 @@ el.form.addEventListener('submit', async (event) => {
 				// 여기서 보낸 값은 어차피 무시되는데, 담아 보내면 화면이 정한 것처럼 읽힌다.
 				name: approval ? null : data.get('name'),
 				phone: approval ? null : data.get('phone'),
+				school: data.get('school'),
+				major: data.get('major'),
+				standing: data.get('standing'),
+				// 체크가 없으면 FormData에 키 자체가 없다. 서버도 다시 본다.
+				agreed: data.get('agreed') !== null,
 				approvalToken: linkToken,
 			}),
 		});

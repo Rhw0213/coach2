@@ -95,17 +95,40 @@ public class ReservationService {
 	 * (사전검사는 원래 경합을 막지 못한다 — 진짜 방어선은 유니크 제약이다),
 	 * 엔티티에 지연로딩 연관관계가 하나도 없어 세션 밖에서 필드를 읽어도 문제가 없다.
 	 */
+	/**
+	 * 신청서에 적힌 사람. 학교·전공·학년 구분은 기업 담당자가 명단에서 읽는 값이고,
+	 * privacyAgreed는 그 값들을 받아도 되는지에 대한 본인의 동의다.
+	 */
+	public record Applicant(String name, String phone, String school, String major,
+	                        String standing, boolean privacyAgreed) {
+	}
+
+	/** 테스트 편의용. 화면에서 오는 경로는 전부 Applicant를 쓴다. */
 	public BookResult book(Long boothId, Instant startTime, String name, String rawPhone) {
 		return book(boothId, startTime, name, rawPhone, null);
 	}
 
+	/** 테스트 편의용. 위와 같다. */
 	public BookResult book(Long boothId, Instant startTime, String name, String rawPhone,
 	                       String approvalToken) {
+		return book(boothId, startTime,
+			new Applicant(name, rawPhone, "테스트대", "테스트학과", "4학년", true), approvalToken);
+	}
+
+	public BookResult book(Long boothId, Instant startTime, Applicant who, String approvalToken) {
 		Booth booth = activeBooth(boothId);
 
+		// 동의가 먼저다. 동의 없이 받은 값은 저장할 근거가 없으므로 아무것도 조회하지 않는다.
+		if (!who.privacyAgreed()) {
+			throw badRequest("개인정보 수집·이용에 동의해 주세요");
+		}
+
+		String name = who.name();
+		String rawPhone = who.phone();
 		if (booth.isApprovalRequired()) {
 			// 이름·연락처는 명단에 적힌 것을 쓴다. 화면이 보낸 값을 그대로 믿으면 남의 링크를
 			// 받아 자기 번호로 그 자리를 가져갈 수 있다. 토큰이 곧 그 사람이다.
+			// 학교·전공·학년은 명단에 없으므로 이 경우에도 신청서에서 받는다.
 			Approval approval = approvalFor(approvalToken, boothId);
 			name = approval.getName();
 			rawPhone = approval.getPhone();
@@ -118,6 +141,10 @@ public class ReservationService {
 		if (name == null || name.isBlank()) {
 			throw badRequest("이름을 입력해 주세요");
 		}
+		String school = required(who.school(), 60, "학교를 입력해 주세요");
+		String major = required(who.major(), 60, "전공을 입력해 주세요");
+		String standing = required(who.standing(), 20, "학년 또는 졸업 여부를 선택해 주세요");
+
 		// 클라이언트가 보낸 시각이 실제로 이 부스의 슬롯인지 확인한다.
 		// 이 검사가 없으면 운영시간 밖이나 슬롯 경계에 걸치지 않는 임의 시각을 밀어넣을 수 있다.
 		if (!Slots.forBooth(booth).contains(startTime)) {
@@ -127,7 +154,7 @@ public class ReservationService {
 			throw badRequest("지난 시간은 예약할 수 없습니다");
 		}
 
-		Visitor visitor = findOrCreateVisitor(name, phone);
+		Visitor visitor = findOrCreateVisitor(name, phone, school, major, standing);
 
 		// 아래 세 검사는 흔한 경우에 무엇이 문제인지 알려주기 위한 것이다.
 		// 동시 요청은 이걸로 막지 못한다 — 진짜 방어선은 Reservation의 유니크 제약이다.
@@ -285,15 +312,34 @@ public class ReservationService {
 			.orElseThrow(() -> forbidden("이 링크로는 이 면접을 예약할 수 없습니다. 안내받은 링크를 다시 확인해 주세요"));
 	}
 
-	private Visitor findOrCreateVisitor(String name, String phone) {
+	/**
+	 * 사람은 번호로 찾는다. 이미 있으면 학교·전공·학년은 첫 예약 때 적은 것이 남는다 —
+	 * 이름이 그렇게 동작해 온 것과 같다.
+	 *
+	 * ponytail: 두 번째 예약에서 값을 갱신하지 않는다. 이 기능 이전에 잡힌 예약자는
+	 * 셋이 빈 채로 남는데, 사전신청이 이 배포 뒤에 열리므로 그런 행은 사실상 없다.
+	 * 채워 넣어야 한다면 writer에 REQUIRES_NEW 갱신을 하나 더 두면 된다 —
+	 * book()에는 트랜잭션이 없어서 더티체킹으로는 반영되지 않는다.
+	 */
+	private Visitor findOrCreateVisitor(String name, String phone,
+	                                    String school, String major, String standing) {
 		return visitors.findByPhone(phone).orElseGet(() -> {
 			try {
-				return writer.insertVisitor(new Visitor(name, phone));
+				return writer.insertVisitor(new Visitor(name, phone, school, major, standing));
 			} catch (DataIntegrityViolationException e) {
 				// 같은 번호로 동시에 첫 예약이 들어온 경우 — 먼저 들어간 쪽을 쓴다.
 				return visitors.findByPhone(phone).orElseThrow(() -> e);
 			}
 		});
+	}
+
+	/** 공백을 털고 비었는지·너무 긴지 본다. 길이는 Visitor의 컬럼 길이와 맞춰 둔다. */
+	private static String required(String value, int max, String message) {
+		String trimmed = value == null ? "" : value.trim();
+		if (trimmed.isEmpty() || trimmed.length() > max) {
+			throw badRequest(message);
+		}
+		return trimmed;
 	}
 
 	private Booth activeBooth(Long boothId) {

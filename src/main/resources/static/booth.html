@@ -143,7 +143,15 @@ function render(data) {
 				tel.href = 'tel:' + r.visitorPhone;
 				tel.textContent = r.visitorPhone;
 
-				box.append(t, who, tel);
+				box.append(t, who);
+				const where = affiliation(r);
+				if (where) {
+					const at = document.createElement('span');
+					at.className = 'booked-at';
+					at.textContent = where;
+					box.append(at);
+				}
+				box.append(tel);
 				stack.append(box);
 			}
 			li.append(hour, stack);
@@ -206,7 +214,11 @@ function nextCard(group, now) {
 		call.href = 'tel:' + first.visitorPhone;
 		call.textContent = first.visitorPhone;
 
-		box.append(who, when, call);
+		const at = document.createElement('p');
+		at.style.cssText = 'margin:.25rem 0 0;font-size:.9375rem;color:var(--ink-70)';
+		at.textContent = affiliation(first);
+
+		box.append(who, at, when, call);
 		return box;
 	}
 
@@ -218,10 +230,18 @@ function nextCard(group, now) {
 		const who = document.createElement('span');
 		who.style.cssText = 'font-weight:800;font-size:1.0625rem;letter-spacing:-.01em';
 		who.textContent = p.visitorName;
-		row.append(who, tel(p));
+		const at = document.createElement('span');
+		at.style.cssText = 'font-size:.8125rem;color:var(--ink-70)';
+		at.textContent = affiliation(p);
+		row.append(who, at, tel(p));
 		box.append(row);
 	}
 	return box;
+}
+
+/** 학교 · 전공 · 학년. 이 항목 이전에 잡힌 예약은 셋 다 비어 있어 빈 문자열이 나온다. */
+function affiliation(r) {
+	return [r.visitorSchool, r.visitorMajor, r.visitorStanding].filter(Boolean).join(' · ');
 }
 
 function tel(r) {
