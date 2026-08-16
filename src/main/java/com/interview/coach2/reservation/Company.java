@@ -35,15 +35,25 @@ public class Company {
 	/** 대기업 · 중견기업 · 강소기업 · 외국계기업 · 연구기관 등. 목록에서 한눈에 훑는 기준이다. */
 	private String category;
 
-	/** 목록 카드에 실리는 한두 줄. */
+	/** 목록 카드에 실리는 한두 줄. 상세의 about과 다르다 — 카드에 긴 글을 실으면 목록이 무너진다. */
 	@Column(length = LONG_TEXT)
 	private String summary;
+
+	/** 기업 소개 원문. 제출 양식의 '기업 소개' 칸 그대로다. */
+	@Column(length = LONG_TEXT)
+	private String about;
 
 	private String industry;
 	private String founded;
 	private String revenue;
+	private String employees;
 	private String homepage;
 	private String headcount;
+
+	/** 고용 형태·근무지·근무 형태·급여·전형 절차·접수 기간. 칸을 여섯 개로 쪼개는 대신 한 덩이로 받는다 —
+	 *  기업마다 비는 칸이 달라서, 쪼개면 관리자 화면만 길어지고 화면에는 빈 제목이 남는다. */
+	@Column(length = LONG_TEXT)
+	private String hiring;
 
 	@Column(length = LONG_TEXT)
 	private String roles;
@@ -56,6 +66,9 @@ public class Company {
 
 	@Column(length = LONG_TEXT)
 	private String majors;
+
+	@Column(length = LONG_TEXT)
+	private String benefits;
 
 	@Column(length = LONG_TEXT)
 	private String talent;
@@ -79,24 +92,36 @@ public class Company {
 	}
 
 	/**
+	 * JD 항목 묶음. 문자열 열여섯 개를 자리로 넘기면 두 개가 뒤바뀌어도 컴파일러가 잡지 못한다 —
+	 * 이름 붙은 한 덩이로 받고, 각 칸이 제자리에 들어가는지는 테스트가 못박는다.
+	 */
+	public record Profile(String category, String summary, String about, String industry,
+	                      String founded, String revenue, String employees, String homepage,
+	                      String headcount, String hiring, String roles, String duties,
+	                      String requirements, String majors, String benefits, String talent) {
+	}
+
+	/**
 	 * JD 항목을 한꺼번에 덮어쓴다. 자료가 아직 '추후 전달'인 칸이 많아 부분 수정이 잦으므로,
 	 * 화면은 늘 전체를 보내고 서버는 받은 그대로 저장한다 — 안 보낸 칸이 비워지는 사고를 막는다.
 	 */
-	public void updateProfile(String category, String summary, String industry, String founded,
-	                          String revenue, String homepage, String headcount, String roles,
-	                          String duties, String requirements, String majors, String talent) {
-		this.category = trimToNull(category);
-		this.summary = trimToNull(summary);
-		this.industry = trimToNull(industry);
-		this.founded = trimToNull(founded);
-		this.revenue = trimToNull(revenue);
-		this.homepage = trimToNull(homepage);
-		this.headcount = trimToNull(headcount);
-		this.roles = trimToNull(roles);
-		this.duties = trimToNull(duties);
-		this.requirements = trimToNull(requirements);
-		this.majors = trimToNull(majors);
-		this.talent = trimToNull(talent);
+	public void updateProfile(Profile p) {
+		this.category = trimToNull(p.category());
+		this.summary = trimToNull(p.summary());
+		this.about = trimToNull(p.about());
+		this.industry = trimToNull(p.industry());
+		this.founded = trimToNull(p.founded());
+		this.revenue = trimToNull(p.revenue());
+		this.employees = trimToNull(p.employees());
+		this.homepage = trimToNull(p.homepage());
+		this.headcount = trimToNull(p.headcount());
+		this.hiring = trimToNull(p.hiring());
+		this.roles = trimToNull(p.roles());
+		this.duties = trimToNull(p.duties());
+		this.requirements = trimToNull(p.requirements());
+		this.majors = trimToNull(p.majors());
+		this.benefits = trimToNull(p.benefits());
+		this.talent = trimToNull(p.talent());
 	}
 
 	public void setActive(boolean active) {

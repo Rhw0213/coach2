@@ -84,10 +84,11 @@ public class ReservationController {
 	}
 
 	/** 기업 상세. sessions는 그 기업이 연 면접·상담이며, 예약 화면으로 넘어가는 통로다. */
-	public record CompanyDetail(Long id, String name, String category, String summary,
-	                            String industry, String founded, String revenue, String homepage,
-	                            String headcount, String roles, String duties, String requirements,
-	                            String majors, String talent, List<BoothView> sessions) {
+	public record CompanyDetail(Long id, String name, String category, String summary, String about,
+	                            String industry, String founded, String revenue, String employees,
+	                            String homepage, String headcount, String hiring, String roles,
+	                            String duties, String requirements, String majors, String benefits,
+	                            String talent, List<BoothView> sessions) {
 	}
 
 	@GetMapping("/companies")
@@ -111,9 +112,9 @@ public class ReservationController {
 			.toList();
 
 		return new CompanyDetail(c.getId(), c.getName(), c.getCategory(), c.getSummary(),
-			c.getIndustry(), c.getFounded(), c.getRevenue(), c.getHomepage(), c.getHeadcount(),
-			c.getRoles(), c.getDuties(), c.getRequirements(), c.getMajors(), c.getTalent(),
-			sessions);
+			c.getAbout(), c.getIndustry(), c.getFounded(), c.getRevenue(), c.getEmployees(),
+			c.getHomepage(), c.getHeadcount(), c.getHiring(), c.getRoles(), c.getDuties(),
+			c.getRequirements(), c.getMajors(), c.getBenefits(), c.getTalent(), sessions);
 	}
 
 	@PostMapping("/reservations")

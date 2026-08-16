@@ -68,6 +68,12 @@
 /* app.css의 .when은 등폭에 아래 여백까지 붙어 있다. 여기서는 한 줄 설명이므로 따로 둔다. */
 .sess-when { display: block; font-size: .875rem; color: var(--ink-45); margin-top: .1875rem; }
 
+/* 기본 파란 링크는 이 팔레트에서 혼자 튄다. 카드(.firm)는 색을 물려받아야 하므로
+   전체가 아니라 이 두 링크에만 준다. */
+.backlink, .site { color: var(--pine); text-underline-offset: 3px; }
+.backlink:hover, .site:hover { color: var(--pine-deep); }
+.site { font-size: .9375rem; }
+
 /* 목록 화면 */
 .firm-grid { display: grid; gap: .75rem; }
 @media (min-width: 40rem) { .firm-grid { grid-template-columns: repeat(2, 1fr); } }
@@ -202,6 +208,7 @@ async function renderOne(id) {
 	const back = document.createElement('p');
 	back.className = 'eyebrow';
 	const backLink = document.createElement('a');
+	backLink.className = 'backlink';
 	backLink.href = 'company.html';
 	backLink.textContent = '← 참여기업';
 	back.append(backLink);
@@ -226,8 +233,9 @@ async function renderOne(id) {
 	const facts = document.createElement('dl');
 	facts.className = 'facts';
 	for (const [label, value] of [
-			['업종 · 주력사업', c.industry], ['업력', c.founded],
-			['매출액', c.revenue], ['채용 인원', c.headcount]]) {
+			['업종 · 주력사업', c.industry], ['설립', c.founded],
+			['매출액', c.revenue], ['임직원 수', c.employees],
+			['채용 인원', c.headcount]]) {
 		const box = fact(label, value);
 		if (box) {
 			facts.append(box);
@@ -243,15 +251,18 @@ async function renderOne(id) {
 		// 관리자가 넣은 주소다. javascript: 같은 스킴이 그대로 링크가 되지 않도록 http(s)만 건다.
 		a.href = /^https?:\/\//i.test(c.homepage) ? c.homepage : 'https://' + c.homepage;
 		a.textContent = c.homepage;
+		a.className = 'site';
 		a.rel = 'noopener noreferrer';
 		a.target = '_blank';
 		link.append(a);
 		out.append(link);
 	}
 
+	// 읽는 순서대로 — 어떤 회사인가 → 무슨 일을 하나 → 내가 되나 → 어떻게 뽑나 → 무엇을 주나.
 	for (const [title, text] of [
-			['채용 직무', c.roles], ['주요 업무', c.duties],
-			['자격 요건', c.requirements], ['희망 전공', c.majors], ['인재상', c.talent]]) {
+			['기업 소개', c.about], ['채용 직무', c.roles], ['주요 업무', c.duties],
+			['자격 요건', c.requirements], ['희망 전공', c.majors],
+			['채용 개요', c.hiring], ['복리후생', c.benefits], ['인재상', c.talent]]) {
 		const section = block(title, text);
 		if (section) {
 			out.append(section);

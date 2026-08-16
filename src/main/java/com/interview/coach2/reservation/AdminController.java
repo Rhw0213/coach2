@@ -120,16 +120,18 @@ public class AdminController {
 
 	// ── 참여 기업 · 채용정보(JD) ──────────────────────────────────
 
-	public record CompanyRequest(String name, String category, String summary, String industry,
-	                             String founded, String revenue, String homepage, String headcount,
-	                             String roles, String duties, String requirements, String majors,
+	public record CompanyRequest(String name, String category, String summary, String about,
+	                             String industry, String founded, String revenue, String employees,
+	                             String homepage, String headcount, String hiring, String roles,
+	                             String duties, String requirements, String majors, String benefits,
 	                             String talent) {
 	}
 
 	public record AdminCompanyView(Long id, String name, String category, String summary,
-	                               String industry, String founded, String revenue, String homepage,
-	                               String headcount, String roles, String duties,
-	                               String requirements, String majors, String talent,
+	                               String about, String industry, String founded, String revenue,
+	                               String employees, String homepage, String headcount,
+	                               String hiring, String roles, String duties, String requirements,
+	                               String majors, String benefits, String talent,
 	                               boolean active, int boothCount) {
 	}
 
@@ -194,9 +196,10 @@ public class AdminController {
 	}
 
 	private static void apply(Company company, CompanyRequest r) {
-		company.updateProfile(r.category(), r.summary(), r.industry(), r.founded(), r.revenue(),
-			r.homepage(), r.headcount(), r.roles(), r.duties(), r.requirements(), r.majors(),
-			r.talent());
+		company.updateProfile(new Company.Profile(r.category(), r.summary(), r.about(),
+			r.industry(), r.founded(), r.revenue(), r.employees(), r.homepage(), r.headcount(),
+			r.hiring(), r.roles(), r.duties(), r.requirements(), r.majors(), r.benefits(),
+			r.talent()));
 	}
 
 	private int boothCount(Company company) {
@@ -206,8 +209,9 @@ public class AdminController {
 
 	private static AdminCompanyView toView(Company c, int boothCount) {
 		return new AdminCompanyView(c.getId(), c.getName(), c.getCategory(), c.getSummary(),
-			c.getIndustry(), c.getFounded(), c.getRevenue(), c.getHomepage(), c.getHeadcount(),
-			c.getRoles(), c.getDuties(), c.getRequirements(), c.getMajors(), c.getTalent(),
+			c.getAbout(), c.getIndustry(), c.getFounded(), c.getRevenue(), c.getEmployees(),
+			c.getHomepage(), c.getHeadcount(), c.getHiring(), c.getRoles(), c.getDuties(),
+			c.getRequirements(), c.getMajors(), c.getBenefits(), c.getTalent(),
 			c.isActive(), boothCount);
 	}
 

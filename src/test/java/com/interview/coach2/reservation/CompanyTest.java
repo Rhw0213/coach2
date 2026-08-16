@@ -35,9 +35,10 @@ class CompanyTest {
 	}
 
 	private static AdminController.CompanyRequest request(String name) {
-		return new AdminController.CompanyRequest(name, "대기업", "보안 전문 기업",
-			"네트워크 보안", "2000년 설립", "1,077억", "https://example.com", "각 ㅇ명",
-			"개발\n영업", "보안제품 개발", "IT 관련 전공", "컴퓨터공학", "열정인");
+		return new AdminController.CompanyRequest(name, "대기업", "보안 전문 기업", "소개 원문",
+			"네트워크 보안", "2000년 설립", "1,077억", "520명", "https://example.com", "각 ㅇ명",
+			"정규직", "개발\n영업", "보안제품 개발", "IT 관련 전공", "컴퓨터공학", "중식 제공",
+			"열정인");
 	}
 
 	private Booth booth(String companyName, String boothNo, int capacity) {
@@ -113,9 +114,41 @@ class CompanyTest {
 	void 빈_칸은_널로_저장된다() {
 		AdminController.AdminCompanyView view = admin.createCompany(
 			new AdminController.CompanyRequest("빈칸기업", "  ", "", null, null, null, null,
-				null, null, null, null, null, null));
+				null, null, null, null, null, null, null, null, null, null));
 
 		assertThat(view.category()).isNull();
 		assertThat(view.summary()).isNull();
+	}
+
+	/**
+	 * JD 항목이 열여섯 개다. 전부 문자열이라 두 개가 뒤바뀌어도 컴파일러가 잡지 못하고,
+	 * 화면에는 '자격 요건' 자리에 복리후생이 실린 채로 나간다. 칸마다 다른 값을 넣어
+	 * 요청 → 저장 → 공개 응답까지 제자리를 지키는지 못박는다.
+	 */
+	@Test
+	void 모든_JD_항목이_제자리에_들어간다() {
+		AdminController.CompanyRequest r = new AdminController.CompanyRequest(
+			"자리검사", "v-category", "v-summary", "v-about", "v-industry", "v-founded",
+			"v-revenue", "v-employees", "v-homepage", "v-headcount", "v-hiring", "v-roles",
+			"v-duties", "v-requirements", "v-majors", "v-benefits", "v-talent");
+
+		ReservationController.CompanyDetail d = publicApi.company(admin.createCompany(r).id());
+
+		assertThat(d.category()).isEqualTo("v-category");
+		assertThat(d.summary()).isEqualTo("v-summary");
+		assertThat(d.about()).isEqualTo("v-about");
+		assertThat(d.industry()).isEqualTo("v-industry");
+		assertThat(d.founded()).isEqualTo("v-founded");
+		assertThat(d.revenue()).isEqualTo("v-revenue");
+		assertThat(d.employees()).isEqualTo("v-employees");
+		assertThat(d.homepage()).isEqualTo("v-homepage");
+		assertThat(d.headcount()).isEqualTo("v-headcount");
+		assertThat(d.hiring()).isEqualTo("v-hiring");
+		assertThat(d.roles()).isEqualTo("v-roles");
+		assertThat(d.duties()).isEqualTo("v-duties");
+		assertThat(d.requirements()).isEqualTo("v-requirements");
+		assertThat(d.majors()).isEqualTo("v-majors");
+		assertThat(d.benefits()).isEqualTo("v-benefits");
+		assertThat(d.talent()).isEqualTo("v-talent");
 	}
 }
