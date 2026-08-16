@@ -351,6 +351,14 @@ async function loadBooths() {
 	mainEventDate = [...dateCount.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || '';
 	showCompanyHint();
 
+	// 행사일 기본값을 이 행사의 날로 맞춘다. 오늘로 두면 화면을 열고 처음 추가하는 부스가
+	// 조용히 오늘 날짜로 만들어진다. 그 시간이 이미 지나 있으면 시간표에 줄은 뜨는데
+	// 신청 버튼만 사라져서, 왜 안 되는지 알아내는 데 한참 걸린다. 실제로 그렇게 걸렸다.
+	// 수정 중일 때는 건드리지 않는다 — 고치던 부스의 날짜를 덮어쓰면 안 된다.
+	if (mainEventDate && !boothForm.id.value) {
+		boothForm.eventDate.value = mainEventDate;
+	}
+
 	if (!list.length) {
 		boothList.innerHTML = '<p class="empty">등록된 부스가 없습니다. 아래에서 추가하세요.</p>';
 		return;
@@ -679,7 +687,7 @@ function clearForm() {
 	boothForm.reset();
 	boothForm.id.value = '';
 	fillCompanyOptions();
-	boothForm.eventDate.value = viewDate;
+	boothForm.eventDate.value = mainEventDate || viewDate;
 	syncKind();
 	formTitle.textContent = '부스 추가';
 	saveBtn.textContent = '부스 추가';

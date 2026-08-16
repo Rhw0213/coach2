@@ -20,6 +20,7 @@
 .sched .who a:hover { border-color: var(--pine); }
 .sched .what { color: var(--ink-70); font-size: .9375rem; white-space: pre-wrap; }
 .sched .act { width: 1%; white-space: nowrap; }
+.sched .over { font-size: .875rem; color: var(--ink-45); }
 
 /* 지난 시간은 남겨두되 눌리지 않게 한다 — 표에서 지워버리면 그 기업 설명회가
    아예 없었던 것처럼 보인다. */
@@ -134,6 +135,13 @@ const out = document.getElementById('out');
 			go.href = 'book.html?booth=' + encodeURIComponent(row.booth.id);
 			go.textContent = '신청';
 			act.append(go);
+		} else {
+			// 지난 시간에는 버튼이 없다. 빈 칸으로 두면 '왜 이 줄만 신청이 안 되지'가 되어,
+			// 운영자가 날짜를 잘못 넣은 것인지 화면이 깨진 것인지 구분할 수 없다.
+			const done = document.createElement('span');
+			done.className = 'over';
+			done.textContent = '종료';
+			act.append(done);
 		}
 
 		tr.append(time, who, what, act);
