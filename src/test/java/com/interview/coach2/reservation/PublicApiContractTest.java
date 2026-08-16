@@ -147,9 +147,13 @@ class PublicApiContractTest {
 
 		assertThat(res.statusCode()).isEqualTo(200);
 		assertThat(res.body())
+			.contains("\"visitorName\":\"홍길동\"")
+			.contains("\"visitorPhone\":\"01011112222\"")
 			.contains("\"visitorSchool\":\"건국대\"")
 			.contains("\"visitorMajor\":\"컴퓨터공학\"")
-			.contains("\"visitorStanding\":\"4학년\"");
+			.contains("\"visitorStanding\":\"4학년\"")
+			// 선착순을 확인할 근거는 이것뿐이다.
+			.contains("\"bookedAt\":");
 	}
 
 	@Test

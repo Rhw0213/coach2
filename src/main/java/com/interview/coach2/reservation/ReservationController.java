@@ -214,10 +214,11 @@ public class ReservationController {
 	// 읽기 전용이다. 토큰은 자기 부스의 예약을 보여줄 뿐 아무것도 바꾸지 못한다.
 	// 예약자 연락처가 실리므로 토큰이 곧 접근 권한이다 — 공개 목록에는 나가지 않는다.
 
+	/** bookedAt은 신청이 들어온 시각이다 — 담당자가 선착순을 확인할 때 이것 말고는 근거가 없다. */
 	public record StaffReservation(Instant startTime, int slotMinutes,
 	                               String visitorName, String visitorPhone,
 	                               String visitorSchool, String visitorMajor,
-	                               String visitorStanding) {
+	                               String visitorStanding, Instant bookedAt) {
 	}
 
 	public record StaffView(String companyName, String boothNo, String note,
@@ -240,7 +241,7 @@ public class ReservationController {
 			return new StaffReservation(r.getStartTime(), r.getSlotMinutes(),
 				v == null ? "-" : v.getName(), v == null ? "-" : v.getPhone(),
 				v == null ? null : v.getSchool(), v == null ? null : v.getMajor(),
-				v == null ? null : v.getStanding());
+				v == null ? null : v.getStanding(), r.getCreatedAt());
 		}).toList();
 
 		return new StaffView(booth.getCompanyName(), booth.getBoothNo(), booth.getNote(),
