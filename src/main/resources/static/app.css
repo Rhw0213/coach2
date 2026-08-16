@@ -355,6 +355,10 @@ dialog h2 { margin: 0 0 .25rem; font-size: 1.25rem; letter-spacing: -.02em; }
 }
 
 label { display: block; margin-bottom: 1rem; }
+/* 위 한 줄이 브라우저 기본 [hidden]{display:none}을 이긴다 — el.hidden = true 로 감췄다고
+   생각한 입력칸이 그대로 보이고, required까지 살아 있으면 제출이 조용히 막힌다.
+   index.html의 .key[hidden]에서 한 번 밟은 함정이라 여기서 아예 막아둔다. */
+label[hidden] { display: none; }
 label span { display: block; font-size: .8125rem; font-weight: 600; margin-bottom: .375rem; }
 
 input, select {

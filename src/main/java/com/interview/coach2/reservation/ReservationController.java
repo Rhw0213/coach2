@@ -39,7 +39,8 @@ public class ReservationController {
 	 */
 	public record BoothView(Long id, String companyName, String boothNo, String note,
 	                        LocalDate eventDate, LocalTime openFrom, LocalTime openTo,
-	                        int slotMinutes, int capacity, boolean approvalRequired, BoothKind kind) {
+	                        int slotMinutes, int capacity, boolean approvalRequired, BoothKind kind,
+	                        boolean unlimited) {
 	}
 
 	/**
@@ -223,7 +224,7 @@ public class ReservationController {
 
 	public record StaffView(String companyName, String boothNo, String note,
 	                        LocalDate eventDate, LocalTime openFrom, LocalTime openTo,
-	                        int slotMinutes, int capacity, boolean active,
+	                        int slotMinutes, int capacity, boolean active, boolean unlimited,
 	                        List<StaffReservation> reservations) {
 	}
 
@@ -246,12 +247,15 @@ public class ReservationController {
 
 		return new StaffView(booth.getCompanyName(), booth.getBoothNo(), booth.getNote(),
 			booth.getEventDate(), booth.getOpenFrom(), booth.getOpenTo(),
-			booth.getSlotMinutes(), booth.getCapacity(), booth.isActive(), rows);
+			booth.getSlotMinutes(), booth.getCapacity(), booth.isActive(),
+			booth.isUnlimited(), rows);
 	}
 
+	// unlimited는 kind로도 알 수 있지만 화면이 다시 계산하게 두지 않는다 — '설명회는 무제한'은
+	// 서버가 정하는 규칙이고, 그 규칙이 바뀔 때 고칠 곳이 한 군데여야 한다.
 	static BoothView toView(Booth b) {
 		return new BoothView(b.getId(), b.getCompanyName(), b.getBoothNo(), b.getNote(),
 			b.getEventDate(), b.getOpenFrom(), b.getOpenTo(), b.getSlotMinutes(), b.getCapacity(),
-			b.isApprovalRequired(), b.getKind());
+			b.isApprovalRequired(), b.getKind(), b.isUnlimited());
 	}
 }

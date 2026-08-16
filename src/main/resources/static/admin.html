@@ -108,9 +108,18 @@
 				<label><span>운영 시작</span><input name="openFrom" type="time" required value="10:00"></label>
 				<label><span>운영 종료</span><input name="openTo" type="time" required value="17:00"></label>
 			</div>
-			<!-- 1이면 1:1 면접·상담, 5면 그룹면접. 한 시간대에 몇 명을 받을지가 곧 좌석 수다. -->
-			<label><span>한 시간대 정원 (명)</span>
+			<!-- 이 값이 없으면 API가 INTERVIEW로 만든다. 설명회 부스를 화면에서 만들 방법이
+			     없어서 시간표에 아무것도 안 뜬 채로 있었다. -->
+			<label><span>부스 종류</span>
+				<select name="kind" id="kindSelect">
+					<option value="INTERVIEW">면접 · 상담 (예약 화면)</option>
+					<option value="BRIEFING">기업 설명회 (설명회 시간표 · 인원 제한 없음)</option>
+				</select></label>
+			<!-- 1이면 1:1 면접·상담, 5면 그룹면접. 한 시간대에 몇 명을 받을지가 곧 좌석 수다.
+			     설명회는 인원 제한이 없어 이 값을 쓰지 않으므로 잠근다. -->
+			<label id="capacityBox"><span>한 시간대 정원 (명)</span>
 				<input name="capacity" type="number" required min="1" max="50" step="1" value="1"></label>
+			<p class="hint" id="capacityHint" hidden>기업 설명회는 인원 제한이 없습니다. 정원은 쓰이지 않습니다.</p>
 			<!-- 켜면 개별 안내 링크를 받은 서류 합격자만 예약할 수 있다. 끄면 누구나. -->
 			<label class="check">
 				<input name="approvalRequired" type="checkbox">
@@ -195,6 +204,13 @@ let mainEventDate = '';
 
 document.getElementById('companySelect').addEventListener('change', showCompanyHint);
 
+/** 이 부스가 무엇인지 한 마디로. 설명회에 '정원 1명'이라고 적으면 거짓말이 된다. */
+function boothShape(b) {
+	return b.kind === 'BRIEFING' ? '설명회'
+		: b.capacity > 1 ? `그룹 ${b.capacity}명`
+		: '1:1';
+}
+
 function showCompanyHint() {
 	const hint = document.getElementById('companyHint');
 	const name = document.getElementById('companySelect').value;
@@ -205,7 +221,7 @@ function showCompanyHint() {
 	}
 	hint.hidden = false;
 	hint.textContent = `${name}에 이미 있는 것 — `
-		+ mine.map(b => `${b.boothNo} ${b.capacity > 1 ? `그룹 ${b.capacity}명` : '1:1'}`
+		+ mine.map(b => `${b.boothNo} ${boothShape(b)}`
 			+ (b.approvalRequired ? '(합격자 전용)' : '')).join(', ')
 		+ '. 1:1과 그룹은 각각 따로 만듭니다.';
 }
@@ -482,7 +498,8 @@ async function loadBooths() {
 			cell(b.companyName + (b.note ? ' · ' + b.note : '')),
 			cell(b.eventDate, 'num'),
 			cell(`${b.openFrom.slice(0, 5)}–${b.openTo.slice(0, 5)} · ${b.slotMinutes}분`
-				+ (b.capacity > 1 ? ` · 정원 ${b.capacity}명` : ''), 'num'),
+				+ (b.kind === 'BRIEFING' ? ' · 설명회'
+					: b.capacity > 1 ? ` · 정원 ${b.capacity}명` : ''), 'num'),
 			state,
 			td);
 		tbody.append(tr);
@@ -648,6 +665,8 @@ function fillForm(b) {
 	boothForm.openTo.value = b.openTo.slice(0, 5);
 	boothForm.slotMinutes.value = b.slotMinutes;
 	boothForm.capacity.value = b.capacity;
+	boothForm.kind.value = b.kind || 'INTERVIEW';
+	syncKind();
 	formTitle.textContent = `${b.boothNo} ${b.companyName} 수정`;
 	saveBtn.textContent = '변경 저장';
 	resetBtn.hidden = false;
@@ -661,10 +680,28 @@ function clearForm() {
 	boothForm.id.value = '';
 	fillCompanyOptions();
 	boothForm.eventDate.value = viewDate;
+	syncKind();
 	formTitle.textContent = '부스 추가';
 	saveBtn.textContent = '부스 추가';
 	resetBtn.hidden = true;
 }
+
+/* 설명회는 정원을 쓰지 않는다. 칸을 남겨두면 거기 적은 숫자가 지켜질 거라고 읽힌다 —
+   합격자 전용도 마찬가지다(설명회는 누구나 듣는다). 둘 다 감춘다. */
+function syncKind() {
+	const briefing = boothForm.kind.value === 'BRIEFING';
+	document.getElementById('capacityBox').hidden = briefing;
+	document.getElementById('capacityHint').hidden = !briefing;
+	boothForm.capacity.required = !briefing;
+	if (briefing) {
+		boothForm.capacity.value = 1;
+		boothForm.approvalRequired.checked = false;
+	}
+	boothForm.approvalRequired.closest('label').hidden = briefing;
+}
+
+document.getElementById('kindSelect').addEventListener('change', syncKind);
+syncKind();
 
 boothForm.addEventListener('submit', async (event) => {
 	event.preventDefault();
@@ -682,6 +719,7 @@ boothForm.addEventListener('submit', async (event) => {
 		slotMinutes: Number(boothForm.slotMinutes.value),
 		capacity: Number(boothForm.capacity.value),
 		approvalRequired: boothForm.approvalRequired.checked,
+		kind: boothForm.kind.value,
 	});
 
 	saveBtn.disabled = true;

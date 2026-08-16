@@ -81,7 +81,7 @@ function render(data) {
 
 	// 그룹면접이면 같은 시각에 여러 명이 온다. 다음 칸에 오는 사람을 전부 넘긴다 —
 	// 한 명만 보여주면 담당자가 나머지를 모른 채 상담을 시작한다.
-	out.append(nextCard(upcoming.filter(r => r.ms === upcoming[0]?.ms), now));
+	out.append(nextCard(upcoming.filter(r => r.ms === upcoming[0]?.ms), now, data.unlimited));
 
 	// ── 요약 ──
 	const summary = document.createElement('p');
@@ -89,10 +89,13 @@ function render(data) {
 	summary.style.margin = '2rem 0 .5rem';
 	summary.textContent =
 		`${dayLabel(data.eventDate)} · ${data.openFrom.slice(0, 5)}–${data.openTo.slice(0, 5)}`
-		// 정원이 1이 아니면 '칸 수'가 곧 정원이 아니다. 전체 좌석으로 말해야 담당자가
-		// 얼마나 찼는지 안다 — 14칸 × 정원 5면 70석이지 14석이 아니다.
-		+ ` · 예약 ${data.reservations.length}건 / 전체 ${grid.length * data.capacity}석`
-		+ (data.capacity > 1 ? ` (${grid.length}칸 × 정원 ${data.capacity}명)` : '');
+		// 설명회는 좌석이 없다. 없는 정원으로 '전체 몇 석'을 계산하면 아무 뜻 없는 숫자가 나온다.
+		+ (data.unlimited
+			? ` · 신청 ${data.reservations.length}명 · 인원 제한 없음`
+			// 정원이 1이 아니면 '칸 수'가 곧 정원이 아니다. 전체 좌석으로 말해야 담당자가
+			// 얼마나 찼는지 안다 — 14칸 × 정원 5면 70석이지 14석이 아니다.
+			: ` · 예약 ${data.reservations.length}건 / 전체 ${grid.length * data.capacity}석`
+				+ (data.capacity > 1 ? ` (${grid.length}칸 × 정원 ${data.capacity}명)` : ''));
 	out.append(summary);
 
 	if (!data.active) {
@@ -252,7 +255,7 @@ function telCell(phone) {
 }
 
 /** group: 같은 시각에 오는 사람들. 1:1이면 한 명, 그룹면접이면 정원만큼. */
-function nextCard(group, now) {
+function nextCard(group, now, unlimited) {
 	const box = document.createElement('div');
 	box.className = 'ticket';
 	box.style.marginTop = '0';
@@ -261,18 +264,21 @@ function nextCard(group, now) {
 	label.className = 'eyebrow';
 	label.style.margin = '0 0 .375rem';
 
+	// 설명회는 상담이 아니다. 담당자가 자기 화면에서 남의 일정을 읽게 두지 않는다.
+	const next = unlimited ? '다음 설명회' : '다음 상담';
+
 	if (!group.length) {
-		label.textContent = '다음 상담';
+		label.textContent = next;
 		const none = document.createElement('p');
 		none.style.cssText = 'margin:0;font-weight:700;font-size:1.125rem';
-		none.textContent = '남은 예약이 없습니다';
+		none.textContent = unlimited ? '남은 설명회가 없습니다' : '남은 예약이 없습니다';
 		box.append(label, none);
 		return box;
 	}
 
 	const first = group[0];
 	const started = first.ms <= now;
-	label.textContent = (started ? '진행 중' : '다음 상담')
+	label.textContent = (started ? '진행 중' : next)
 		+ (group.length > 1 ? ` · ${group.length}명` : '');
 
 	const when = document.createElement('p');

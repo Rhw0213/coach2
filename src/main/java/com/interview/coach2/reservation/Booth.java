@@ -93,6 +93,18 @@ public class Booth {
 	@Column(unique = true)
 	private String staffToken;
 
+	/**
+	 * 기업 설명회는 인원 제한이 없다. 여럿이 함께 듣는 ZOOM 웨비나라 좌석이라는 것이 없고,
+	 * 요청도 '무제한'이다. capacity 값은 남아 있지만 설명회에서는 아무도 읽지 않는다.
+	 *
+	 * ponytail: 부스마다 켜고 끄는 스위치를 따로 두지 않고 종류로 판단한다. 설명회 중
+	 * 하나만 정원을 걸고 싶어지면 그때 컬럼을 하나 넣으면 된다 — 지금 필요한 규칙은
+	 * '설명회는 무제한' 한 줄뿐이고, 그 한 줄을 두 곳에 적지 않는 것이 더 중요하다.
+	 */
+	public boolean isUnlimited() {
+		return kind == BoothKind.BRIEFING;
+	}
+
 	protected Booth() {
 	}
 

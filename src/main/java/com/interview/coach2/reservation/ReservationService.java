@@ -64,13 +64,24 @@ public class ReservationService {
 	@Transactional(readOnly = true)
 	public List<SlotSeats> openSlots(Long boothId) {
 		Booth booth = activeBooth(boothId);
+		Instant now = Instant.now();
+
+		// 인원 제한이 없는 부스(기업 설명회)는 셀 것이 없다. 지난 시간만 뺀다.
+		// 자리 수는 0/0으로 나간다 — 이 값을 읽는 것은 안내 페이지 시간표뿐이고,
+		// 거기는 면접·상담만 그리므로 설명회의 0이 '마감'으로 칠해질 일이 없다.
+		if (booth.isUnlimited()) {
+			return Slots.forBooth(booth).stream()
+				.filter(slot -> slot.isAfter(now))
+				.map(slot -> new SlotSeats(slot, 0, 0))
+				.toList();
+		}
+
 		// 슬롯마다 몇 명이 찼는지 센다. 정원이 1이면 예전처럼 '있으면 마감'과 같아진다.
 		Map<Instant, Long> taken = reservations
 			.findByBoothIdAndStatus(boothId, ReservationStatus.RESERVED)
 			.stream()
 			.collect(Collectors.groupingBy(Reservation::getStartTime, Collectors.counting()));
 
-		Instant now = Instant.now();
 		int capacity = booth.getCapacity();
 		return Slots.forBooth(booth).stream()
 			.filter(slot -> slot.isAfter(now))
@@ -158,7 +169,7 @@ public class ReservationService {
 
 		// 아래 세 검사는 흔한 경우에 무엇이 문제인지 알려주기 위한 것이다.
 		// 동시 요청은 이걸로 막지 못한다 — 진짜 방어선은 Reservation의 유니크 제약이다.
-		if (reservations.countByBoothIdAndStartTimeAndStatus(
+		if (!booth.isUnlimited() && reservations.countByBoothIdAndStartTimeAndStatus(
 				boothId, startTime, ReservationStatus.RESERVED) >= booth.getCapacity()) {
 			// 1:1이면 '이미 예약된', 그룹이면 '정원이 찬' 것이다. 사용자가 읽는 문장이므로 구분한다.
 			throw conflict(booth.getCapacity() == 1
@@ -172,6 +183,20 @@ public class ReservationService {
 		if (reservations.existsByVisitorIdAndBoothIdAndStatus(
 				visitor.getId(), boothId, ReservationStatus.RESERVED)) {
 			throw conflict("이 부스는 이미 예약하셨습니다. 다른 시간으로 바꾸시려면 기존 예약을 취소해 주세요");
+		}
+
+		// 인원 제한이 없으면 좌석을 고를 것이 없다. 좌석 0으로 넣으면 슬롯키가 NULL이라
+		// 같은 시각에 몇 명이 들어와도 서로 부딪히지 않는다.
+		if (booth.isUnlimited()) {
+			try {
+				Reservation saved = writer.insert(new Reservation(
+					boothId, visitor.getId(), startTime, booth.getSlotMinutes(), 0));
+				return new BookResult(saved, visitor.getToken());
+			} catch (DataIntegrityViolationException e) {
+				// 여기서 남아 있는 유니크 제약은 사람 쪽 둘뿐이다 — 같은 사람이 동시에 두 번
+				// 눌렀거나, 같은 시각의 다른 부스를 방금 잡았다. 위 사전검사와 이 사이의 경합이다.
+				throw conflict("이미 신청하신 시간입니다. 「내 예약」에서 확인해 주세요");
+			}
 		}
 
 		// 1번 좌석부터 넣어 본다. 이미 찬 좌석은 유니크 제약이 거절하므로 다음 번호로 넘어간다.

@@ -64,6 +64,8 @@ public class Reservation {
 	/**
 	 * 이 예약이 차지한 좌석 번호(1..부스 정원). 정원이 1이면 항상 1이다.
 	 * 취소해도 남겨둔다 — 누가 몇 번 좌석이었는지는 기록이고, 슬롯을 놓아주는 것은 키의 몫이다.
+	 *
+	 * 0은 좌석이라는 개념이 없다는 뜻이다 — 인원 제한이 없는 기업 설명회.
 	 */
 	@Column(columnDefinition = "integer default 1 not null")
 	private int seatNo;
@@ -94,11 +96,15 @@ public class Reservation {
 		this.seatNo = seatNo;
 		this.status = ReservationStatus.RESERVED;
 		this.createdAt = Instant.now();
+		// 좌석 0 = 인원 제한 없음. 키를 NULL로 두면 이 슬롯에 몇 건이 들어와도 서로 부딪히지
+		// 않는다(유니크 인덱스 안의 NULL끼리는 충돌하지 않는다). 사람 쪽 두 키는 그대로
+		// 살아 있어서 같은 사람이 두 번 신청하는 것은 여전히 막힌다.
+		//
 		// 1번 좌석은 좌석번호를 붙이지 않는다 — 이 기능이 생기기 전에 쓰던 키와 글자 그대로 같다.
 		// 덕분에 기존 예약 행을 손대지 않아도 되고(마이그레이션 없음), 코드를 되돌려도
 		// 옛 코드가 만드는 키와 충돌해 이중예약이 막힌다.
-		this.boothSlotKey = seatNo == 1
-			? slotKey(boothId, startTime)
+		this.boothSlotKey = seatNo == 0 ? null
+			: seatNo == 1 ? slotKey(boothId, startTime)
 			: slotKey(boothId, startTime) + "#" + seatNo;
 		this.visitorSlotKey = slotKey(visitorId, startTime);
 		this.visitorBoothKey = visitorId + "@b" + boothId;
