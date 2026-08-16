@@ -361,7 +361,9 @@ label { display: block; margin-bottom: 1rem; }
 label[hidden] { display: none; }
 label span { display: block; font-size: .8125rem; font-weight: 600; margin-bottom: .375rem; }
 
-input, select {
+/* textarea가 빠져 있었다 — 합격자 명단 붙여넣기 칸이 브라우저 기본 모양으로 떠 있었고,
+   기업 채용정보 폼이 생기면서 그런 칸이 여덟 개가 된다. 셋을 같은 규칙으로 묶는다. */
+input, select, textarea {
 	width: 100%;
 	padding: .625rem .75rem;
 	border: 1px solid var(--rail);
@@ -370,7 +372,10 @@ input, select {
 	color: var(--ink);
 	font: inherit;
 }
-input:focus, select:focus { border-color: var(--pine); }
+input:focus, select:focus, textarea:focus { border-color: var(--pine); }
+
+/* 세로로만 늘린다. 가로로 늘리면 폼 격자를 뚫고 나간다. */
+textarea { display: block; resize: vertical; min-height: 4.5rem; line-height: 1.6; }
 
 .actions { display: flex; gap: .625rem; margin-top: 1.5rem; }
 

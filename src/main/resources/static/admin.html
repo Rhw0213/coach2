@@ -132,6 +132,57 @@
 			</div>
 		</form>
 
+		<!-- 기업 · 채용정보. 서버에는 처음부터 API가 있었는데 이 화면이 없어서, 채용관 페이지가
+		     회사명만 뜬 채로 남아 있었다. 부스도 기업이 있어야 만들 수 있다. -->
+		<h2 id="companyPanel">기업 · 채용정보</h2>
+		<p class="lede">여기 적은 내용이 채용관 페이지에 그대로 나갑니다. 비워 둔 항목은 화면에서 통째로 빠집니다 — 빈 제목만 줄줄이 남지 않습니다.</p>
+		<div id="companyError"></div>
+		<div id="companyList"></div>
+
+		<h3 id="companyFormTitle" style="margin:2rem 0 .75rem">기업 추가</h3>
+		<form id="companyForm">
+			<input type="hidden" name="id">
+			<div class="row">
+				<label><span>회사명</span>
+					<input name="name" required maxlength="60" placeholder="부스의 기업 선택지에 이 이름이 뜹니다"></label>
+				<label><span>기업 구분</span>
+					<input name="category" maxlength="20" placeholder="대기업 · 중견기업 · 강소기업"></label>
+			</div>
+			<label><span>한 줄 소개</span>
+				<input name="summary" maxlength="120" placeholder="목록 카드와 메인에 뜨는 한 줄"></label>
+
+			<div class="row">
+				<label><span>업종 · 주력사업</span><input name="industry" maxlength="120"></label>
+				<label><span>설립</span><input name="founded" maxlength="40"></label>
+			</div>
+			<div class="row">
+				<label><span>매출액</span><input name="revenue" maxlength="40"></label>
+				<label><span>임직원 수</span><input name="employees" maxlength="40"></label>
+			</div>
+			<div class="row">
+				<label><span>채용 인원</span><input name="headcount" maxlength="40"></label>
+				<!-- type="url"로 두면 브라우저가 'www.secui.com'을 거부해 저장 자체가 막힌다.
+				     실제 명단은 스킴 없이 오고, 채용관 화면이 https://를 붙여 링크한다. -->
+				<label><span>홈페이지</span>
+					<input name="homepage" inputmode="url" maxlength="200" placeholder="www.example.com"></label>
+			</div>
+
+			<label><span>기업 소개</span><textarea name="about" rows="4"></textarea></label>
+			<label><span>채용 직무</span><textarea name="roles" rows="3"></textarea></label>
+			<label><span>주요 업무</span><textarea name="duties" rows="4"></textarea></label>
+			<label><span>자격 요건</span><textarea name="requirements" rows="4"></textarea></label>
+			<label><span>희망 전공</span><input name="majors" maxlength="200"></label>
+			<label><span>채용 개요</span><textarea name="hiring" rows="3"></textarea></label>
+			<label><span>복리후생</span><textarea name="benefits" rows="3"></textarea></label>
+			<label><span>인재상</span><textarea name="talent" rows="3"></textarea></label>
+
+			<div id="companyFormError"></div>
+			<div class="actions">
+				<button class="btn btn--ghost" type="button" id="companyReset" hidden>새로 추가</button>
+				<button class="btn" type="submit" id="companySave">기업 추가</button>
+			</div>
+		</form>
+
 	</main>
 </div>
 
@@ -192,11 +243,14 @@ async function open() {
 	await loadCompanies();
 	await loadBooths();
 	loadDay();
+	loadCompanyPanel();
 }
 
 /* 부스는 기업에 속한다. 회사명을 타이핑하게 두면 한 글자 차이로 그 기업의 채용정보
  * 페이지에서 면접이 사라지므로, 등록된 기업 중에서만 고르게 한다. */
 let companyNames = [];
+/* 기업 전체(채용정보 포함). 아래 기업 패널이 목록과 수정 폼을 여기서 그린다. */
+let companiesAll = [];
 /* 지금 등록된 부스 전부. 기업을 고를 때 그 기업이 이미 무엇을 열어뒀는지 보여주는 데 쓴다. */
 let boothsAll = [];
 /* 부스들이 공통으로 쓰는 행사일. 여기서 벗어난 부스는 안내 페이지 시간표에서 빠진다. */
@@ -230,7 +284,8 @@ async function loadCompanies() {
 	const notice = document.getElementById('companyNotice');
 	notice.replaceChildren();
 	try {
-		companyNames = (await adminApi('api/admin/companies')).map(c => c.name);
+		companiesAll = await adminApi('api/admin/companies');
+		companyNames = companiesAll.map(c => c.name);
 	} catch (e) {
 		showError(notice, e.message);
 		return;
@@ -239,7 +294,7 @@ async function loadCompanies() {
 	if (!companyNames.length) {
 		const p = document.createElement('p');
 		p.className = 'notice';
-		p.textContent = '등록된 기업이 없습니다. 기업을 먼저 등록해야 부스를 만들 수 있습니다.';
+		p.textContent = '등록된 기업이 없습니다. 아래 「기업 · 채용정보」에서 먼저 등록해야 부스를 만들 수 있습니다.';
 		notice.append(p);
 	}
 	fillCompanyOptions();
@@ -344,6 +399,144 @@ function copyButton(td, label, url) {
 	});
 	return btn;
 }
+
+/* ── 기업 · 채용정보 ────────────────────────────────────────
+ *
+ * 부스는 회사명 문자열로 기업과 이어져 있고, 채용관 페이지는 여기 적은 값만 그린다.
+ * 서버에는 처음부터 API가 있었는데 이 화면이 없어서 채울 방법이 없었다 —
+ * 그래서 채용관이 회사명만 뜬 채로 남아 있었다.
+ */
+const companyForm = document.getElementById('companyForm');
+const companySaveBtn = document.getElementById('companySave');
+const companyResetBtn = document.getElementById('companyReset');
+const companyFormTitle = document.getElementById('companyFormTitle');
+
+/* 화면은 늘 전체를 보낸다 — 서버가 받은 그대로 덮어쓰므로, 일부만 보내면 나머지가 비워진다.
+   Company.updateProfile 주석이 그 계약을 적어두고 있다. */
+const COMPANY_FIELDS = ['name', 'category', 'summary', 'industry', 'founded', 'revenue',
+	'employees', 'homepage', 'headcount', 'about', 'roles', 'duties', 'requirements',
+	'majors', 'hiring', 'benefits', 'talent'];
+
+/* 채용관 페이지에 실제로 그려지는 칸. 몇 칸이 찼는지가 '왜 채용관이 비어 있지'에 답한다. */
+const JD_FIELDS = COMPANY_FIELDS.filter(f => f !== 'name' && f !== 'category');
+
+function loadCompanyPanel() {
+	const box = document.getElementById('companyList');
+	if (!companiesAll.length) {
+		box.innerHTML = '<p class="empty">등록된 기업이 없습니다. 아래에서 추가하세요.</p>';
+		return;
+	}
+
+	const table = document.createElement('table');
+	table.className = 'admin-table';
+	table.innerHTML = '<thead><tr><th>기업</th><th>구분</th><th>채용정보</th><th>부스</th>'
+		+ '<th>상태</th><th></th></tr></thead>';
+	const tbody = document.createElement('tbody');
+
+	for (const c of companiesAll) {
+		const filled = JD_FIELDS.filter(f => c[f]).length;
+		const tr = document.createElement('tr');
+
+		// 몇 칸이 비었는지 숫자로 말한다. '있음/없음'으로는 무엇을 더 채워야 하는지 모른다.
+		const jd = document.createElement('td');
+		jd.className = 'num';
+		jd.textContent = `${filled} / ${JD_FIELDS.length}`;
+		if (!filled) {
+			jd.style.color = 'var(--brick)';
+		}
+
+		const td = document.createElement('td');
+		const edit = document.createElement('button');
+		edit.type = 'button';
+		edit.className = 'btn btn--ghost';
+		edit.style.cssText = 'flex:none;padding:.375rem .75rem;font-size:.8125rem';
+		edit.textContent = '수정';
+		edit.addEventListener('click', () => fillCompanyForm(c));
+
+		// 내려도 지우지 않는다. 부스와 예약은 그대로 두고 채용관에서만 빠진다.
+		const toggle = document.createElement('button');
+		toggle.type = 'button';
+		toggle.className = 'btn btn--ghost';
+		toggle.style.cssText = 'flex:none;padding:.375rem .75rem;font-size:.8125rem;margin-left:.375rem';
+		toggle.textContent = c.active ? '숨김' : '노출';
+		toggle.addEventListener('click', async () => {
+			toggle.disabled = true;
+			try {
+				await adminApi(`api/admin/companies/${c.id}/active?active=${!c.active}`,
+					{ method: 'PATCH' });
+				await loadCompanies();
+				loadCompanyPanel();
+			} catch (e) {
+				showError(document.getElementById('companyError'), e.message);
+			} finally {
+				toggle.disabled = false;
+			}
+		});
+		td.append(edit, toggle);
+
+		tr.append(
+			cell(c.name),
+			cell(c.category || '-'),
+			jd,
+			cell(String(c.boothCount), 'num'),
+			cell(c.active ? '노출중' : '숨김'),
+			td);
+		tbody.append(tr);
+	}
+
+	table.append(tbody);
+	box.replaceChildren(wrapTable(table));
+}
+
+function fillCompanyForm(c) {
+	companyForm.id.value = c.id;
+	for (const f of COMPANY_FIELDS) {
+		companyForm[f].value = c[f] || '';
+	}
+	companyFormTitle.textContent = `${c.name} 수정`;
+	companySaveBtn.textContent = '변경 저장';
+	companyResetBtn.hidden = false;
+	companyFormTitle.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+companyResetBtn.addEventListener('click', clearCompanyForm);
+
+function clearCompanyForm() {
+	companyForm.reset();
+	companyForm.id.value = '';
+	companyFormTitle.textContent = '기업 추가';
+	companySaveBtn.textContent = '기업 추가';
+	companyResetBtn.hidden = true;
+}
+
+companyForm.addEventListener('submit', async (event) => {
+	event.preventDefault();
+	const errorBox = document.getElementById('companyFormError');
+	errorBox.replaceChildren();
+
+	const id = companyForm.id.value;
+	const body = {};
+	for (const f of COMPANY_FIELDS) {
+		// 빈 칸은 null로 보낸다. 빈 문자열을 보내면 서버가 trimToNull로 지우기는 하지만,
+		// 무엇을 안 적었는지가 요청에서부터 분명한 편이 낫다.
+		body[f] = companyForm[f].value.trim() || null;
+	}
+
+	companySaveBtn.disabled = true;
+	try {
+		await adminApi(id ? `api/admin/companies/${id}` : 'api/admin/companies',
+			{ method: id ? 'PATCH' : 'POST', body: JSON.stringify(body) });
+		clearCompanyForm();
+		await loadCompanies();
+		loadCompanyPanel();
+		// 회사명이 바뀌면 부스 목록의 표시도 따라 바뀐다(서버가 부스의 회사명까지 갱신한다).
+		loadBooths();
+	} catch (e) {
+		showError(errorBox, e.message);
+	} finally {
+		companySaveBtn.disabled = false;
+	}
+});
 
 /** 표를 자기 스크롤 상자에 넣는다 — 좁은 화면에서 페이지가 통째로 밀리지 않게. */
 function wrapTable(table) {
