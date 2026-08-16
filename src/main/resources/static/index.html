@@ -110,24 +110,20 @@ body {
  * 배포된 인쇄물을 그대로 첫 화면에 세운다. 같은 행사를 알리는 두 매체가 다르게 생기면
  * 학생은 다른 행사로 읽는다.
  *
+ * 다만 '한 장을 붙여 놓은 것'처럼 보이면 안 된다. 액자(테두리)를 없애고 위 여백을 지워
+ * 메뉴 바로 아래에 붙이고, 띠 배경을 인쇄물 바탕색과 같게 둔다. 가장자리가 사라지면
+ * 포스터가 페이지에 붙은 종이가 아니라 페이지의 첫 화면 자체로 읽힌다. 그 배경색은 골라
+ * 쓴 색이 아니라 인쇄물에서 잰 값이다 — 가장자리가 #F8F8F8~#FAFAFA 사이라 그 가운데를
+ * 둔다. 여기서 어긋나면 포스터 크기의 직사각형이 그대로 드러난다.
+ *
  * 원본 PNG는 1.6MB다. 대상이 대학생이라 대부분 모바일로 열고, 그 한 장이 페이지 전체보다
  * 무거워진다. webp 111KB / jpeg 161KB로 줄여 두고 브라우저가 고르게 한다.
  */
-.poster-band { padding: 1.5rem 0 3rem; }
+.poster-band { padding: 0 0 2.75rem; background: #F9F9F9; }
 
-.poster-top {
-	display: flex;
-	align-items: center;
-	justify-content: flex-end;
-	gap: .75rem;
-	flex-wrap: wrap;
-	margin: 0 0 1rem;
-}
-
-/* 남은 날짜 배지는 원래 진초록 필드 위에서 쓰던 색이다. 흰 바탕에서는 민트 글자가
-   거의 읽히지 않으므로 여기서만 진한 초록으로 되돌린다. */
-.poster-top .dday { color: var(--pine-700); border-color: var(--rule); }
-.poster-top .dday[data-urgent] { color: var(--warn); border-color: #E8B4A8; background: var(--warn-bg); }
+/* 인쇄물은 자기 여백을 갖고 있다. 여기에 shell 여백을 더하면 좁은 화면에서 양옆이 두 겹으로
+   비어, 없애려던 '붙여 놓은 한 장'이 그대로 돌아온다. */
+.poster-band .shell { padding: 0; }
 
 .poster {
 	display: block;
@@ -135,9 +131,32 @@ body {
 	max-width: 44rem;
 	margin: 0 auto;
 	height: auto;
-	border: 1px solid var(--rule);
-	border-radius: 2px;
+	/* 아래 3분의 1(신청 일정 · 신청하기 QR)을 잘라낸다. 화면에서 QR을 찍으라는 것은 지금
+	   보고 있는 페이지를 다시 열라는 말이고, 그 자리의 QR은 아직 '삽입' 자리표시다.
+	   신청 일정은 행사 개요 페이지가 표로 다시 다룬다.
+	   자르는 자리는 카드가 끝나는 1038px — 원본은 1081×1455다. 파일은 건드리지 않는다.
+	   og:image는 인쇄물 전체여야 하고, 잘린 사본을 하나 더 두면 언젠가 둘이 어긋난다. */
+	aspect-ratio: 1081 / 1038;
+	object-fit: cover;
+	object-position: top;
 }
+
+/* 남은 날짜. 인쇄물이 못 하는 유일한 말이라 포스터 위가 아니라 아래에 둔다 —
+   위에 두면 그 한 줄 때문에 포스터가 다시 아래로 밀려 내려간다. */
+.poster-foot { margin: 1.25rem 0 0; text-align: center; }
+
+.dday {
+	display: inline-block;
+	border: 1px solid var(--rule);
+	border-radius: 999px;
+	padding: .3125rem .875rem;
+	font-size: .8125rem;
+	font-weight: 700;
+	font-variant-numeric: tabular-nums;
+	color: var(--pine-700);
+}
+/* 신청 마감이 임박했을 때만 이 페이지에서 초록이 아닌 색을 쓴다. */
+.dday[data-urgent] { color: var(--warn); border-color: #E8B4A8; background: var(--warn-bg); }
 
 
 /* ══ 본문 ═════════════════════════════════════════════════ */
@@ -368,18 +387,19 @@ body {
 
 <header id="sitenav"></header>
 
-<section class="band poster-band">
+<!-- .band를 함께 두지 않는다 — 뒤에 정의된 .band의 4rem 위 여백이 이겨서 포스터가 다시 내려간다. -->
+<section class="poster-band">
 	<div class="shell">
-		<div class="poster-top">
-			<span class="dday" id="dday">2026. 8. 25.</span>
-		</div>
-		<!-- 인쇄물 그대로. 글자가 그림 안에 있으므로 alt에 핵심 사실을 담아
-		     화면낭독기와 검색엔진이 읽을 수 있게 한다. 자세한 내용은 행사 개요 페이지에 있다. -->
+		<!-- 인쇄물 그대로(아래 신청 안내만 CSS로 잘라낸다). 글자가 그림 안에 있으므로 alt에
+		     핵심 사실을 담아 화면낭독기와 검색엔진이 읽을 수 있게 한다. -->
 		<picture>
 			<source srcset="poster.webp" type="image/webp">
 			<img class="poster" src="poster.jpg" width="1081" height="1455"
 			     alt="온라인 채용박람회 포스터. 2026년 8월 25일 화요일 10시부터 17시까지 ZOOM으로 진행합니다. 대학생·졸업생 대상, 참가비 무료. 기업 채용설명회, 1:1 채용 면접·상담, 그룹 상담이 열립니다. 자세한 내용은 행사 개요 페이지를 보세요.">
 		</picture>
+		<p class="poster-foot">
+			<span class="dday" id="dday">2026. 8. 25.</span>
+		</p>
 	</div>
 </section>
 
