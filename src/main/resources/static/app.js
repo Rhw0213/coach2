@@ -47,9 +47,10 @@ async function api(path, options = {}) {
 /* 상단 메뉴. 여섯 페이지가 같은 줄을 쓰므로 한 곳에서 만든다 —
  * 복사해 두면 메뉴 하나 바꿀 때마다 여섯 곳을 고쳐야 하고 언젠가 한 곳을 빠뜨린다.
  *
- * 사전 참가 등록은 메뉴에서 뺐다(요청). 되돌리려면 acts에 한 줄만 추가하면 된다:
- *   add(acts, 'register', 'https://eastpeace.kr/conference-register.html?code=…',
- *       '사전 참가 등록', true);
+ * '사전 신청'은 book.html(우리 예약 화면)을 가리킨다. 기능 요구사항의 사전 등록 항목이
+ * 기업별 면접 형식을 보여주고 그 자리에서 신청받는 것이고, 그게 book.html이 하는 일이다.
+ * 예전에 여기 있던 eastAI 쪽 외부 등록 폼(conference-register.html?code=…)은
+ * 요청으로 뺐고 되살리지 않았다.
  */
 function renderNav(current) {
 	const host = document.getElementById('sitenav');
@@ -94,6 +95,7 @@ function renderNav(current) {
 	add(links, 'about', 'about.html', '행사 개요');
 	add(links, 'company', 'company.html', '채용관');
 	add(links, 'briefing', 'briefing.html', '기업 설명회');
+	add(links, 'book', 'book.html', '사전 신청');
 	add(links, 'docs', 'docs.html', '서류 등록');
 
 	// 내 예약은 신청이 아니라 확인이다. 같은 상자에 넣으면 처음 온 사람이 여기부터 누른다.
