@@ -7,6 +7,24 @@
 <title>관리자 · 부스 예약</title>
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="app.css">
+<style>
+/* 체크박스는 app.css의 label 규칙(세로 쌓기)과 맞지 않아 여기서만 눕힌다. */
+.check { display: flex; align-items: flex-start; gap: .5rem; }
+.check input { width: auto; flex: none; margin-top: .25rem; }
+.check span { font-size: .8125rem; color: var(--ink-70); font-weight: 400; }
+
+/* 기업이 하나도 없으면 부스를 만들 수 없다. 그 사실을 폼 위에서 먼저 말해준다. */
+.notice {
+	background: var(--paper);
+	border: 1px solid var(--rail);
+	border-left: 3px solid var(--brick);
+	border-radius: 2px;
+	padding: .75rem 1rem;
+	font-size: .875rem;
+	margin: 0 0 1rem;
+}
+.gated-tag { font-size: .75rem; color: var(--pine); white-space: nowrap; }
+</style>
 </head>
 <body>
 <div class="wrap">
@@ -47,10 +65,13 @@
 		<div id="boothList"></div>
 
 		<h2 id="formTitle">부스 추가</h2>
+		<div id="companyNotice"></div>
 		<form id="boothForm">
 			<input type="hidden" name="id">
+			<!-- 회사명은 직접 적지 않고 고른다. 기업과 부스는 회사명 문자열로 이어져 있어서,
+			     한 글자만 달라도 그 기업의 채용정보 페이지에서 이 면접이 사라진다. -->
 			<div class="row">
-				<label><span>회사명</span><input name="companyName" required maxlength="60"></label>
+				<label><span>기업</span><select name="companyName" required id="companySelect"></select></label>
 				<label><span>부스번호</span><input name="boothNo" required maxlength="20" placeholder="A-12"></label>
 			</div>
 			<label><span>모집 분야 · 한 줄 소개</span><input name="note" maxlength="80" placeholder="선택"></label>
@@ -66,6 +87,11 @@
 			<!-- 1이면 1:1 면접·상담, 5면 그룹면접. 한 시간대에 몇 명을 받을지가 곧 좌석 수다. -->
 			<label><span>한 시간대 정원 (명)</span>
 				<input name="capacity" type="number" required min="1" max="50" step="1" value="1"></label>
+			<!-- 켜면 개별 안내 링크를 받은 서류 합격자만 예약할 수 있다. 끄면 누구나. -->
+			<label class="check">
+				<input name="approvalRequired" type="checkbox">
+				<span>서류 합격자만 예약 (1:1 면접) — 켜면 합격자 명단에 등록된 사람에게 보낸 링크로만 예약됩니다</span>
+			</label>
 			<div id="formError"></div>
 			<div class="actions">
 				<button class="btn btn--ghost" type="button" id="resetForm" hidden>새로 추가</button>
@@ -130,8 +156,58 @@ async function open() {
 	signout.hidden = false;
 	// 순서가 중요하다. loadBooths가 viewDate를 행사일로 맞추므로 그 뒤에 조회해야
 	// '오늘' 조회와 '행사일' 조회가 경합해 엉뚱한 날의 표가 남는 일이 없다.
+	await loadCompanies();
 	await loadBooths();
 	loadDay();
+}
+
+/* 부스는 기업에 속한다. 회사명을 타이핑하게 두면 한 글자 차이로 그 기업의 채용정보
+ * 페이지에서 면접이 사라지므로, 등록된 기업 중에서만 고르게 한다. */
+let companyNames = [];
+
+async function loadCompanies() {
+	const notice = document.getElementById('companyNotice');
+	notice.replaceChildren();
+	try {
+		companyNames = (await adminApi('api/admin/companies')).map(c => c.name);
+	} catch (e) {
+		showError(notice, e.message);
+		return;
+	}
+
+	if (!companyNames.length) {
+		const p = document.createElement('p');
+		p.className = 'notice';
+		p.textContent = '등록된 기업이 없습니다. 기업을 먼저 등록해야 부스를 만들 수 있습니다.';
+		notice.append(p);
+	}
+	fillCompanyOptions();
+}
+
+function fillCompanyOptions(extra) {
+	const select = document.getElementById('companySelect');
+	const chosen = select.value;
+	select.replaceChildren();
+
+	// disabled로 두지 않는다. 그러면 폼을 비웠을 때 브라우저가 그 다음 기업을 자동으로 고르고,
+	// 아무것도 안 건드린 채 저장하면 엉뚱한 기업에 부스가 생긴다.
+	// 값이 빈 채로 남고 select에 required가 걸려 있어 제출은 어차피 막힌다.
+	const blank = document.createElement('option');
+	blank.value = '';
+	blank.textContent = companyNames.length ? '기업을 고르세요' : '등록된 기업 없음';
+	select.append(blank);
+
+	// 목록에 없는 이름(기업 개념이 생기기 전에 만든 부스)을 수정할 때, 그 이름을 잠깐 끼워
+	// 넣는다. 안 그러면 저장 버튼 한 번에 회사명이 조용히 다른 기업으로 바뀐다.
+	for (const name of extra && !companyNames.includes(extra)
+			? [extra, ...companyNames] : companyNames) {
+		const option = document.createElement('option');
+		option.value = name;
+		option.textContent = name + (name === extra && !companyNames.includes(extra)
+			? ' (등록되지 않은 이름)' : '');
+		select.append(option);
+	}
+	select.value = extra || chosen || '';
 }
 
 document.getElementById('prev').addEventListener('click', () => shiftDay(-1));
@@ -275,13 +351,57 @@ async function loadBooths() {
 		});
 
 		td.append(edit, toggle, link);
+
+		// 삭제는 내린 부스에만 보인다. 서버도 같은 규칙으로 막지만, 누를 수 없어야 실수가 준다.
+		if (!b.active) {
+			const del = document.createElement('button');
+			del.type = 'button';
+			del.className = 'btn btn--danger';
+			del.style.cssText = 'flex:none;padding:.375rem .75rem;font-size:.8125rem;margin-left:.375rem';
+			del.textContent = '삭제';
+			del.addEventListener('click', async () => {
+				// 되돌릴 수 없다. 무엇이 함께 사라지는지 말하고 한 번 더 누르게 한다.
+				if (del.dataset.sure !== 'yes') {
+					del.dataset.sure = 'yes';
+					del.textContent = `예약·명단까지 삭제? 한 번 더`;
+					setTimeout(() => {
+						if (del.dataset.sure === 'yes') {
+							del.dataset.sure = '';
+							del.textContent = '삭제';
+						}
+					}, 4000);
+					return;
+				}
+				del.disabled = true;
+				try {
+					await adminApi(`api/admin/booths/${b.id}`, { method: 'DELETE' });
+					loadBooths();
+				} catch (e) {
+					showError(boothError, e.message);
+					del.disabled = false;
+					del.dataset.sure = '';
+					del.textContent = '삭제';
+				}
+			});
+			td.append(del);
+		}
+
+		const state = document.createElement('td');
+		state.textContent = b.active ? '운영중' : '중지';
+		if (b.approvalRequired) {
+			const tag = document.createElement('div');
+			tag.className = 'gated-tag';
+			tag.textContent = `합격자 전용 · ${b.approvedCount}명`;
+			state.append(tag);
+		}
+
 		tr.append(
 			cell(b.boothNo, 'num'),
 			cell(b.companyName + (b.note ? ' · ' + b.note : '')),
 			cell(b.eventDate, 'num'),
 			cell(`${b.openFrom.slice(0, 5)}–${b.openTo.slice(0, 5)} · ${b.slotMinutes}분`
 				+ (b.capacity > 1 ? ` · 정원 ${b.capacity}명` : ''), 'num'),
-			cell(b.active ? '운영중' : '중지'),
+			state,
 			td);
 		tbody.append(tr);
 	}
@@ -291,7 +411,8 @@ async function loadBooths() {
 
 function fillForm(b) {
 	boothForm.id.value = b.id;
-	boothForm.companyName.value = b.companyName;
+	fillCompanyOptions(b.companyName);
+	boothForm.approvalRequired.checked = !!b.approvalRequired;
 	boothForm.boothNo.value = b.boothNo;
 	boothForm.note.value = b.note || '';
 	boothForm.eventDate.value = b.eventDate;
@@ -310,6 +431,7 @@ resetBtn.addEventListener('click', clearForm);
 function clearForm() {
 	boothForm.reset();
 	boothForm.id.value = '';
+	fillCompanyOptions();
 	boothForm.eventDate.value = viewDate;
 	formTitle.textContent = '부스 추가';
 	saveBtn.textContent = '부스 추가';
@@ -331,6 +453,7 @@ boothForm.addEventListener('submit', async (event) => {
 		openTo: boothForm.openTo.value + ':00',
 		slotMinutes: Number(boothForm.slotMinutes.value),
 		capacity: Number(boothForm.capacity.value),
+		approvalRequired: boothForm.approvalRequired.checked,
 	});
 
 	saveBtn.disabled = true;
