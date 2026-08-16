@@ -313,24 +313,26 @@ public class ReservationService {
 	}
 
 	/**
-	 * 사람은 번호로 찾는다. 이미 있으면 학교·전공·학년은 첫 예약 때 적은 것이 남는다 —
-	 * 이름이 그렇게 동작해 온 것과 같다.
+	 * 사람은 번호로 찾는다. 이미 있으면 학교·전공·학년은 방금 적은 값으로 맞춘다 —
+	 * 만들 때만 넣으면 이 항목이 생기기 전에 예약한 적 있는 사람은 신청서를 다시
+	 * 채워도 담당자 화면에 영영 빈 칸으로 남는다. 실제로 그렇게 비어서 나왔다.
 	 *
-	 * ponytail: 두 번째 예약에서 값을 갱신하지 않는다. 이 기능 이전에 잡힌 예약자는
-	 * 셋이 빈 채로 남는데, 사전신청이 이 배포 뒤에 열리므로 그런 행은 사실상 없다.
-	 * 채워 넣어야 한다면 writer에 REQUIRES_NEW 갱신을 하나 더 두면 된다 —
-	 * book()에는 트랜잭션이 없어서 더티체킹으로는 반영되지 않는다.
+	 * 이름은 갱신하지 않는다. 본인 확인(이름 + 연락처)에 쓰는 값이라, 두 번째 예약에서
+	 * 바뀌면 첫 예약을 자기 이름으로 찾지 못하게 된다.
 	 */
 	private Visitor findOrCreateVisitor(String name, String phone,
 	                                    String school, String major, String standing) {
-		return visitors.findByPhone(phone).orElseGet(() -> {
-			try {
-				return writer.insertVisitor(new Visitor(name, phone, school, major, standing));
-			} catch (DataIntegrityViolationException e) {
-				// 같은 번호로 동시에 첫 예약이 들어온 경우 — 먼저 들어간 쪽을 쓴다.
-				return visitors.findByPhone(phone).orElseThrow(() -> e);
-			}
-		});
+		Visitor existing = visitors.findByPhone(phone).orElse(null);
+		if (existing != null) {
+			writer.refreshProfile(existing.getId(), school, major, standing);
+			return existing;
+		}
+		try {
+			return writer.insertVisitor(new Visitor(name, phone, school, major, standing));
+		} catch (DataIntegrityViolationException e) {
+			// 같은 번호로 동시에 첫 예약이 들어온 경우 — 먼저 들어간 쪽을 쓴다.
+			return visitors.findByPhone(phone).orElseThrow(() -> e);
+		}
 	}
 
 	/** 공백을 털고 비었는지·너무 긴지 본다. 길이는 Visitor의 컬럼 길이와 맞춰 둔다. */

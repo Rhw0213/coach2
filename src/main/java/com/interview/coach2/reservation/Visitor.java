@@ -75,4 +75,18 @@ public class Visitor {
 		this.token = UUID.randomUUID().toString().replace("-", "");
 		this.createdAt = Instant.now();
 	}
+
+	/**
+	 * 신청서에 다시 적은 소속으로 맞춘다. 사람은 번호로 찾으므로, 만들 때만 넣으면
+	 * 이 항목이 생기기 전에 예약한 적 있는 사람은 다시 채워 넣어도 영영 빈 채로 남는다.
+	 *
+	 * 나중에 적은 것이 이긴다. 학년이 바뀌었거나 오타를 고쳤을 수 있고, 담당자가 볼 값은
+	 * 그 사람이 마지막으로 말한 값이다. 이름은 그대로 둔다 — 본인 확인에 쓰는 값이라
+	 * 두 번째 예약에서 바뀌면 첫 예약을 자기 이름으로 찾지 못하게 된다.
+	 */
+	void updateProfile(String school, String major, String standing) {
+		this.school = school;
+		this.major = major;
+		this.standing = standing;
+	}
 }

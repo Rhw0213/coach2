@@ -34,4 +34,16 @@ public class ReservationWriter {
 	public Visitor insertVisitor(Visitor visitor) {
 		return visitors.saveAndFlush(visitor);
 	}
+
+	/**
+	 * 이미 있는 사람의 소속을 신청서 값으로 맞춘다.
+	 *
+	 * 여기에도 트랜잭션이 필요하다 — book()에는 트랜잭션이 없어서(커넥션 데드락 때문에
+	 * 일부러 뺐다) 더티체킹이 돌 자리가 없다. 값이 그대로면 JPA가 UPDATE를 내지 않는다.
+	 */
+	@Transactional(propagation = Propagation.REQUIRES_NEW)
+	public void refreshProfile(Long visitorId, String school, String major, String standing) {
+		visitors.findById(visitorId)
+			.ifPresent(v -> v.updateProfile(school, major, standing));
+	}
 }

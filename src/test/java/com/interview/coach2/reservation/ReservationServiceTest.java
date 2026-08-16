@@ -77,6 +77,44 @@ class ReservationServiceTest {
 		assertThat(visitors.count()).isEqualTo(1);
 	}
 
+	/**
+	 * 담당자 화면이 학교·전공·학년을 빈 칸으로 보여준 원인이다.
+	 *
+	 * 사람은 번호로 찾는데, 이 항목이 생기기 전에 예약한 적이 있으면 Visitor가 이미
+	 * 있다. 만들 때만 값을 넣으면 그 사람은 신청서를 다시 채워도 영원히 빈 채로 남는다.
+	 */
+	@Test
+	void 이미_있는_사람도_신청서에_적은_소속으로_갱신된다() {
+		// 이 항목이 없던 시절에 만들어진 사람.
+		writer.insertVisitor(new Visitor("홍길동", "01011112222"));
+
+		service.book(booth.getId(), slot,
+			new ReservationService.Applicant("홍길동", "01011112222",
+				"건국대학교", "컴퓨터공학과", "4학년", true), null);
+
+		Visitor saved = visitors.findByPhone("01011112222").orElseThrow();
+		assertThat(saved.getSchool()).isEqualTo("건국대학교");
+		assertThat(saved.getMajor()).isEqualTo("컴퓨터공학과");
+		assertThat(saved.getStanding()).isEqualTo("4학년");
+	}
+
+	/** 두 번째 부스를 잡으며 학년을 고쳐 적으면 나중에 적은 것이 맞다. */
+	@Test
+	void 다시_신청하면_나중에_적은_소속이_남는다() {
+		Booth other = booths.save(new Booth("서해기업", "B-03", null,
+			booth.getEventDate(), LocalTime.of(10, 0), LocalTime.of(17, 0), 30));
+
+		service.book(booth.getId(), slot, new ReservationService.Applicant(
+			"홍길동", "01011112222", "건국대학교", "컴퓨터공학과", "3학년", true), null);
+		service.book(other.getId(), slot.plusSeconds(1800), new ReservationService.Applicant(
+			"홍길동", "01011112222", "건국대학교", "산업공학과", "4학년", true), null);
+
+		Visitor saved = visitors.findByPhone("01011112222").orElseThrow();
+		assertThat(saved.getMajor()).isEqualTo("산업공학과");
+		assertThat(saved.getStanding()).isEqualTo("4학년");
+		assertThat(visitors.count()).isEqualTo(1);
+	}
+
 	@Test
 	void 같은_슬롯은_두_번_예약되지_않는다() {
 		service.book(booth.getId(), slot, "홍길동", "01011112222");
