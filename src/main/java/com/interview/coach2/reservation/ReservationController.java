@@ -39,7 +39,7 @@ public class ReservationController {
 	 */
 	public record BoothView(Long id, String companyName, String boothNo, String note,
 	                        LocalDate eventDate, LocalTime openFrom, LocalTime openTo,
-	                        int slotMinutes, int capacity, boolean approvalRequired) {
+	                        int slotMinutes, int capacity, boolean approvalRequired, BoothKind kind) {
 	}
 
 	/** approvalToken은 서류 합격자 전용 부스에서만 쓰인다. 그 부스에서는 이름·연락처를 보내도 무시된다. */
@@ -106,8 +106,12 @@ public class ReservationController {
 
 		// 부스와는 회사명으로 이어져 있다. 아직 부스를 열지 않은 기업이면 빈 목록이 나간다 —
 		// 소개만 보고 나중에 예약하러 오는 것도 정상적인 흐름이다.
+		//
+		// 기업 설명회는 여기 싣지 않는다. 시간표가 따로 있고, 이 자리는 '이 기업의 면접·상담을
+		// 언제 잡을 수 있나'에 답하는 곳이다.
 		List<BoothView> sessions = service.activeBooths().stream()
 			.filter(b -> c.getName().equals(b.getCompanyName()))
+			.filter(b -> b.getKind() == BoothKind.INTERVIEW)
 			.map(ReservationController::toView)
 			.toList();
 
@@ -230,6 +234,6 @@ public class ReservationController {
 	static BoothView toView(Booth b) {
 		return new BoothView(b.getId(), b.getCompanyName(), b.getBoothNo(), b.getNote(),
 			b.getEventDate(), b.getOpenFrom(), b.getOpenTo(), b.getSlotMinutes(), b.getCapacity(),
-			b.isApprovalRequired());
+			b.isApprovalRequired(), b.getKind());
 	}
 }

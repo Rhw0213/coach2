@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>기업 설명회 · 온라인 채용박람회</title>
+<meta name="description" content="기업별 채용설명회 시간표. 참여 기업이 채용 계획과 직무, 인재상을 직접 소개합니다.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="nav.css">
+<link rel="stylesheet" href="app.css">
+<style>
+/* 구성안의 '시간 / 기업 설명회 / 설명회 내용' 표. */
+.sched { width: 100%; border-collapse: collapse; margin: 1.5rem 0 0; }
+.sched th, .sched td { border-bottom: 1px solid var(--rail); padding: .875rem 1rem; text-align: left; vertical-align: top; }
+.sched thead th { background: var(--pine); color: var(--on-pine); border-bottom: 0; font-size: .875rem; }
+.sched tbody tr { background: var(--paper); }
+.sched .time { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; width: 9rem; }
+.sched .who { font-weight: 700; letter-spacing: -.01em; }
+.sched .who a { color: inherit; text-decoration: none; border-bottom: 1px solid var(--rail); }
+.sched .who a:hover { border-color: var(--pine); }
+.sched .what { color: var(--ink-70); font-size: .9375rem; white-space: pre-wrap; }
+.sched .act { width: 1%; white-space: nowrap; }
+
+/* 지난 시간은 남겨두되 눌리지 않게 한다 — 표에서 지워버리면 그 기업 설명회가
+   아예 없었던 것처럼 보인다. */
+.sched tr.past { opacity: .55; }
+
+.sched .btn {
+	flex: none;
+	display: inline-block;
+	text-decoration: none;
+	padding: .5rem .875rem;
+	font-size: .875rem;
+}
+
+@media (max-width: 40rem) {
+	.sched thead { display: none; }
+	.sched tbody tr { display: block; border-bottom: 1px solid var(--rail); padding: .75rem 0; }
+	.sched td { display: block; border-bottom: 0; padding: .125rem 1rem; }
+	.sched .time { width: auto; color: var(--pine); font-weight: 700; }
+	.sched .act { width: auto; padding-top: .5rem; }
+}
+</style>
+</head>
+<body>
+<header id="sitenav"></header>
+<div class="wrap">
+
+	<p class="eyebrow">Briefing</p>
+	<h1>기업 설명회</h1>
+	<p class="lede">참여 기업이 채용 계획과 직무, 인재상을 직접 소개합니다. 관심 있는 기업의 시간에 신청하세요. 서류 없이 누구나 신청할 수 있습니다.</p>
+
+	<div id="out"><p class="empty">불러오는 중…</p></div>
+
+</div>
+
+<script src="app.js"></script>
+<script>
+renderNav('briefing');
+
+const out = document.getElementById('out');
+
+(async function () {
+	let booths;
+	let companies = [];
+	try {
+		booths = await api('api/booths');
+		// 기업 이름을 채용정보로 잇기 위해서다. 실패해도 시간표는 그려야 하므로 따로 잡는다.
+		companies = await api('api/companies').catch(() => []);
+	} catch (e) {
+		showError(out, e.message);
+		return;
+	}
+
+	const idByName = new Map(companies.map(c => [c.name, c.id]));
+	const list = booths.filter(b => b.kind === 'BRIEFING');
+
+	if (!list.length) {
+		out.innerHTML = '<p class="empty">기업 설명회 시간표를 준비하고 있습니다.</p>';
+		return;
+	}
+
+	/* 설명회는 기업마다 정해진 한 시간대다. 부스의 운영시간을 슬롯으로 잘라 첫 칸을
+	 * 그 기업의 설명회 시각으로 본다 — 운영시간을 30분으로 잡으면 칸이 하나만 생긴다. */
+	const rows = [];
+	for (const b of list) {
+		const grid = slotGrid(b.eventDate, b.openFrom, b.openTo, b.slotMinutes);
+		for (const start of grid) {
+			rows.push({ booth: b, start });
+		}
+	}
+	rows.sort((a, b) => a.start - b.start);
+
+	const table = document.createElement('table');
+	table.className = 'sched';
+	table.innerHTML = '<thead><tr><th scope="col">시간</th><th scope="col">기업 설명회</th>'
+		+ '<th scope="col">설명회 내용</th><th scope="col"><span class="sr">신청</span></th></tr></thead>';
+
+	const tbody = document.createElement('tbody');
+	const now = Date.now();
+
+	for (const row of rows) {
+		const end = new Date(row.start.getTime() + row.booth.slotMinutes * 60000);
+		const tr = document.createElement('tr');
+		if (end.getTime() < now) {
+			tr.className = 'past';
+		}
+
+		const time = document.createElement('td');
+		time.className = 'time';
+		time.textContent = `${hhmm(row.start.toISOString())} ~ ${hhmm(end.toISOString())}`;
+
+		const who = document.createElement('td');
+		who.className = 'who';
+		const companyId = idByName.get(row.booth.companyName);
+		if (companyId) {
+			const a = document.createElement('a');
+			a.href = 'company.html?id=' + encodeURIComponent(companyId);
+			a.textContent = row.booth.companyName;
+			who.append(a);
+		} else {
+			who.textContent = row.booth.companyName;
+		}
+
+		const what = document.createElement('td');
+		what.className = 'what';
+		what.textContent = row.booth.note || '';
+
+		const act = document.createElement('td');
+		act.className = 'act';
+		if (end.getTime() >= now) {
+			const go = document.createElement('a');
+			go.className = 'btn';
+			go.href = 'book.html?booth=' + encodeURIComponent(row.booth.id);
+			go.textContent = '신청';
+			act.append(go);
+		}
+
+		tr.append(time, who, what, act);
+		tbody.append(tr);
+	}
+
+	table.append(tbody);
+	out.replaceChildren(table);
+})();
+</script>
+</body>
+</html>

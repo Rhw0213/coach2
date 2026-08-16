@@ -5,20 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>내 예약</title>
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="nav.css">
 <link rel="stylesheet" href="app.css">
 </head>
 <body>
+<header id="sitenav"></header>
 <div class="wrap">
-
-	<header class="topbar">
-		<p class="mark">취업박람회 부스 예약</p>
-		<nav>
-			<a href="index.html">행사 안내</a>
-			<a href="company.html">참여기업</a>
-			<a href="book.html">예약하기</a>
-			<a href="my.html" aria-current="page">내 예약</a>
-		</nav>
-	</header>
 
 	<p class="eyebrow">확인 · 취소</p>
 	<h1>내 예약</h1>
@@ -45,6 +37,8 @@
 
 <script src="app.js"></script>
 <script>
+renderNav('mine');
+
 const form = document.getElementById('lookup');
 const out = document.getElementById('out');
 

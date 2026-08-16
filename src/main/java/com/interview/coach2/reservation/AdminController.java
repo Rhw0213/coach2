@@ -51,13 +51,15 @@ public class AdminController {
 	// 옛 화면이 부스를 수정했다고 해서 합격자 제한이 조용히 풀리면 안 된다.
 	public record BoothRequest(String companyName, String boothNo, String note,
 	                           LocalDate eventDate, LocalTime openFrom, LocalTime openTo,
-	                           Integer slotMinutes, Integer capacity, Boolean approvalRequired) {
+	                           Integer slotMinutes, Integer capacity, Boolean approvalRequired,
+	                           BoothKind kind) {
 	}
 
 	public record AdminBoothView(Long id, String companyName, String boothNo, String note,
 	                             LocalDate eventDate, LocalTime openFrom, LocalTime openTo,
 	                             int slotMinutes, int capacity, boolean active,
-	                             boolean approvalRequired, long approvedCount, String staffToken) {
+	                             boolean approvalRequired, BoothKind kind,
+	                             long approvedCount, String staffToken) {
 	}
 
 	public record AdminReservationView(Long id, Long boothId, String companyName, String boothNo,
@@ -85,6 +87,8 @@ public class AdminController {
 			required(request.slotMinutes(), "슬롯 길이"),
 			request.capacity() == null ? 1 : request.capacity());
 		booth.setApprovalRequired(Boolean.TRUE.equals(request.approvalRequired()));
+		// 안 보내면 면접·상담이다 — 이 필드를 모르는 화면이 부스를 만들어도 설명회가 되지 않는다.
+		booth.setKind(request.kind() == null ? BoothKind.INTERVIEW : request.kind());
 		return toView(booths.save(booth));
 	}
 
@@ -102,6 +106,9 @@ public class AdminController {
 			request.capacity() == null ? booth.getCapacity() : request.capacity());
 		if (request.approvalRequired() != null) {
 			booth.setApprovalRequired(request.approvalRequired());
+		}
+		if (request.kind() != null) {
+			booth.setKind(request.kind());
 		}
 		return toView(booth);
 	}
@@ -351,8 +358,8 @@ public class AdminController {
 	private AdminBoothView toView(Booth b) {
 		return new AdminBoothView(b.getId(), b.getCompanyName(), b.getBoothNo(), b.getNote(),
 			b.getEventDate(), b.getOpenFrom(), b.getOpenTo(), b.getSlotMinutes(), b.getCapacity(),
-			b.isActive(), b.isApprovalRequired(), approvals.countByBoothId(b.getId()),
-			b.getStaffToken());
+			b.isActive(), b.isApprovalRequired(), b.getKind(),
+			approvals.countByBoothId(b.getId()), b.getStaffToken());
 	}
 
 	private static <T> T required(T value, String field) {

@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>참여기업 · 온라인 채용박람회</title>
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="nav.css">
 <link rel="stylesheet" href="app.css">
 <style>
 /* 채용정보(JD) 상세. 예약 화면과 같은 app.css 위에, 이 페이지에만 필요한 것만 얹는다. */
@@ -94,17 +95,8 @@
 </style>
 </head>
 <body>
+<header id="sitenav"></header>
 <div class="wrap">
-
-	<header class="topbar">
-		<p class="mark">온라인 채용박람회</p>
-		<nav>
-			<a href="index.html">행사 안내</a>
-			<a href="company.html" aria-current="page">참여기업</a>
-			<a href="book.html">예약하기</a>
-			<a href="my.html">내 예약</a>
-		</nav>
-	</header>
 
 	<div id="out"><p class="empty">불러오는 중…</p></div>
 
@@ -112,6 +104,8 @@
 
 <script src="app.js"></script>
 <script>
+renderNav('company');
+
 const out = document.getElementById('out');
 const wanted = new URLSearchParams(location.search).get('id');
 

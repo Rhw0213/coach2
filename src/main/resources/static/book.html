@@ -5,20 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>1:1 면접·상담 예약 · 온라인 채용박람회</title>
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="nav.css">
 <link rel="stylesheet" href="app.css">
 </head>
 <body>
+<header id="sitenav"></header>
 <div class="wrap">
-
-	<header class="topbar">
-		<p class="mark">온라인 채용박람회</p>
-		<nav>
-			<a href="index.html">행사 안내</a>
-			<a href="company.html">참여기업</a>
-			<a href="book.html" aria-current="page">예약하기</a>
-			<a href="my.html">내 예약</a>
-		</nav>
-	</header>
 
 	<p class="eyebrow" id="eventDate">1:1 면접·상담</p>
 	<h1>예약 시간을 지정해 주세요</h1>
@@ -68,6 +60,8 @@
 
 <script src="app.js"></script>
 <script>
+renderNav('book');
+
 const el = {
 	eventDate: document.getElementById('eventDate'),
 	booths: document.getElementById('booths'),
@@ -89,6 +83,9 @@ const el = {
  * 1:1 면접인지가 토큰에 담겨 있으므로, 이름·연락처를 다시 묻지 않고 그 부스만 보여준다. */
 const linkToken = new URLSearchParams(location.search).get('k');
 let approval = null;
+
+/* 특정 부스로 바로 들어온 경우(기업 설명회 시간표의 '신청' 등). 그 부스만 보여준다. */
+const wantBooth = Number(new URLSearchParams(location.search).get('booth')) || null;
 
 let booths = [];
 let booth = null;
@@ -122,6 +119,12 @@ async function init() {
 		// 링크는 한 부스를 가리킨다. 다른 부스를 함께 보여주면 어디를 눌러야 하는지 흐려진다.
 		booths = booths.filter(b => b.id === approval.boothId);
 		showLinkNote();
+	} else if (wantBooth) {
+		booths = booths.filter(b => b.id === wantBooth);
+	} else {
+		// 기본 화면은 면접·상담이다. 기업 설명회는 자기 시간표에서 신청한다 —
+		// 여기 섞으면 '10:00 시큐아이'가 설명회인지 면접인지 구분되지 않는다.
+		booths = booths.filter(b => b.kind === 'INTERVIEW');
 	}
 
 	if (!booths.length) {
@@ -131,10 +134,14 @@ async function init() {
 		return;
 	}
 	// 하루짜리 행사다. 부스들이 같은 날이면 날짜를 한 번만 크게 말해준다.
+	// 설명회로 들어왔으면 그렇게 말한다 — '1:1 상담'이라고 적어두면 무엇을 잡는지 어긋난다.
 	const dates = [...new Set(booths.map(b => b.eventDate))];
+	const what = booths.every(b => b.kind === 'BRIEFING') ? '기업 설명회' : '면접 · 상담';
 	el.eventDate.textContent = dates.length === 1
-		? dayLabel(dates[0]) + ' · 1:1 상담'
-		: '1:1 상담';
+		? dayLabel(dates[0]) + ' · ' + what
+		: what;
+	// 탭 제목도 맞춘다 — 설명회를 신청하는데 탭에 '1:1 면접'이라고 적혀 있으면 어긋난다.
+	document.title = what + ' 신청 · 온라인 채용박람회';
 
 	renderBooths();
 	select(booths[0]);

@@ -58,6 +58,17 @@ public class Booth {
 	@Column(columnDefinition = "integer default 1 not null")
 	private int capacity = 1;
 
+	/**
+	 * 면접·상담인가 기업 설명회인가. 설명회 시간표와 예약 화면이 서로 다른 목록을 그린다.
+	 *
+	 * 이 값이 생기기 전에 만들어진 부스는 전부 면접·상담이었으므로 그것을 기본값으로 둔다.
+	 */
+	// capacity·approvalRequired와 같은 이유로 DDL에 DEFAULT를 박는다 — 행이 있는 테이블에서
+	// ADD COLUMN NOT NULL 이 실패해도 ddl-auto=update는 로그만 남기고 넘어간다.
+	@Enumerated(EnumType.STRING)
+	@Column(columnDefinition = "varchar(20) default 'INTERVIEW' not null")
+	private BoothKind kind = BoothKind.INTERVIEW;
+
 	@Column(nullable = false)
 	private boolean active = true;
 
@@ -142,6 +153,13 @@ public class Booth {
 	/** 이미 잡힌 예약은 건드리지 않는다. 켜는 순간부터 새 예약만 합격자로 제한된다. */
 	public void setApprovalRequired(boolean required) {
 		this.approvalRequired = required;
+	}
+
+	public void setKind(BoothKind kind) {
+		if (kind == null) {
+			throw new IllegalArgumentException("부스 종류가 필요하다");
+		}
+		this.kind = kind;
 	}
 
 	public void updateInfo(String companyName, String boothNo, String note) {

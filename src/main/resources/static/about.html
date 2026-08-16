@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>행사 개요 · 온라인 채용박람회</title>
+<meta name="description" content="제1회 온라인 채용박람회 행사 개요 — 2026년 8월 25일(화) 10:00~17:00, ZOOM으로 진행. 대학생·졸업생 대상, 참가비 무료.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="nav.css">
+<link rel="stylesheet" href="app.css">
+<style>
+/* 구성안의 '구분 / 내용' 표. 값이 여러 줄인 칸이 많아 표를 두 열로만 두고
+   내용은 왼쪽 정렬한다 — 가운데로 모으면 항목이 길어질수록 읽는 눈이 흔들린다. */
+.spec { width: 100%; border-collapse: collapse; margin: 1.5rem 0 0; }
+.spec th, .spec td { border-bottom: 1px solid var(--rail); padding: .875rem 1rem; text-align: left; vertical-align: top; }
+.spec thead th { background: var(--pine); color: var(--on-pine); border-bottom: 0; font-size: .875rem; }
+.spec tbody th { width: 8rem; font-size: .875rem; font-weight: 800; white-space: nowrap; background: var(--paper); }
+.spec td { background: var(--paper); }
+.spec ul { margin: 0; padding-left: 1.125rem; }
+.spec li { margin: 0 0 .3125rem; }
+.spec li:last-child { margin-bottom: 0; }
+.spec .sub { display: block; margin-top: .375rem; color: var(--ink-70); font-size: .9375rem; }
+
+@media (max-width: 34rem) {
+	.spec tbody th, .spec td { display: block; width: auto; }
+	.spec tbody th { border-bottom: 0; padding-bottom: 0; }
+}
+
+.flow { margin: .375rem 0 0; padding-left: 1.125rem; }
+.flow li { margin: 0 0 .3125rem; }
+.flow .when { font-family: var(--mono); font-size: .875rem; color: var(--pine); }
+</style>
+</head>
+<body>
+<header id="sitenav"></header>
+<div class="wrap">
+
+	<p class="eyebrow">Overview</p>
+	<h1>행사 개요</h1>
+
+	<table class="spec">
+		<thead>
+			<tr><th scope="col">구분</th><th scope="col">내용</th></tr>
+		</thead>
+		<tbody>
+			<tr>
+				<th scope="row">사업명</th>
+				<td>제1회 온라인 채용 박람회</td>
+			</tr>
+			<tr>
+				<th scope="row">행사 일시</th>
+				<td>2026. 08. 25.(화) 10:00 ~ 17:00</td>
+			</tr>
+			<tr>
+				<th scope="row">행사 장소</th>
+				<td>온라인 (ZOOM) 활용
+					<span class="sub">참여 신청 인원에게 행사 전날 접속 링크를 개별 전달합니다.</span></td>
+			</tr>
+			<tr>
+				<th scope="row">행사 목적</th>
+				<td>
+					<ul>
+						<li>대학생 및 지역청년 등 구직자의 폭넓은 직무 및 채용 정보 제공</li>
+						<li>현직자 상담을 통해 산업별 직무 특성과 필요 역량을 이해하도록 지원</li>
+						<li>기업과 구직자 1:1 채용 상담과 면접을 통해 구직자들의 산업 현장의 요구 역량과 직무 특성 탐색 기회 확대</li>
+						<li>취업 희망 인원들과 채용 희망 기업 간 채용 연계</li>
+						<li>청년 대상 청년고용정책 연계 활성화 및 지역 거버넌스 체제 구축</li>
+					</ul>
+				</td>
+			</tr>
+			<tr>
+				<th scope="row">행사 내용</th>
+				<td>
+					<ul>
+						<li>기업 설명회 : 10:00 ~ 14:00 (기업별 설명회 진행)</li>
+						<li>면접 진행 : 기업별 면접 신청 → 그룹 면접 / 일대일 면접 (사전 서류 심사)</li>
+					</ul>
+				</td>
+			</tr>
+			<tr>
+				<th scope="row">신청 방법</th>
+				<td>
+					<ul>
+						<li>본 홈페이지 사전 신청서 작성</li>
+						<li>기업 설명회 (희망 기업 신청)</li>
+						<li>희망 기업 면접 형태 확인 (그룹 면접 / 일대일 면접)</li>
+						<li>그룹 면접의 경우 바로 신청 가능</li>
+						<li>일대일 면접
+							<!-- 날짜는 배포된 포스터를 따른다. 인쇄물이 이미 학생 손에 있으므로
+							     화면이 다른 날짜를 말하면 어느 쪽을 믿어야 할지 알 수 없다. -->
+							<ol class="flow">
+								<li><span class="when">~ 8. 21.(금)</span> 서류(이력서) 접수</li>
+								<li><span class="when">~ 8. 24.(월)</span> 서류 합격자에게 개별 안내 링크 발송 · 면접 신청</li>
+								<li><span class="when">8. 24.(월) 18:00</span> ZOOM 접속 링크 개별 안내</li>
+							</ol>
+						</li>
+					</ul>
+				</td>
+			</tr>
+		</tbody>
+	</table>
+
+</div>
+
+<script src="app.js"></script>
+<script>
+renderNav('about');
+</script>
+</body>
+</html>

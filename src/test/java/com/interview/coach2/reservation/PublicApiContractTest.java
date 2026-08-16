@@ -224,8 +224,9 @@ class PublicApiContractTest {
 	void 정적_화면이_서비스된다() throws Exception {
 		// 셋 다 실제로 서빙되지 않으면 배포는 성공해도 사용자는 아무것도 못 본다.
 		for (String page : new String[]{
-				"/index.html", "/book.html", "/my.html", "/company.html", "/admin.html",
-				"/booth.html", "/app.css", "/app.js", "/favicon.svg"}) {
+				"/index.html", "/about.html", "/company.html", "/briefing.html", "/docs.html",
+				"/book.html", "/my.html", "/admin.html", "/booth.html",
+				"/app.css", "/nav.css", "/app.js", "/favicon.svg"}) {
 			assertThat(get(page).statusCode()).as(page).isEqualTo(200);
 		}
 	}

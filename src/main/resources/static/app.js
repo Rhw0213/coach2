@@ -44,6 +44,73 @@ async function api(path, options = {}) {
 	return data;
 }
 
+/* 상단 메뉴. 여섯 페이지가 같은 줄을 쓰므로 한 곳에서 만든다 —
+ * 복사해 두면 메뉴 하나 바꿀 때마다 여섯 곳을 고쳐야 하고 언젠가 한 곳을 빠뜨린다.
+ *
+ * 사전 참가 등록만 바깥(eastAI)으로 나간다. code는 그 행사를 가리키는 공개 코드이므로
+ * 행사가 바뀌면 이 값을 바꾼다. */
+const PRE_REGISTER_URL = 'https://eastpeace.kr/conference-register.html?code=5f70f757';
+
+function renderNav(current) {
+	const host = document.getElementById('sitenav');
+	if (!host) {
+		return;
+	}
+	host.className = 'sitenav';
+
+	const box = document.createElement('div');
+	box.className = 'sitenav-in';
+
+	const home = document.createElement('a');
+	home.className = 'sitenav-home';
+	home.href = 'index.html';
+	const mark = document.createElement('img');
+	mark.src = 'favicon.svg';
+	mark.alt = '';
+	mark.width = 24;
+	mark.height = 24;
+	const label = document.createElement('span');
+	label.textContent = '온라인 채용박람회';
+	home.append(mark, label);
+	box.append(home);
+
+	const add = (parent, key, href, text, external) => {
+		const a = document.createElement('a');
+		a.href = href;
+		a.textContent = text;
+		if (external) {
+			a.rel = 'noopener';
+		}
+		if (key === current) {
+			a.setAttribute('aria-current', 'page');
+		}
+		parent.append(a);
+	};
+
+	const links = document.createElement('nav');
+	links.className = 'sitenav-links';
+	add(links, 'about', 'about.html', '행사 개요');
+	add(links, 'company', 'company.html', '채용관');
+	box.append(links);
+
+	const acts = document.createElement('div');
+	acts.className = 'sitenav-acts';
+	add(acts, 'briefing', 'briefing.html', '기업 설명회');
+	add(acts, 'register', PRE_REGISTER_URL, '사전 참가 등록', true);
+	add(acts, 'docs', 'docs.html', '서류 등록');
+	const mine = document.createElement('a');
+	mine.className = 'sitenav-mine';
+	mine.href = 'my.html';
+	mine.textContent = '내 예약';
+	if (current === 'mine') {
+		mine.setAttribute('aria-current', 'page');
+	}
+	acts.append(mine);
+	box.append(acts);
+
+	host.replaceChildren(box);
+}
+
 /* 서버는 UTC Instant를 준다. 화면은 항상 한국시간으로 읽는다. */
 function hhmm(iso) {
 	return new Date(iso).toLocaleTimeString('ko-KR', {

@@ -1,0 +1,80 @@
+/* 모든 공개 페이지가 함께 쓰는 상단 메뉴.
+ *
+ * app.css가 아니라 따로 두는 이유: 안내 페이지(index.html)는 포스터 정체성 때문에 자기
+ * 토큰과 색을 따로 갖고 있어서 app.css를 통째로 물려받으면 배경·글꼴이 어긋난다.
+ * 메뉴만 떼어 놓으면 그 한 페이지도 같은 줄을 쓸 수 있다.
+ *
+ * 마크업은 app.js의 renderNav가 만든다 — 여섯 페이지에 같은 줄을 복사해 두면
+ * 메뉴 하나 바꿀 때마다 여섯 곳을 고쳐야 하고, 언젠가 한 곳을 빠뜨린다.
+ */
+
+.sitenav {
+	background: #FFFFFF;
+	border-bottom: 1px solid #DCE6E1;
+	font-family: -apple-system, BlinkMacSystemFont, Pretendard, "Apple SD Gothic Neo",
+		"Malgun Gothic", "Noto Sans KR", sans-serif;
+}
+
+.sitenav-in {
+	max-width: 64rem;
+	margin: 0 auto;
+	padding: .75rem 1.25rem;
+	display: flex;
+	align-items: center;
+	gap: .75rem 1.25rem;
+	flex-wrap: wrap;
+}
+
+.sitenav-home {
+	display: flex;
+	align-items: center;
+	gap: .5rem;
+	text-decoration: none;
+	color: #16201C;
+	font-weight: 800;
+	font-size: .875rem;
+	letter-spacing: -.01em;
+	white-space: nowrap;
+}
+.sitenav-home img { width: 1.5rem; height: 1.5rem; }
+
+.sitenav-links { display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap; }
+
+.sitenav-links a {
+	text-decoration: none;
+	color: #16201C;
+	font-size: .875rem;
+	font-weight: 700;
+	white-space: nowrap;
+	padding: .25rem 0;
+	border-bottom: 2px solid transparent;
+}
+.sitenav-links a:hover { border-color: #2A7A66; }
+.sitenav-links a[aria-current] { color: #1A5A4A; border-color: #1A5A4A; }
+
+/* 신청으로 이어지는 셋은 테두리를 둘러 구분한다 — 구성안이 그렇게 나눠 두었고,
+   읽기만 하는 메뉴와 무언가를 내는 메뉴는 성격이 다르다. */
+.sitenav-acts { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; margin-left: auto; }
+
+.sitenav-acts a {
+	text-decoration: none;
+	font-size: .8125rem;
+	font-weight: 700;
+	white-space: nowrap;
+	padding: .375rem .75rem;
+	border: 1px solid #DCE6E1;
+	border-radius: 2px;
+	color: #1A5A4A;
+}
+.sitenav-acts a:hover { border-color: #2A7A66; background: #E9F3EF; }
+.sitenav-acts a[aria-current] { background: #1A5A4A; border-color: #1A5A4A; color: #FFFFFF; }
+
+/* 내 예약은 신청이 아니라 확인이다. 셋과 같은 무게로 두면 처음 온 사람이 여기부터 누른다. */
+.sitenav-mine { font-size: .8125rem; color: #66746E; text-decoration: none; white-space: nowrap; }
+.sitenav-mine:hover { color: #1A5A4A; }
+
+@media (max-width: 46rem) {
+	.sitenav-in { gap: .5rem .875rem; padding: .625rem 1.25rem; }
+	.sitenav-acts { margin-left: 0; width: 100%; }
+	.sitenav-links { gap: .875rem; }
+}
