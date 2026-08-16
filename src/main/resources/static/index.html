@@ -245,6 +245,8 @@ body {
 	color: var(--mint-400);
 	margin-left: .375rem;
 }
+.g-name a { color: inherit; text-decoration: none; border-bottom: 1px solid rgba(213, 233, 224, .35); }
+.g-name a:hover { border-color: var(--mint-400); }
 
 .g-t {
 	display: block;
@@ -355,20 +357,27 @@ body {
 .fact dd { margin: 0; font-size: 1.125rem; font-weight: 800; letter-spacing: -.015em; line-height: 1.35; }
 .fact .fine { display: block; font-size: .8125rem; font-weight: 400; color: var(--ink-60); margin-top: .1875rem; letter-spacing: 0; }
 
-.firms {
-	display: flex;
-	align-items: baseline;
-	gap: .875rem;
-	flex-wrap: wrap;
-	padding-top: 1.5rem;
-	border-top: 1px solid var(--rule);
+/* 참여기업. 사실 넷과 같은 왼쪽 민트 실선을 써서 이 페이지의 조형 안에 둔다 —
+   여기만 테두리 상자로 만들면 다른 사이트에서 붙여온 것처럼 보인다. */
+.firm-grid { display: grid; gap: 1.5rem; }
+@media (min-width: 40rem) { .firm-grid { grid-template-columns: repeat(2, 1fr); gap: 1.75rem 2.5rem; } }
+
+.firm {
+	display: block;
+	padding-left: 1.25rem;
+	border-left: 2px solid var(--mint-100);
+	text-decoration: none;
+	color: inherit;
+	transition: border-color .12s ease;
 }
-.firms dt { font-size: .75rem; font-weight: 700; letter-spacing: .06em; color: var(--pine-500); flex: none; }
-.firms dd { margin: 0; font-weight: 700; letter-spacing: -.015em; }
-.firms .etc { font-weight: 400; color: var(--ink-60); }
-.firms a { color: inherit; text-decoration: none; border-bottom: 2px solid var(--mint-100); }
-.firms a:hover { border-color: var(--pine-500); }
-.firms .all { font-weight: 400; color: var(--pine-500); border-bottom: 0; white-space: nowrap; }
+.firm:hover { border-color: var(--pine-500); }
+.firm b { font-size: 1.0625rem; font-weight: 800; letter-spacing: -.02em; }
+.firm .cat { font-size: .75rem; font-weight: 700; letter-spacing: .02em; color: var(--pine-500); margin-left: .5rem; white-space: nowrap; }
+.firm p { margin: .3125rem 0 0; font-size: .875rem; color: var(--ink-60); }
+
+/* 기업 정보를 못 받아왔을 때 남는 포스터 문구. */
+.firm-fallback { margin: 0; font-weight: 700; letter-spacing: -.015em; }
+.firm-fallback .etc { font-weight: 400; color: var(--ink-60); }
 
 /* ── 진행 방식 — 행사 프로그램표 ─────────────────────────── */
 
@@ -549,6 +558,18 @@ body {
 
 <main>
 
+	<!-- 기업이 먼저다. 학생은 '누가 오나'를 보고 관심 있는 곳을 고른 뒤에야 시간을 정한다.
+	     기업 정보를 못 받아오면 아래 포스터 문구가 그대로 남는다. -->
+	<section class="band">
+		<div class="shell">
+			<h2 class="h2" id="firmsTitle">참여기업</h2>
+			<div id="firms">
+				<p class="firm-fallback">시큐아이 · 쎄트렉아이 · 키사이트테크놀로지스코리아
+					<span class="etc">등 국내 우수기업 참여</span></p>
+			</div>
+		</div>
+	</section>
+
 	<section class="band">
 		<div class="shell">
 			<dl class="facts">
@@ -570,12 +591,6 @@ body {
 				</div>
 			</dl>
 
-			<!-- 기본값은 포스터 문구 그대로다. 기업 정보가 등록되어 있으면 아래 스크립트가
-			     실제 목록으로 바꾸고, 각 이름이 그 기업의 채용정보로 들어가는 문이 된다. -->
-			<dl class="firms">
-				<dt>참여기업</dt>
-				<dd id="firms">시큐아이 · 쎄트렉아이 · 키사이트테크놀로지스코리아 <span class="etc">등 국내 우수기업 참여</span></dd>
-			</dl>
 		</div>
 	</section>
 
@@ -709,9 +724,13 @@ if (toEvent > 0) {
 	ddayEl.textContent = '행사 종료';
 }
 
-/* 참여기업. 등록된 것이 있으면 포스터 문구를 실제 목록으로 바꾸고 각 이름에 링크를 건다.
- * 실패하거나 아직 비어 있으면 기본 문구가 그대로 남는다 — 안내가 사라지는 것보다 낫다. */
-(async function () {
+/* 참여기업. 등록된 것이 있으면 포스터 문구를 카드 목록으로 바꾼다.
+ * 실패하거나 아직 비어 있으면 기본 문구가 그대로 남는다 — 안내가 사라지는 것보다 낫다.
+ *
+ * 시간표 레일도 같은 목록이 필요하다(회사명을 채용정보로 잇기 위해). 두 번 부르지 않도록
+ * 여기서 한 번 받아 이름→id를 남겨두고, 레일은 그것이 준비되기를 기다린다. */
+const companyIdByName = new Map();
+const companiesReady = (async function () {
 	let list;
 	try {
 		list = await api('api/companies');
@@ -721,24 +740,44 @@ if (toEvent > 0) {
 	if (!list || !list.length) {
 		return;
 	}
+	for (const c of list) {
+		companyIdByName.set(c.name, c.id);
+	}
 
-	const dd = document.getElementById('firms');
-	dd.replaceChildren();
-	list.forEach((c, i) => {
-		if (i) {
-			dd.append(document.createTextNode(' · '));
+	const title = document.getElementById('firmsTitle');
+	const count = document.createElement('span');
+	count.className = 'thin';
+	count.textContent = ' ' + list.length + '곳';
+	title.append(count);
+
+	const box = document.getElementById('firms');
+	box.replaceChildren();
+	const grid = document.createElement('div');
+	grid.className = 'firm-grid';
+
+	for (const c of list) {
+		const card = document.createElement('a');
+		card.className = 'firm';
+		card.href = 'company.html?id=' + encodeURIComponent(c.id);
+
+		const name = document.createElement('b');
+		name.textContent = c.name;
+		card.append(name);
+
+		if (c.category) {
+			const cat = document.createElement('span');
+			cat.className = 'cat';
+			cat.textContent = c.category;
+			card.append(cat);
 		}
-		const a = document.createElement('a');
-		a.href = 'company.html?id=' + encodeURIComponent(c.id);
-		a.textContent = c.name;
-		dd.append(a);
-	});
-
-	const all = document.createElement('a');
-	all.className = 'all';
-	all.href = 'company.html';
-	all.textContent = '채용정보 보기 →';
-	dd.append(document.createTextNode(' '), all);
+		if (c.summary) {
+			const p = document.createElement('p');
+			p.textContent = c.summary;
+			card.append(p);
+		}
+		grid.append(card);
+	}
+	box.append(grid);
 })();
 
 /* ── 시간표 레일 ──────────────────────────────────────────
@@ -797,7 +836,19 @@ if (toEvent > 0) {
 		for (const row of rows) {
 			const name = document.createElement('span');
 			name.className = 'g-name';
-			name.textContent = row.booth.companyName;
+
+			// 여기 적힌 회사명이 위 카드에서는 눌리는데 여기서는 안 눌리면 일관성이 깨진다.
+			// 기업 목록을 못 받아온 경우에는 그냥 글자로 둔다.
+			const companyId = companyIdByName.get(row.booth.companyName);
+			if (companyId) {
+				const a = document.createElement('a');
+				a.href = 'company.html?id=' + encodeURIComponent(companyId);
+				a.textContent = row.booth.companyName;
+				name.append(a);
+			} else {
+				name.append(document.createTextNode(row.booth.companyName));
+			}
+
 			const no = document.createElement('b');
 			no.textContent = row.booth.boothNo;
 			name.append(no);
@@ -837,6 +888,9 @@ if (toEvent > 0) {
 	}
 
 	(async function () {
+		// 회사명을 채용정보로 이으려면 이름→id가 있어야 한다. 목록을 두 번 부르지 않는다.
+		await companiesReady;
+
 		// 이 페이지는 하루짜리 행사를 알린다. 다른 날짜의 부스(지난 행사·시험용)를 같이 그리면
 		// 축이 두 날의 합집합이 되고, 라벨은 HH:MM뿐이라 같은 시각이 두 번 나온다.
 		const booths = (await api('api/booths')).filter(b => b.eventDate === EVENT_DAY);
