@@ -42,6 +42,12 @@ services:
     build: .
     container_name: coach2
     restart: always
+    # 부트 4는 server.shutdown 기본값이 graceful이고(3까지는 immediate였다) 처리 중인 요청을
+    # spring.lifecycle.timeout-per-shutdown-phase 기본 30초까지 기다린다. 그런데 Compose는
+    # SIGTERM 뒤 10초면 SIGKILL을 보낸다 — 앱이 기다리기로 한 시간보다 짧다.
+    # 신청서를 제출한 사람이 재배포에 걸리면 그 요청만 응답 없이 끊긴다.
+    # 30초 + 여유. 실제 셧다운은 0.6초면 끝나므로 배포가 느려지지는 않는다.
+    stop_grace_period: 40s
     # 1g는 빠듯했다. MaxRAMPercentage=75%면 힙 768m, 나머지 256m로 metaspace(Hibernate가
     # 프록시 생성으로 100~180m를 쓴다) + 스레드 스택 + 코드캐시를 감당해야 해서
     # cgroup OOM-kill(SIGKILL)이 날 수 있다. 그건 ExitOnOutOfMemoryError로 못 막는다.

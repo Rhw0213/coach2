@@ -152,6 +152,62 @@ cat ~/.ssh/coach2_deploy.pub >> ~/.ssh/authorized_keys   # (서버에서)
 현재 워크플로우는 `scp`와 `ssh`를 둘 다 쓰므로 `SSH_ORIGINAL_COMMAND`를 해석하는
 래퍼 스크립트가 추가로 필요하다.
 
+## 행사 당일 (8/25) — 하루짜리 절차
+
+동시접속 50명은 실측으로 감당된다(HTTP 계층 50명 동시 예약: 5xx 0건, p95 1.9초,
+`ConcurrentHttpBookingTest`). 그날 실제로 남는 위험은 부하가 아니라 **데이터와 배포**다.
+
+### 1. 백업 — 반드시. 지금 사본이 볼륨 하나뿐이다
+
+```bash
+mkdir -p /home/ubuntu/coach2-backups
+chmod +x /home/ubuntu/coach2/deploy/backup.sh
+/home/ubuntu/coach2/deploy/backup.sh          # 먼저 손으로 한 번 돌려본다
+
+crontab -e
+# 8월 24·25일에만, 매시 정각
+0 * 24,25 8 * /home/ubuntu/coach2/deploy/backup.sh >> /home/ubuntu/coach2-backups/backup.log 2>&1
+```
+
+**복구가 되는지 8/24 전에 한 번 확인한다.** 되는 줄 알았던 백업이 안 되는 것이
+백업이 없는 것보다 나쁘다.
+
+```bash
+cd /home/ubuntu/coach2
+docker compose exec -T postgres createdb -U coach2 coach2_restoretest
+gunzip -c /home/ubuntu/coach2-backups/<파일>.sql.gz \
+  | docker compose exec -T postgres psql -U coach2 -d coach2_restoretest
+docker compose exec -T postgres psql -U coach2 -d coach2_restoretest -c 'select count(*) from reservation;'
+docker compose exec -T postgres dropdb -U coach2 coach2_restoretest
+```
+
+### 2. 배포 동결 — 행사 시작 전에 켠다
+
+GitHub → coach2 저장소 → Settings → Variables → `DEPLOY_FREEZE` = `true`
+(**정확히 소문자**. `True`는 걸리지 않는다.)
+
+`docker compose up --build`는 블루그린이 아니다. 기존 컨테이너를 멈추고 새 컨테이너를
+띄우므로 JVM이 기동하는 수십 초 동안 `/reserve/` 전체가 502가 된다. 게다가 이미지 빌드가
+운영 호스트(vCPU 2)에서 돌아 그 시간 내내 앱·eastAI와 CPU를 다툰다.
+`stop_grace_period: 40s`는 멈추는 쪽의 요청만 구제할 뿐 이 502 구간은 없애지 못한다.
+행사 중 급한 수정이 필요하면 동결을 잠깐 풀고 사람이 적은 시간에 수동으로 배포한다.
+
+### 3. 감시 (선택)
+
+앱이 죽으면 `restart: always`가 되살린다. 하지만 컨테이너가 unhealthy로 바뀌는 것에는
+Docker가 아무 조치도 하지 않는다(Swarm이 아니다) — 살아는 있는데 DB가 막힌 상태는
+사람이 보기 전까지 그대로다.
+
+```bash
+crontab -e
+*/5 * 24,25 8 * curl -fsS --max-time 5 https://eastpeace.kr/reserve/health | grep -q '"app":"coach2"' || logger -t coach2-watchdog 'coach2 health check failed'
+```
+
+`journalctl -t coach2-watchdog -f`로 본다. 상태코드가 아니라 본문의 `"app":"coach2"`를
+확인하는 이유는 배포 워크플로우와 같다 — nginx include가 어긋나면 eastAI의 catch-all이
+2xx를 돌려주기 때문이다. 다만 syslog는 아무도 안 본다. 실제로 도움이 되려면
+행사 중 이 명령을 띄워둔 터미널을 하나 열어두는 편이 낫다.
+
 ## 롤백
 
 ```bash
