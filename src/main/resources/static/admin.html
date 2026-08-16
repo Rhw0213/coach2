@@ -23,7 +23,9 @@
 	font-size: .875rem;
 	margin: 0 0 1rem;
 }
-.gated-tag { font-size: .75rem; color: var(--pine); white-space: nowrap; }
+.gated-tag { font-size: .75rem; color: var(--pine); }
+.warn-tag { font-size: .75rem; color: var(--brick); font-weight: 700; }
+.hint { font-size: .8125rem; color: var(--ink-70); margin: -.5rem 0 1rem; }
 </style>
 </head>
 <body>
@@ -93,6 +95,9 @@
 				<label><span>기업</span><select name="companyName" required id="companySelect"></select></label>
 				<label><span>부스번호</span><input name="boothNo" required maxlength="20" placeholder="A-12"></label>
 			</div>
+			<!-- 고른 기업이 이미 무엇을 열어뒀는지. 한 기업이 1:1과 그룹을 각각 열 수 있으므로,
+			     지금 무엇이 있는지 보여야 무엇을 더 만들지 판단할 수 있다. -->
+			<p class="hint" id="companyHint" hidden></p>
 			<label><span>모집 분야 · 한 줄 소개</span><input name="note" maxlength="80" placeholder="선택"></label>
 			<div class="row">
 				<label><span>행사일</span><input name="eventDate" type="date" required></label>
@@ -183,6 +188,27 @@ async function open() {
 /* 부스는 기업에 속한다. 회사명을 타이핑하게 두면 한 글자 차이로 그 기업의 채용정보
  * 페이지에서 면접이 사라지므로, 등록된 기업 중에서만 고르게 한다. */
 let companyNames = [];
+/* 지금 등록된 부스 전부. 기업을 고를 때 그 기업이 이미 무엇을 열어뒀는지 보여주는 데 쓴다. */
+let boothsAll = [];
+/* 부스들이 공통으로 쓰는 행사일. 여기서 벗어난 부스는 안내 페이지 시간표에서 빠진다. */
+let mainEventDate = '';
+
+document.getElementById('companySelect').addEventListener('change', showCompanyHint);
+
+function showCompanyHint() {
+	const hint = document.getElementById('companyHint');
+	const name = document.getElementById('companySelect').value;
+	const mine = boothsAll.filter(b => b.companyName === name);
+	if (!name || !mine.length) {
+		hint.hidden = true;
+		return;
+	}
+	hint.hidden = false;
+	hint.textContent = `${name}에 이미 있는 것 — `
+		+ mine.map(b => `${b.boothNo} ${b.capacity > 1 ? `그룹 ${b.capacity}명` : '1:1'}`
+			+ (b.approvalRequired ? '(합격자 전용)' : '')).join(', ')
+		+ '. 1:1과 그룹은 각각 따로 만듭니다.';
+}
 
 async function loadCompanies() {
 	const notice = document.getElementById('companyNotice');
@@ -296,6 +322,16 @@ async function loadBooths() {
 		showError(boothError, e.message);
 		return;
 	}
+	boothsAll = list;
+	// 가장 많이 쓰인 행사일을 이 행사의 날로 본다. 여기서 벗어난 부스만 표시하면 되므로
+	// 어딘가에 행사일을 따로 적어둘 필요가 없다.
+	const dateCount = new Map();
+	for (const b of list) {
+		dateCount.set(b.eventDate, (dateCount.get(b.eventDate) || 0) + 1);
+	}
+	mainEventDate = [...dateCount.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || '';
+	showCompanyHint();
+
 	if (!list.length) {
 		boothList.innerHTML = '<p class="empty">등록된 부스가 없습니다. 아래에서 추가하세요.</p>';
 		return;
@@ -421,8 +457,20 @@ async function loadBooths() {
 		state.textContent = b.active ? '운영중' : '중지';
 		if (b.approvalRequired) {
 			const tag = document.createElement('div');
-			tag.className = 'gated-tag';
-			tag.textContent = `합격자 전용 · ${b.approvedCount}명`;
+			// 명단이 비었으면 켜져 있어도 아무도 예약하지 못한다. '0명'만으로는 그 뜻이
+			// 읽히지 않아, 그 상태를 그대로 만들어두고 왜 예약이 안 되는지 헤매게 된다.
+			tag.className = b.approvedCount ? 'gated-tag' : 'warn-tag';
+			tag.textContent = b.approvedCount
+				? `합격자 전용 · ${b.approvedCount}명`
+				: '합격자 전용 · 명단 없음 — 아무도 예약할 수 없음';
+			state.append(tag);
+		}
+		// 행사일이 저마다 다르면 안내 페이지 시간표에서 일부가 빠진다. 그 페이지는
+		// 하루짜리 행사를 그리므로 다른 날의 부스를 걸러낸다.
+		if (mainEventDate && b.eventDate !== mainEventDate) {
+			const tag = document.createElement('div');
+			tag.className = 'warn-tag';
+			tag.textContent = `행사일이 다름 (${mainEventDate} 아님)`;
 			state.append(tag);
 		}
 
