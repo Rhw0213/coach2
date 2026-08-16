@@ -282,7 +282,7 @@ class PublicApiContractTest {
 	}
 
 	@Test
-	void 합격자_전용_부스는_링크_없이_예약되지_않는다() throws Exception {
+	void 합격자_전용_부스는_명단에_없으면_예약되지_않는다() throws Exception {
 		Booth gated = saveBooth();
 		gated.setApprovalRequired(true);
 		booths.save(gated);
@@ -293,6 +293,24 @@ class PublicApiContractTest {
 			""".formatted(gated.getId(), Slots.forBooth(gated).get(0)));
 
 		assertThat(res.statusCode()).isEqualTo(403);
+	}
+
+	/** 이름 하나로 통과한다. 연락처는 화면이 뭘 보내든 명단의 값이 쓰인다. */
+	@Test
+	void 합격자_전용_부스는_이름이_명단에_있으면_예약된다() throws Exception {
+		Booth gated = saveBooth();
+		gated.setApprovalRequired(true);
+		booths.save(gated);
+		approvals.save(new Approval(gated.getId(), "홍길동", "01012345678"));
+
+		HttpResponse<String> res = post("/api/reservations", """
+			{"boothId":%d,"startTime":"%s","name":"홍길동",
+					 "school":"건국대","major":"컴퓨터공학","standing":"4학년","agreed":true}
+			""".formatted(gated.getId(), Slots.forBooth(gated).get(0)));
+
+		assertThat(res.statusCode()).isEqualTo(200);
+		assertThat(visitors.findAll()).singleElement()
+			.satisfies(v -> assertThat(v.getPhone()).isEqualTo("01012345678"));
 	}
 
 	@Test

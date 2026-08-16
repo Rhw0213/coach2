@@ -44,8 +44,9 @@ public class ReservationController {
 	}
 
 	/**
-	 * approvalToken은 서류 합격자 전용 부스에서만 쓰인다. 그 부스에서는 이름·연락처를 보내도
-	 * 무시된다 — 학교·전공·학년은 명단에 없으므로 그 경우에도 신청서에서 받는다.
+	 * approvalToken은 합격자 한 사람을 가리키는 개별 링크에서만 온다. 없으면 합격자 전용
+	 * 부스는 이름을 명단과 대조해 가려낸다. 어느 쪽이든 이름·연락처는 명단의 값이 쓰이고,
+	 * 학교·전공·학년은 명단에 없으므로 신청서에서 받는다.
 	 *
 	 * agreed는 개인정보 수집·이용 동의다. 화면의 required만으로는 막을 수 없으므로
 	 * 서버가 다시 본다.
@@ -56,7 +57,7 @@ public class ReservationController {
 	 */
 	public record BookRequest(Long boothId, Instant startTime, String name, String phone,
 	                          String school, String major, String standing, Boolean agreed,
-	                          String approvalToken, String applyToken) {
+	                          String approvalToken) {
 	}
 
 	public record BookResponse(Long reservationId, String token, Instant startTime,
@@ -139,7 +140,7 @@ public class ReservationController {
 			request.boothId(), request.startTime(),
 			new ReservationService.Applicant(request.name(), request.phone(), request.school(),
 				request.major(), request.standing(), Boolean.TRUE.equals(request.agreed())),
-			request.approvalToken(), request.applyToken());
+			request.approvalToken());
 		Reservation r = result.reservation();
 		Booth booth = service.booth(r.getBoothId());
 		return new BookResponse(r.getId(), result.visitorToken(), r.getStartTime(),
@@ -199,11 +200,13 @@ public class ReservationController {
 	 * 본인은 앞뒤 몇 자리로 자기 번호를 알아보고, 주운 사람은 온전한 번호를 얻지 못한다.
 	 */
 	/**
-	 * 합격자 전원에게 같이 보낸 신청 링크가 가리키는 부스.
+	 * 신청 링크가 가리키는 부스. 화면이 그 부스 하나만 보여주는 데 쓴다.
 	 *
-	 * 여기서는 부스가 무엇인지만 알려준다 — 합격자 명단은 절대 내보내지 않는다.
-	 * 링크 하나로 명단을 열 수 있으면 그 링크를 받은 사람 전원이 서로의 이름과
-	 * 번호를 갖게 된다.
+	 * 예약을 여는 열쇠는 아니다 — 합격자 전용 부스는 링크가 있든 없든 이름을 명단과
+	 * 대조해 가려낸다. 이 링크는 '어느 기업인지'까지 데려다주는 지름길일 뿐이다.
+	 *
+	 * 부스가 무엇인지만 알려준다 — 합격자 명단은 절대 내보내지 않는다. 링크 하나로 명단을
+	 * 열 수 있으면 그 링크를 받은 사람 전원이 서로의 이름과 번호를 갖게 된다.
 	 */
 	public record ApplyView(Long boothId, String companyName, String boothNo, String note) {
 	}

@@ -26,6 +26,16 @@
 .terms ul { margin: .625rem 0 0; padding-left: 1.125rem; }
 .terms li { margin: 0 0 .25rem; }
 .terms p { margin: .625rem 0 0; }
+
+/* 합격자 전용 안내. 시간표 위에 서서 '누가 신청할 수 있는지'를 먼저 말한다. */
+#gateNote {
+	margin: 0 0 1rem;
+	padding: .75rem 1rem;
+	border-left: 3px solid var(--pine);
+	background: var(--paper);
+	font-size: .9375rem;
+	color: var(--ink-70);
+}
 </style>
 </head>
 <body>
@@ -44,6 +54,9 @@
 
 	<section id="day" hidden>
 		<h2 id="dayTitle"></h2>
+		<!-- 합격자 전용 부스에서만 보인다. 시간표를 눌러 보고 나서 거절당하면
+		     자기가 합격자가 아닌 것인지 이름을 잘못 적은 것인지 알 수 없다. -->
+		<p class="notice" id="gateNote" hidden>서류 합격자만 신청할 수 있습니다. 합격 안내에 적힌 이름 그대로 입력해 주세요.</p>
 		<div id="rail"><p class="empty">불러오는 중…</p></div>
 	</section>
 
@@ -137,7 +150,16 @@ const el = {
 	whoFields: document.getElementById('whoFields'),
 	whoFixed: document.getElementById('whoFixed'),
 	phoneField: document.getElementById('phoneField'),
+	gateNote: document.getElementById('gateNote'),
 };
+
+/**
+ * 합격자 명단으로만 가려내는 부스인가 — 개별 링크 없이 들어온 서류 합격자 전용 부스.
+ * 이 경우 이름만 받는다. 연락처는 서버가 명단의 값을 쓰므로 물어봐야 버려진다.
+ */
+function listGated() {
+	return !!booth && booth.approvalRequired && !approval;
+}
 
 /* 서류 합격자에게 개별로 보낸 링크(?k=…)로 들어온 경우. 그 사람이 누구이고 어느 기업의
  * 1:1 면접인지가 토큰에 담겨 있으므로, 이름·연락처를 다시 묻지 않고 그 부스만 보여준다. */
@@ -273,10 +295,6 @@ function showApplyNote() {
 	what.textContent = '합격 안내에 적힌 이름 그대로 입력해 주세요. 연락처는 명단의 번호를 씁니다.';
 	box.append(who, what);
 	el.linkNote.replaceChildren(box);
-
-	// hidden만으로는 required가 살아 있어 제출이 조용히 막힌다. 검증에서도 빼야 한다.
-	el.phoneField.hidden = true;
-	el.form.phone.required = false;
 }
 
 /** 확인 번호가 있으면 이미 잡은 부스를 미리 파악한다. 실패해도 예약을 막지 않는다 —
@@ -330,9 +348,6 @@ function renderBooths() {
 		hours.className = 'booth-meta';
 		hours.textContent = bookedBoothIds.has(b.id)
 			? '예약함'
-			// 신청 링크를 들고 들어왔으면 '전용'이라고만 적어둘 이유가 없다. 시간을 보여준다.
-			: b.approvalRequired && !approval && !(applyBooth && applyBooth.boothId === b.id)
-			? '서류 합격자 전용'
 			// 정원이 1이면 굳이 말하지 않는다 — 1:1이 기본이고, 그룹일 때만 알려주면 된다.
 			// 설명회는 정원 자체가 없으므로 그렇게 말한다. 정원 숫자를 보여주면 자리 경쟁이
 			// 있는 것처럼 읽혀서, 늦게 본 사람이 지레 포기한다.
@@ -359,16 +374,10 @@ function select(b) {
 	el.day.hidden = false;
 	el.dayTitle.textContent = `${b.boothNo} ${b.companyName} · ${dayLabel(b.eventDate)}`;
 
-	// 합격자 전용인데 링크 없이 들어왔다. 시간표를 보여주면 눌러보고 나서야 거절당한다.
-	// 공용 신청 링크로 그 부스에 들어왔으면 통과다 — 명단 확인은 제출할 때 서버가 한다.
-	if (b.approvalRequired && !approval && !(applyBooth && applyBooth.boothId === b.id)) {
-		el.rail.replaceChildren();
-		const p = document.createElement('p');
-		p.className = 'empty';
-		p.textContent = '서류 합격자에게 보내드린 신청 링크로만 예약할 수 있습니다.';
-		el.rail.append(p);
-		return;
-	}
+	// 합격자 전용 부스는 시간표를 보여주되, 누가 신청할 수 있는지 먼저 말한다.
+	// 눌러 보고 나서 거절당하면 자기가 합격자가 아닌 것인지 잘못 적은 것인지 알 수 없다.
+	// 신청 링크로 들어왔으면 위쪽 안내가 이미 같은 말을 했다. 두 번 적지 않는다.
+	el.gateNote.hidden = !listGated() || !!applyBooth;
 
 	if (bookedBoothIds.has(b.id)) {
 		// 잡을 수 없는 시간을 초록으로 보여주면 눌러보고 실패한다. 아예 그리지 않는다.
@@ -473,6 +482,13 @@ function submitLabel() {
 
 function openSheet(iso) {
 	picked = iso;
+
+	// 부스마다 묻는 것이 다르다. 시트를 열 때마다 정한다 — 한 번만 정해두면 다른 부스로
+	// 옮겨간 뒤에도 그대로 남는다. hidden만으로는 required가 살아 있어 제출이 조용히 막힌다.
+	const gated = listGated();
+	el.phoneField.hidden = gated;
+	el.form.phone.required = !gated && !approval;
+
 	el.sheetTitle.textContent = isBriefing() ? '설명회 신청' : '상담 예약';
 	el.sheetSubmit.textContent = submitLabel();
 	el.sheetWhen.textContent = `${booth.boothNo} ${booth.companyName} · ${fullWhen(iso)}`;
@@ -506,9 +522,6 @@ el.form.addEventListener('submit', async (event) => {
 				// 체크가 없으면 FormData에 키 자체가 없다. 서버도 다시 본다.
 				agreed: data.get('agreed') !== null,
 				approvalToken: linkToken,
-				// 공용 링크로 들어온 경우에만 보낸다. 서버는 이 토큰이 그 부스의 것인지 보고,
-				// 맞으면 이름·연락처를 합격자 명단과 대조한다.
-				applyToken: applyBooth && applyBooth.boothId === booth.id ? applyToken : null,
 			}),
 		});
 		store.token = result.token;

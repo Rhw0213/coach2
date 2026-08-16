@@ -95,21 +95,6 @@ public class ReservationService {
 	}
 
 	/**
-	 * ⚠ 이 메서드에 @Transactional을 붙이지 말 것. 커넥션 풀이 데드락한다.
-	 *
-	 * 실제 INSERT는 ReservationWriter가 REQUIRES_NEW로 자기 트랜잭션에서 한다(제약 위반이
-	 * 바깥을 오염시키지 않게 하려고). 여기에 바깥 트랜잭션까지 있으면 요청 하나가 커넥션을
-	 * 동시에 두 개 쥐게 되고, HikariCP 기본 풀 10개에서는 열 요청이 각자 하나씩 잡은 채
-	 * 두 번째를 기다리다 전원이 타임아웃한다.
-	 *
-	 * 실측: 정원 1인 슬롯에 40명이 동시에 예약하면 40건 전부
-	 * CannotCreateTransactionException(500)으로 실패했다. ConcurrentBookingTest가 이걸 지킨다.
-	 *
-	 * 트랜잭션이 없어도 안전하다. 이 메서드의 조회들은 서로 원자적일 필요가 없고
-	 * (사전검사는 원래 경합을 막지 못한다 — 진짜 방어선은 유니크 제약이다),
-	 * 엔티티에 지연로딩 연관관계가 하나도 없어 세션 밖에서 필드를 읽어도 문제가 없다.
-	 */
-	/**
 	 * 신청서에 적힌 사람. 학교·전공·학년 구분은 기업 담당자가 명단에서 읽는 값이고,
 	 * privacyAgreed는 그 값들을 받아도 되는지에 대한 본인의 동의다.
 	 */
@@ -129,17 +114,26 @@ public class ReservationService {
 			new Applicant(name, rawPhone, "테스트대", "테스트학과", "4학년", true), approvalToken);
 	}
 
-	public BookResult book(Long boothId, Instant startTime, Applicant who, String approvalToken) {
-		return book(boothId, startTime, who, approvalToken, null);
-	}
-
 	/**
-	 * approvalToken은 합격자 한 사람을 가리키는 개별 링크,
-	 * applyToken은 그 부스 합격자 전원에게 같이 보낸 신청 링크의 열쇠다.
-	 * 합격자 전용 부스는 둘 중 하나가 있어야 하고, 개별 링크가 있으면 그쪽이 이긴다.
+	 * ⚠ 이 메서드에 @Transactional을 붙이지 말 것. 커넥션 풀이 데드락한다.
+	 *
+	 * 실제 INSERT는 ReservationWriter가 REQUIRES_NEW로 자기 트랜잭션에서 한다(제약 위반이
+	 * 바깥을 오염시키지 않게 하려고). 여기에 바깥 트랜잭션까지 있으면 요청 하나가 커넥션을
+	 * 동시에 두 개 쥐게 되고, HikariCP 기본 풀 10개에서는 열 요청이 각자 하나씩 잡은 채
+	 * 두 번째를 기다리다 전원이 타임아웃한다.
+	 *
+	 * 실측: 정원 1인 슬롯에 40명이 동시에 예약하면 40건 전부
+	 * CannotCreateTransactionException(500)으로 실패했다. ConcurrentBookingTest가 이걸 지킨다.
+	 *
+	 * 트랜잭션이 없어도 안전하다. 이 메서드의 조회들은 서로 원자적일 필요가 없고
+	 * (사전검사는 원래 경합을 막지 못한다 — 진짜 방어선은 유니크 제약이다),
+	 * 엔티티에 지연로딩 연관관계가 하나도 없어 세션 밖에서 필드를 읽어도 문제가 없다.
 	 */
-	public BookResult book(Long boothId, Instant startTime, Applicant who,
-	                       String approvalToken, String applyToken) {
+	/**
+	 * approvalToken은 합격자 한 사람을 가리키는 개별 링크다. 있으면 그 사람으로 예약된다.
+	 * 없으면 합격자 전용 부스는 이름을 합격자 명단과 대조해 가려낸다.
+	 */
+	public BookResult book(Long boothId, Instant startTime, Applicant who, String approvalToken) {
 		Booth booth = activeBooth(boothId);
 
 		// 동의가 먼저다. 동의 없이 받은 값은 저장할 근거가 없으므로 아무것도 조회하지 않는다.
@@ -154,10 +148,10 @@ public class ReservationService {
 			// 받아 자기 번호로 그 자리를 가져갈 수 있다.
 			// 학교·전공·학년은 명단에 없으므로 어느 경로든 신청서에서 받는다.
 			Approval approval = hasText(approvalToken)
-				// 합격자 한 사람을 가리키는 개별 링크. 토큰이 곧 그 사람이다.
+				// 개별 링크. 토큰이 곧 그 사람이다.
 				? approvalFor(approvalToken, boothId)
-				// 합격자 전원에게 같이 보낸 신청 링크. 문만 열고, 누구인지는 명단이 가린다.
-				: approvedFromList(booth, applyToken, who);
+				// 링크 없이 들어온 경우. 이름이 합격자 명단에 있으면 그 사람으로 본다.
+				: approvedFromList(booth, who);
 			name = approval.getName();
 			rawPhone = approval.getPhone();
 		}
@@ -368,23 +362,17 @@ public class ReservationService {
 	}
 
 	/**
-	 * 공용 신청 링크로 들어온 경우. 링크가 문을 열고, 합격자 명단이 사람을 가린다.
+	 * 합격자 명단으로 가려낸다. 이름이 명단에 있으면 통과다.
 	 *
-	 * 이름만 받는다(요청). 연락처까지 받으면 학생이 명단에 적힌 번호를 정확히 기억해야 하고,
-	 * 한 자리만 달라도 거절당한다 — 합격자에게만 나간 링크를 이미 들고 있는데 그 문턱을
-	 * 한 번 더 두는 셈이다. 남의 이름을 사칭할 수 있다는 것은 감수하기로 한 위험이다.
-	 *
-	 * 링크는 먼저 본다. 주소 없이 이름만으로 시도할 수 있게 두면, 이름을 아는 사람이
-	 * 신청을 눌러 보는 것만으로 그 사람의 서류 합격 여부를 알아낼 수 있다.
-	 * 링크가 합격자에게만 나가므로 그 오라클이 바깥으로 열리지 않는다.
+	 * 이름 하나만 본다(요청). 링크도 연락처도 요구하지 않는다 — 학생이 명단에 적힌 번호를
+	 * 정확히 기억해야 하거나 링크를 잃어버리면 못 들어오는 쪽보다, 이름만으로 들어오는 쪽을
+	 * 택했다. 남의 이름을 사칭할 수 있다는 것과, 이름을 아는 사람이 신청을 눌러 보는 것만으로
+	 * 그 사람의 서류 합격 여부를 알아낼 수 있다는 것은 감수하기로 한 위험이다.
 	 *
 	 * 연락처는 명단의 것을 쓴다. 화면이 보낸 번호는 여기서 쓰이지 않는다 —
 	 * ZOOM 링크가 갈 곳이고 담당자가 걸 번호라, 주최측이 확인한 값이어야 한다.
 	 */
-	private Approval approvedFromList(Booth booth, String applyToken, Applicant who) {
-		if (!hasText(applyToken) || !applyToken.equals(booth.getApplyToken())) {
-			throw forbidden("서류 합격자에게 보내드린 신청 링크로만 예약할 수 있습니다");
-		}
+	private Approval approvedFromList(Booth booth, Applicant who) {
 		if (who.name() == null || who.name().isBlank()) {
 			throw badRequest("이름을 입력해 주세요");
 		}

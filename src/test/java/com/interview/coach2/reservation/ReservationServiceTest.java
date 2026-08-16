@@ -384,7 +384,7 @@ class ReservationServiceTest {
 	}
 
 	@Test
-	void 합격자_전용_부스는_링크_없이_예약되지_않는다() {
+	void 합격자_전용_부스는_명단이_비어_있으면_아무도_예약하지_못한다() {
 		Booth gated = approvalBooth();
 
 		assertThatThrownBy(() -> service.book(gated.getId(), slot, "홍길동", "01012345678"))
@@ -403,133 +403,107 @@ class ReservationServiceTest {
 		assertThat(visitors.count()).isZero();
 	}
 
-	// ── 합격자 전원에게 같이 보내는 신청 링크 ────────────────────
-	// 사람마다 다른 주소를 만들어 나눠 보내는 것이 실제로는 굴러가지 않는다.
-	// 링크는 문만 열고, 누구인지는 합격자 명단의 이름·연락처가 가린다.
+	// ── 합격자 명단으로 가려내기 ──────────────────────────────
+	// 링크도 연락처도 요구하지 않는다(요청). 이름이 명단에 있으면 통과다.
+	// 사칭과 합격 여부 떠보기는 감수하기로 한 위험이고, 동명이인만 막는다.
 
 	private static ReservationService.Applicant who(String name, String phone) {
 		return new ReservationService.Applicant(name, phone, "건국대", "컴퓨터공학", "4학년", true);
 	}
 
-	@Test
-	void 공용_신청_링크로_명단에_있는_사람이_예약한다() {
-		Booth gated = approvalBooth();
-		approvals.save(new Approval(gated.getId(), "홍길동", "01012345678"));
-
-		service.book(gated.getId(), slot, who("홍길동", "010-1234-5678"), null, gated.getApplyToken());
-
-		assertThat(reservations.count()).isEqualTo(1);
-		assertThat(visitors.findAll()).singleElement()
-			.satisfies(v -> assertThat(v.getPhone()).isEqualTo("01012345678"));
-	}
-
-	@Test
-	void 공용_링크가_있어도_명단에_없으면_예약되지_않는다() {
-		Booth gated = approvalBooth();
-		approvals.save(new Approval(gated.getId(), "홍길동", "01012345678"));
-
-		assertThatThrownBy(() ->
-			service.book(gated.getId(), slot, who("김철수", "01099998888"), null, gated.getApplyToken()))
-			.isInstanceOf(ResponseStatusException.class)
-			.satisfies(e -> assertStatus(e, HttpStatus.FORBIDDEN));
-		assertThat(visitors.count()).isZero();
+	private static ReservationService.Applicant named(String name) {
+		return new ReservationService.Applicant(name, null, "건국대", "컴퓨터공학", "4학년", true);
 	}
 
 	/**
-	 * 공용 링크는 이름만 받는다. 연락처는 명단의 것을 쓴다 — ZOOM 링크가 갈 곳이고
-	 * 담당자가 걸 번호라, 학생이 적은 값이 아니라 주최측이 확인한 값이어야 한다.
+	 * 이름만 받는다. 연락처는 명단의 것을 쓴다 — ZOOM 링크가 갈 곳이고 담당자가 걸 번호라,
+	 * 학생이 적은 값이 아니라 주최측이 확인한 값이어야 한다.
 	 */
 	@Test
-	void 공용_링크는_이름만으로_신청되고_번호는_명단의_것이_남는다() {
+	void 이름이_명단에_있으면_링크_없이_예약된다() {
 		Booth gated = approvalBooth();
 		approvals.save(new Approval(gated.getId(), "홍길동", "01012345678"));
 
-		// 화면은 연락처 칸을 감추므로 null이 온다. 엉뚱한 번호가 와도 마찬가지로 무시된다.
-		service.book(gated.getId(), slot, new ReservationService.Applicant(
-			"홍길동", null, "건국대", "컴퓨터공학", "4학년", true), null, gated.getApplyToken());
+		// 화면은 연락처 칸을 감추므로 null이 온다.
+		service.book(gated.getId(), slot, named("홍길동"), null);
 
+		assertThat(reservations.count()).isEqualTo(1);
 		assertThat(visitors.findAll()).singleElement().satisfies(v -> {
 			assertThat(v.getName()).isEqualTo("홍길동");
 			assertThat(v.getPhone()).isEqualTo("01012345678");
 		});
 	}
 
-	/** '홍 길동'과 '홍길동'이 갈리면 본인이 자기 이름을 적고도 거절당한다. */
+	/** 화면이 엉뚱한 번호를 보내도 명단의 번호가 이긴다. */
 	@Test
-	void 공용_링크는_이름의_공백_차이를_무시한다() {
+	void 화면이_보낸_번호는_무시하고_명단의_번호로_기록된다() {
 		Booth gated = approvalBooth();
 		approvals.save(new Approval(gated.getId(), "홍길동", "01012345678"));
 
-		service.book(gated.getId(), slot, new ReservationService.Applicant(
-			"홍 길동", null, "건국대", "컴퓨터공학", "4학년", true), null, gated.getApplyToken());
+		service.book(gated.getId(), slot, who("홍길동", "010-9999-8888"), null);
+
+		assertThat(visitors.findAll()).singleElement()
+			.satisfies(v -> assertThat(v.getPhone()).isEqualTo("01012345678"));
+	}
+
+	/** '홍 길동'과 '홍길동'이 갈리면 본인이 자기 이름을 적고도 거절당한다. */
+	@Test
+	void 이름의_공백_차이는_무시한다() {
+		Booth gated = approvalBooth();
+		approvals.save(new Approval(gated.getId(), "홍길동", "01012345678"));
+
+		service.book(gated.getId(), slot, named("홍 길동"), null);
 
 		assertThat(reservations.count()).isEqualTo(1);
 	}
 
+	@Test
+	void 명단에_없는_이름은_예약되지_않는다() {
+		Booth gated = approvalBooth();
+		approvals.save(new Approval(gated.getId(), "홍길동", "01012345678"));
+
+		assertThatThrownBy(() -> service.book(gated.getId(), slot, named("김철수"), null))
+			.isInstanceOf(ResponseStatusException.class)
+			.satisfies(e -> assertStatus(e, HttpStatus.FORBIDDEN));
+		assertThat(visitors.count()).isZero();
+	}
+
+	/** 명단은 부스마다 따로다. 다른 기업에 합격했다고 이 기업 면접을 잡을 수는 없다. */
+	@Test
+	void 다른_부스_명단에_있는_사람은_이_부스를_예약하지_못한다() {
+		Booth gated = approvalBooth();
+		Booth other = approvalBooth();
+		approvals.save(new Approval(other.getId(), "홍길동", "01012345678"));
+
+		assertThatThrownBy(() -> service.book(gated.getId(), slot, named("홍길동"), null))
+			.isInstanceOf(ResponseStatusException.class)
+			.satisfies(e -> assertStatus(e, HttpStatus.FORBIDDEN));
+	}
+
 	/**
 	 * 동명이인. 아무나 골라 주면 엉뚱한 사람의 번호로 예약이 잡히고, 진짜 본인은
-	 * '이 부스는 이미 예약하셨습니다'를 보게 된다. 찍지 말고 돌려보낸다.
+	 * '이 부스는 이미 예약하셨습니다'를 보게 된다. 사칭과 달리 아무도 의도하지 않았는데
+	 * 벌어지는 사고라서 이것만은 막는다.
 	 */
 	@Test
-	void 같은_이름이_명단에_둘이면_공용_링크로_예약되지_않는다() {
+	void 같은_이름이_명단에_둘이면_예약되지_않는다() {
 		Booth gated = approvalBooth();
 		approvals.save(new Approval(gated.getId(), "홍길동", "01012345678"));
 		approvals.save(new Approval(gated.getId(), "홍길동", "01099998888"));
 
-		assertThatThrownBy(() -> service.book(gated.getId(), slot,
-			new ReservationService.Applicant("홍길동", null, "건국대", "컴퓨터공학", "4학년", true),
-			null, gated.getApplyToken()))
+		assertThatThrownBy(() -> service.book(gated.getId(), slot, named("홍길동"), null))
 			.isInstanceOf(ResponseStatusException.class)
 			.satisfies(e -> assertStatus(e, HttpStatus.CONFLICT));
 		assertThat(reservations.count()).isZero();
 	}
 
-	/** 명단에 없는 이름. 번호를 맞게 적어도 이름이 다르면 그 사람이 아니다. */
+	/** 명단 대조가 생겨도 이미 보낸 개별 링크는 그대로 살아 있어야 한다. */
 	@Test
-	void 공용_링크로도_이름이_다르면_예약되지_않는다() {
-		Booth gated = approvalBooth();
-		approvals.save(new Approval(gated.getId(), "홍길동", "01012345678"));
-
-		assertThatThrownBy(() ->
-			service.book(gated.getId(), slot, who("김철수", "01012345678"), null, gated.getApplyToken()))
-			.isInstanceOf(ResponseStatusException.class)
-			.satisfies(e -> assertStatus(e, HttpStatus.FORBIDDEN));
-	}
-
-	/**
-	 * 링크 없이 이름·연락처만으로 통과되면, 남의 이름과 번호를 아는 사람이 신청을 눌러 보는
-	 * 것만으로 그 사람의 서류 합격 여부를 알아낼 수 있다. 링크가 그 오라클을 닫는다.
-	 */
-	@Test
-	void 공용_링크_없이_명단에_있어도_예약되지_않는다() {
-		Booth gated = approvalBooth();
-		approvals.save(new Approval(gated.getId(), "홍길동", "01012345678"));
-
-		assertThatThrownBy(() ->
-			service.book(gated.getId(), slot, who("홍길동", "01012345678"), null, null))
-			.isInstanceOf(ResponseStatusException.class)
-			.satisfies(e -> assertStatus(e, HttpStatus.FORBIDDEN));
-	}
-
-	@Test
-	void 다른_부스의_공용_링크로는_예약되지_않는다() {
-		Booth gated = approvalBooth();
-		Booth other = approvalBooth();
-		approvals.save(new Approval(gated.getId(), "홍길동", "01012345678"));
-
-		assertThatThrownBy(() ->
-			service.book(gated.getId(), slot, who("홍길동", "01012345678"), null, other.getApplyToken()))
-			.isInstanceOf(ResponseStatusException.class)
-			.satisfies(e -> assertStatus(e, HttpStatus.FORBIDDEN));
-	}
-
-	/** 공용 링크가 생겨도 이미 보낸 개별 링크는 그대로 살아 있어야 한다. */
-	@Test
-	void 개별_링크는_공용_링크가_생겨도_그대로_동작한다() {
+	void 개별_링크는_그대로_동작한다() {
 		Booth gated = approvalBooth();
 		Approval approved = approvals.save(new Approval(gated.getId(), "홍길동", "01012345678"));
 
-		service.book(gated.getId(), slot, who("가로채기", "01099998888"), approved.getToken(), null);
+		service.book(gated.getId(), slot, who("가로채기", "01099998888"), approved.getToken());
 
 		assertThat(visitors.findAll()).singleElement()
 			.satisfies(v -> assertThat(v.getName()).isEqualTo("홍길동"));
