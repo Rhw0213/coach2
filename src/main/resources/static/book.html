@@ -557,7 +557,11 @@ function renderTicket(result) {
 
 	const when = document.createElement('p');
 	when.style.cssText = 'margin:0 0 .75rem;font-family:var(--mono);font-size:.875rem';
-	when.textContent = `${fullWhen(result.startTime)} · ${result.slotMinutes}분`;
+	// 무엇을 신청했는지 여기서도 말한다. 내 예약 화면과 같은 문장을 써야 나중에 그 목록에서
+	// 같은 자리로 알아본다 — 방금 고른 부스가 그 답을 이미 들고 있다.
+	const kind = sessionLabel(booth);
+	when.textContent = (kind ? kind + ' · ' : '')
+		+ `${fullWhen(result.startTime)} · ${result.slotMinutes}분`;
 
 	const note = document.createElement('p');
 	note.style.cssText = 'margin:0;font-size:.875rem';

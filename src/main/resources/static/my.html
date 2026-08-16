@@ -122,7 +122,11 @@ function render(token, list) {
 
 		const meta = document.createElement('div');
 		meta.className = 'stub-meta';
-		meta.textContent = fullWhen(r.startTime) + ' · ' + r.slotMinutes + '분'
+		// 무엇을 잡은 자리인지 먼저 읽힌다. 기업명과 시각만으로는 설명회인지 면접인지,
+		// 1:1인지 그룹인지 알 수 없었다.
+		const kind = sessionLabel(r);
+		meta.textContent = (kind ? kind + ' · ' : '')
+			+ fullWhen(r.startTime) + ' · ' + r.slotMinutes + '분'
 			+ (cancelled ? ' · 취소됨' : past ? ' · 지난 예약' : '');
 
 		body.append(who, meta);

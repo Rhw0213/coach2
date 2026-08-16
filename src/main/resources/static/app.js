@@ -133,6 +133,23 @@ function fullWhen(iso) {
 	});
 }
 
+/* 무엇을 잡은 자리인가 — 기업 설명회인지, 1:1 면접인지, 여럿이 함께 보는 그룹 면접인지.
+ * 기업명과 시각만으로는 구분되지 않아 예약 확인표와 내 예약 화면이 둘 다 말해주지 못했다.
+ * 두 곳이 같은 문장을 써야 같은 자리로 읽히므로 여기 한 번만 적는다.
+ *
+ * 종류를 모르면(부스가 지워진 예약) 아무 말도 하지 않는다 — 그때 '1:1'이 기본값처럼
+ * 찍히면 거짓말이 된다.
+ *
+ * 관리자 화면은 자기 kindLabel을 따로 쓴다. 표 한 칸에 들어가야 해서 말이 더 짧다. */
+function sessionLabel(s) {
+	if (!s || !s.kind) {
+		return '';
+	}
+	return s.kind === 'BRIEFING' ? '기업 설명회'
+		: s.capacity > 1 ? `그룹 면접 ${s.capacity}명`
+		: '1:1 면접·상담';
+}
+
 /** 오늘(KST) 기준 offset일 뒤의 YYYY-MM-DD */
 function ymd(offset = 0) {
 	const parts = new Intl.DateTimeFormat('en-CA', {

@@ -64,7 +64,13 @@ public class ReservationController {
 	                           int slotMinutes, String companyName, String boothNo) {
 	}
 
+	/**
+	 * kind·capacity는 '무엇을 잡은 자리인가'에 답한다. 부스번호와 기업명만으로는
+	 * 기업 설명회인지 1:1 면접인지 그룹 면접인지 구분되지 않아, 내 예약 화면이
+	 * 무엇을 신청했는지 말해주지 못했다.
+	 */
 	public record ReservationView(Long id, Long boothId, String companyName, String boothNo,
+	                              BoothKind kind, int capacity,
 	                              Instant startTime, int slotMinutes, ReservationStatus status) {
 	}
 
@@ -186,6 +192,8 @@ public class ReservationController {
 			return new ReservationView(r.getId(), r.getBoothId(),
 				booth == null ? "-" : booth.getCompanyName(),
 				booth == null ? "-" : booth.getBoothNo(),
+				booth == null ? null : booth.getKind(),
+				booth == null ? 0 : booth.getCapacity(),
 				r.getStartTime(), r.getSlotMinutes(), r.getStatus());
 		}).toList();
 	}

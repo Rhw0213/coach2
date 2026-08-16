@@ -59,6 +59,13 @@ class PublicApiContractTest {
 			HttpResponse.BodyHandlers.ofString());
 	}
 
+	private HttpResponse<String> book(Booth booth, Instant slot) throws Exception {
+		return post("/api/reservations", """
+			{"boothId":%d,"startTime":"%s","name":"홍길동","phone":"010-1111-2222",
+			 "school":"건국대","major":"컴퓨터공학","standing":"4학년","agreed":true}
+			""".formatted(booth.getId(), slot));
+	}
+
 	private Booth saveBooth() {
 		return booths.save(new Booth("동해기업", "A-12", "백엔드 개발자 모집",
 			Slots.today().plusDays(7), LocalTime.of(10, 0), LocalTime.of(17, 0), 30));
@@ -77,7 +84,10 @@ class PublicApiContractTest {
 			.contains("\"slotMinutes\":30")
 			.contains("\"openFrom\":\"10:00:00\"")
 			.contains("\"openTo\":\"17:00:00\"")
-			.contains("\"eventDate\":\"" + booth.getEventDate() + "\"");
+			.contains("\"eventDate\":\"" + booth.getEventDate() + "\"")
+			// 예약 화면이 부스 카드와 예약 확인표에 '무엇을 잡는 자리인가'를 적는 근거다.
+			.contains("\"kind\":\"INTERVIEW\"")
+			.contains("\"capacity\":1");
 	}
 
 	@Test
@@ -229,6 +239,38 @@ class PublicApiContractTest {
 			.contains("\"token\":")
 			.contains("\"companyName\":\"동해기업\"")
 			.contains("\"boothNo\":\"A-12\"");
+	}
+
+	/**
+	 * 내 예약 화면은 "무엇을 신청했는지"를 말해야 한다. 기업명과 시각만으로는
+	 * 기업 설명회인지 1:1 면접인지 그룹 면접인지 구분되지 않는다 — 실제로 구분되지 않았다.
+	 */
+	@Test
+	void 내_예약_조회가_1대1인지_그룹인지_설명회인지_말해준다() throws Exception {
+		Booth oneOnOne = saveBooth();
+		Booth group = booths.save(new Booth("한빛기업", "B-01", null,
+			Slots.today().plusDays(7), LocalTime.of(10, 0), LocalTime.of(17, 0), 30, 5));
+		Booth briefing = booths.save(new Booth("새벽기업", "C-01", null,
+			Slots.today().plusDays(7), LocalTime.of(10, 0), LocalTime.of(17, 0), 60));
+		briefing.setKind(BoothKind.BRIEFING);
+		booths.save(briefing);
+
+		// 한 사람이 셋 다 잡는다. 같은 시각에 두 부스는 잡을 수 없으므로 슬롯을 어긋나게 둔다.
+		book(oneOnOne, Slots.forBooth(oneOnOne).get(0));
+		book(group, Slots.forBooth(group).get(1));
+		book(briefing, Slots.forBooth(briefing).get(1));
+
+		HttpResponse<String> res = post("/api/reservations/lookup", """
+			{"name":"홍길동","phone":"01011112222"}
+			""");
+
+		assertThat(res.statusCode()).isEqualTo(200);
+		assertThat(res.body())
+			.contains("\"kind\":\"BRIEFING\"")
+			.contains("\"kind\":\"INTERVIEW\"")
+			// 1:1과 그룹을 가르는 것은 정원이다.
+			.contains("\"capacity\":1")
+			.contains("\"capacity\":5");
 	}
 
 	/** 연락처만으로는 열리지 않아야 한다 — 번호는 비밀이 아니다. */
