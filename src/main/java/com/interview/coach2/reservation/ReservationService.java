@@ -370,28 +370,42 @@ public class ReservationService {
 	/**
 	 * 공용 신청 링크로 들어온 경우. 링크가 문을 열고, 합격자 명단이 사람을 가린다.
 	 *
-	 * 링크부터 본다. 주소 없이 이름·연락처만으로 시도할 수 있게 두면, 남의 이름과 번호를
-	 * 아는 사람이 신청을 눌러 보는 것만으로 그 사람의 서류 합격 여부를 알아낼 수 있다.
-	 * 링크는 합격자에게만 나가므로 그 오라클이 바깥으로 열리지 않는다.
+	 * 이름만 받는다(요청). 연락처까지 받으면 학생이 명단에 적힌 번호를 정확히 기억해야 하고,
+	 * 한 자리만 달라도 거절당한다 — 합격자에게만 나간 링크를 이미 들고 있는데 그 문턱을
+	 * 한 번 더 두는 셈이다. 남의 이름을 사칭할 수 있다는 것은 감수하기로 한 위험이다.
 	 *
-	 * 명단에 없을 때의 문구는 '없다'가 아니라 '확인되지 않는다'다 — 어느 쪽이 틀렸는지
-	 * (이름인지 번호인지, 애초에 명단에 없는지) 말하지 않는다.
+	 * 링크는 먼저 본다. 주소 없이 이름만으로 시도할 수 있게 두면, 이름을 아는 사람이
+	 * 신청을 눌러 보는 것만으로 그 사람의 서류 합격 여부를 알아낼 수 있다.
+	 * 링크가 합격자에게만 나가므로 그 오라클이 바깥으로 열리지 않는다.
+	 *
+	 * 연락처는 명단의 것을 쓴다. 화면이 보낸 번호는 여기서 쓰이지 않는다 —
+	 * ZOOM 링크가 갈 곳이고 담당자가 걸 번호라, 주최측이 확인한 값이어야 한다.
 	 */
 	private Approval approvedFromList(Booth booth, String applyToken, Applicant who) {
 		if (!hasText(applyToken) || !applyToken.equals(booth.getApplyToken())) {
 			throw forbidden("서류 합격자에게 보내드린 신청 링크로만 예약할 수 있습니다");
 		}
-		String phone = PhoneNumbers.normalize(who.phone());
-		if (phone == null) {
-			throw badRequest("연락처를 확인해 주세요");
-		}
 		if (who.name() == null || who.name().isBlank()) {
 			throw badRequest("이름을 입력해 주세요");
 		}
-		return approvals.findByBoothIdAndPhone(booth.getId(), phone)
+
+		// 명단은 부스당 수십 명이라 메모리에서 고른다. DB에서 이름으로 찾으면 '홍 길동'과
+		// '홍길동'이 갈린다 — 공백을 무시하는 규칙은 여기 sameName 하나뿐이어야 한다.
+		List<Approval> matched = approvals.findByBoothIdOrderByNameAsc(booth.getId()).stream()
 			.filter(a -> sameName(a.getName(), who.name()))
-			.orElseThrow(() -> forbidden(
-				"서류 합격자 명단에서 확인되지 않습니다. 합격 안내에 적힌 이름과 연락처로 입력해 주세요"));
+			.toList();
+
+		if (matched.isEmpty()) {
+			throw forbidden(
+				"서류 합격자 명단에서 확인되지 않습니다. 합격 안내에 적힌 이름 그대로 입력해 주세요");
+		}
+		// 동명이인. 아무나 골라 주면 엉뚱한 사람의 번호로 예약이 잡히고, 진짜 본인은
+		// '이 부스는 이미 예약하셨습니다'를 보게 된다. 개별 링크는 사람을 정확히 가리키므로
+		// 그쪽으로 안내한다.
+		if (matched.size() > 1) {
+			throw conflict("같은 이름이 명단에 둘 이상입니다. 주최측에 문의해 개별 링크를 받아 주세요");
+		}
+		return matched.get(0);
 	}
 
 	private static boolean hasText(String value) {

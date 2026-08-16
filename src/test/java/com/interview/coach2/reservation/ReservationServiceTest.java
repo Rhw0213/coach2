@@ -435,7 +435,56 @@ class ReservationServiceTest {
 		assertThat(visitors.count()).isZero();
 	}
 
-	/** 번호는 맞는데 이름이 다르다. 명단 대조가 번호 하나로 뚫리면 남의 자리를 가져갈 수 있다. */
+	/**
+	 * 공용 링크는 이름만 받는다. 연락처는 명단의 것을 쓴다 — ZOOM 링크가 갈 곳이고
+	 * 담당자가 걸 번호라, 학생이 적은 값이 아니라 주최측이 확인한 값이어야 한다.
+	 */
+	@Test
+	void 공용_링크는_이름만으로_신청되고_번호는_명단의_것이_남는다() {
+		Booth gated = approvalBooth();
+		approvals.save(new Approval(gated.getId(), "홍길동", "01012345678"));
+
+		// 화면은 연락처 칸을 감추므로 null이 온다. 엉뚱한 번호가 와도 마찬가지로 무시된다.
+		service.book(gated.getId(), slot, new ReservationService.Applicant(
+			"홍길동", null, "건국대", "컴퓨터공학", "4학년", true), null, gated.getApplyToken());
+
+		assertThat(visitors.findAll()).singleElement().satisfies(v -> {
+			assertThat(v.getName()).isEqualTo("홍길동");
+			assertThat(v.getPhone()).isEqualTo("01012345678");
+		});
+	}
+
+	/** '홍 길동'과 '홍길동'이 갈리면 본인이 자기 이름을 적고도 거절당한다. */
+	@Test
+	void 공용_링크는_이름의_공백_차이를_무시한다() {
+		Booth gated = approvalBooth();
+		approvals.save(new Approval(gated.getId(), "홍길동", "01012345678"));
+
+		service.book(gated.getId(), slot, new ReservationService.Applicant(
+			"홍 길동", null, "건국대", "컴퓨터공학", "4학년", true), null, gated.getApplyToken());
+
+		assertThat(reservations.count()).isEqualTo(1);
+	}
+
+	/**
+	 * 동명이인. 아무나 골라 주면 엉뚱한 사람의 번호로 예약이 잡히고, 진짜 본인은
+	 * '이 부스는 이미 예약하셨습니다'를 보게 된다. 찍지 말고 돌려보낸다.
+	 */
+	@Test
+	void 같은_이름이_명단에_둘이면_공용_링크로_예약되지_않는다() {
+		Booth gated = approvalBooth();
+		approvals.save(new Approval(gated.getId(), "홍길동", "01012345678"));
+		approvals.save(new Approval(gated.getId(), "홍길동", "01099998888"));
+
+		assertThatThrownBy(() -> service.book(gated.getId(), slot,
+			new ReservationService.Applicant("홍길동", null, "건국대", "컴퓨터공학", "4학년", true),
+			null, gated.getApplyToken()))
+			.isInstanceOf(ResponseStatusException.class)
+			.satisfies(e -> assertStatus(e, HttpStatus.CONFLICT));
+		assertThat(reservations.count()).isZero();
+	}
+
+	/** 명단에 없는 이름. 번호를 맞게 적어도 이름이 다르면 그 사람이 아니다. */
 	@Test
 	void 공용_링크로도_이름이_다르면_예약되지_않는다() {
 		Booth gated = approvalBooth();
