@@ -9,6 +9,7 @@
 <meta property="og:type" content="website">
 <meta property="og:title" content="온라인 채용박람회 · 2026.8.25">
 <meta property="og:description" content="이동 없이, 집에서 바로. 기업 채용설명회부터 1:1 면접·상담까지 하루에 끝내세요.">
+<meta property="og:image" content="poster.jpg">
 <meta property="og:locale" content="ko_KR">
 
 <!-- 상대경로다. 브라우저가 알아서 찾는 /favicon.ico 는 오리진 루트라 eastAI 쪽으로 가버린다 —
@@ -103,96 +104,90 @@ body {
 	text-transform: uppercase;
 }
 
-/* ══ 히어로 — 진초록 필드 ══════════════════════════════════ */
 
-.hero {
-	position: relative;
-	overflow: hidden;
-	background: var(--pine-900);
-	color: var(--paper);
-	padding-bottom: 3rem;
-}
+/* ══ 포스터 ══════════════════════════════════════════════
+ *
+ * 배포된 인쇄물을 그대로 첫 화면에 세운다. 같은 행사를 알리는 두 매체가 다르게 생기면
+ * 학생은 다른 행사로 읽는다.
+ *
+ * 원본 PNG는 1.6MB다. 대상이 대학생이라 대부분 모바일로 열고, 그 한 장이 페이지 전체보다
+ * 무거워진다. webp 111KB / jpeg 161KB로 줄여 두고 브라우저가 고르게 한다.
+ */
+.poster-band { padding: 1.5rem 0 3rem; }
 
-/* 포스터의 화상회의 모티프. 스티커가 아니라 바탕이 되도록 어둡게 깔고 가장자리로 흘린다.
-   2×2 화면 분할이 아래 레일의 칸과 같은 리듬이라 둘이 서로를 설명한다. */
-.hero-art {
-	position: absolute;
-	right: -6rem;
-	top: 3rem;
-	width: 34rem;
-	pointer-events: none;
-	display: none;
-}
-@media (min-width: 64rem) { .hero-art { display: block; } }
-
-.top {
-	position: relative;
+.poster-top {
 	display: flex;
 	align-items: center;
-	gap: .625rem;
+	justify-content: flex-end;
+	gap: .75rem;
 	flex-wrap: wrap;
-	padding: 1.5rem 0 3.5rem;
-	font-size: .875rem;
-	font-weight: 700;
-	letter-spacing: .02em;
-}
-.top-div { color: rgba(213, 233, 224, .35); font-weight: 400; }
-.top-org { font-weight: 500; color: var(--mint-100); }
-
-/* 남은 날짜. 포스터에는 없다 — 인쇄물과 달리 웹은 매일 다시 열리므로,
-   마감이 지났는지가 가장 먼저 알아야 할 정보다. */
-.dday {
-	margin-left: auto;
-	font-family: var(--mono);
-	font-variant-numeric: tabular-nums;
-	font-size: .8125rem;
-	font-weight: 700;
-	letter-spacing: .04em;
-	color: var(--mint-400);
-	border: 1px solid rgba(87, 183, 157, .45);
-	border-radius: 999px;
-	padding: .3125rem .875rem;
-	white-space: nowrap;
-}
-.dday[data-urgent] { color: #FFC7B6; border-color: rgba(255, 199, 182, .5); background: rgba(180, 70, 47, .28); }
-
-.hero-grid { position: relative; display: grid; gap: 2rem; align-items: end; }
-@media (min-width: 48rem) { .hero-grid { grid-template-columns: 1fr auto; gap: 3rem; } }
-
-.tagline {
-	display: inline-block;
-	background: var(--mint-400);
-	color: var(--pine-900);
-	font-size: .8125rem;
-	font-weight: 800;
-	padding: .4375rem 1rem;
-	border-radius: 999px;
-	margin-bottom: 1.5rem;
+	margin: 0 0 1rem;
 }
 
-.hero h1 {
-	font-size: clamp(3rem, 13vw, 5.25rem);
-	font-weight: 900;
-	line-height: 1.02;
-	letter-spacing: -.045em;
-	margin: 0 0 1.5rem;
+/* 남은 날짜 배지는 원래 진초록 필드 위에서 쓰던 색이다. 흰 바탕에서는 민트 글자가
+   거의 읽히지 않으므로 여기서만 진한 초록으로 되돌린다. */
+.poster-top .dday { color: var(--pine-700); border-color: var(--rule); }
+.poster-top .dday[data-urgent] { color: var(--warn); border-color: #E8B4A8; background: var(--warn-bg); }
+
+.poster {
+	display: block;
+	width: 100%;
+	max-width: 44rem;
+	margin: 0 auto;
+	height: auto;
+	border: 1px solid var(--rule);
+	border-radius: 2px;
 }
-.hero h1 span { display: block; }
-.hero h1 .thin { color: var(--mint-400); }
 
-.lede { margin: 0; font-size: clamp(1rem, 2.6vw, 1.1875rem); color: var(--mint-100); max-width: 27rem; }
-.lede b { display: block; font-weight: 700; color: var(--paper); }
 
-/* 날짜 도장. 포스터의 '일시' 칸을 숫자만 남겨 크게 찍는다. */
-.stamp {
-	border-left: 2px solid var(--mint-400);
+/* ══ 본문 ═════════════════════════════════════════════════ */
+
+.band { padding: 4rem 0; }
+.band + .band { padding-top: 0; }
+
+/* 참여기업. 사실 넷과 같은 왼쪽 민트 실선을 써서 이 페이지의 조형 안에 둔다 —
+   여기만 테두리 상자로 만들면 다른 사이트에서 붙여온 것처럼 보인다. */
+.firm-grid { display: grid; gap: 1.5rem; }
+@media (min-width: 40rem) { .firm-grid { grid-template-columns: repeat(2, 1fr); gap: 1.75rem 2.5rem; } }
+
+.firm {
+	display: block;
 	padding-left: 1.25rem;
-	line-height: 1.15;
+	border-left: 2px solid var(--mint-100);
+	text-decoration: none;
+	color: inherit;
+	transition: border-color .12s ease;
 }
-.stamp-yy { font-size: .8125rem; color: var(--mint-400); letter-spacing: .1em; }
-.stamp-day { display: block; font-size: clamp(2.5rem, 9vw, 3.5rem); font-weight: 700; letter-spacing: -.03em; margin: .125rem 0; }
-.stamp-day em { font-style: normal; font-size: .45em; font-weight: 500; color: var(--mint-100); margin-left: .375rem; }
-.stamp-hr { font-size: .9375rem; color: var(--mint-100); letter-spacing: .02em; }
+.firm:hover { border-color: var(--pine-500); }
+.firm b { font-size: 1.0625rem; font-weight: 800; letter-spacing: -.02em; }
+.firm .cat { font-size: .75rem; font-weight: 700; letter-spacing: .02em; color: var(--pine-500); margin-left: .5rem; white-space: nowrap; }
+.firm p { margin: .3125rem 0 0; font-size: .875rem; color: var(--ink-60); }
+
+/* 기업 정보를 못 받아왔을 때 남는 포스터 문구. */
+.firm-fallback { margin: 0; font-weight: 700; letter-spacing: -.015em; }
+.firm-fallback .etc { font-weight: 400; color: var(--ink-60); }
+
+/* ── 버튼 ──────────────────────────────────────────────── */
+
+.btn {
+	display: inline-flex;
+	align-items: center;
+	gap: .5rem;
+	background: var(--paper);
+	color: var(--pine-900);
+	border-radius: .625rem;
+	padding: .8125rem 1.25rem;
+	font-size: .9375rem;
+	font-weight: 800;
+	letter-spacing: -.01em;
+	text-decoration: none;
+	transition: transform .12s ease, box-shadow .12s ease;
+}
+.btn:hover { transform: translateY(-2px); box-shadow: 0 .5rem 1.25rem rgba(0, 0, 0, .25); }
+.btn:active { transform: translateY(0); }
+.btn .arrow { color: var(--pine-500); }
+
+.btn--big { padding: 1.0625rem 1.75rem; font-size: 1.0625rem; }
 
 /* ── 시간표 레일 (이 페이지의 서명) ──────────────────────── */
 
@@ -320,138 +315,6 @@ body {
 /* 열 단위로만 지연을 준다 — 모든 기업의 같은 시간대가 함께 채워지며 왼쪽에서 오른쪽으로 쓸린다. */
 .rail-grid.is-live .cell { animation: rise .42s cubic-bezier(.2, .8, .3, 1) backwards; animation-delay: calc(var(--i) * 24ms); }
 
-/* ── 버튼 ──────────────────────────────────────────────── */
-
-.btn {
-	display: inline-flex;
-	align-items: center;
-	gap: .5rem;
-	background: var(--paper);
-	color: var(--pine-900);
-	border-radius: .625rem;
-	padding: .8125rem 1.25rem;
-	font-size: .9375rem;
-	font-weight: 800;
-	letter-spacing: -.01em;
-	text-decoration: none;
-	transition: transform .12s ease, box-shadow .12s ease;
-}
-.btn:hover { transform: translateY(-2px); box-shadow: 0 .5rem 1.25rem rgba(0, 0, 0, .25); }
-.btn:active { transform: translateY(0); }
-.btn .arrow { color: var(--pine-500); }
-
-.btn--big { padding: 1.0625rem 1.75rem; font-size: 1.0625rem; }
-
-/* ══ 본문 ═════════════════════════════════════════════════ */
-
-.band { padding: 4rem 0; }
-.band + .band { padding-top: 0; }
-
-/* 사실 넷. 상자를 벗기고 세로 실선만 남겼다 — 포스터에서는 테두리가 종이 위 영역을
-   나누지만, 화면에서는 상자가 하나 더 생길 뿐 정보가 더 또렷해지지 않는다. */
-.facts { display: grid; gap: 1.75rem; margin: 0 0 2rem; }
-@media (min-width: 44rem) { .facts { grid-template-columns: repeat(4, 1fr); gap: 0; } }
-
-.fact { padding-left: 1.25rem; border-left: 2px solid var(--mint-100); }
-.fact dt { font-size: .75rem; font-weight: 700; letter-spacing: .06em; color: var(--pine-500); margin-bottom: .25rem; }
-.fact dd { margin: 0; font-size: 1.125rem; font-weight: 800; letter-spacing: -.015em; line-height: 1.35; }
-.fact .fine { display: block; font-size: .8125rem; font-weight: 400; color: var(--ink-60); margin-top: .1875rem; letter-spacing: 0; }
-
-/* 참여기업. 사실 넷과 같은 왼쪽 민트 실선을 써서 이 페이지의 조형 안에 둔다 —
-   여기만 테두리 상자로 만들면 다른 사이트에서 붙여온 것처럼 보인다. */
-.firm-grid { display: grid; gap: 1.5rem; }
-@media (min-width: 40rem) { .firm-grid { grid-template-columns: repeat(2, 1fr); gap: 1.75rem 2.5rem; } }
-
-.firm {
-	display: block;
-	padding-left: 1.25rem;
-	border-left: 2px solid var(--mint-100);
-	text-decoration: none;
-	color: inherit;
-	transition: border-color .12s ease;
-}
-.firm:hover { border-color: var(--pine-500); }
-.firm b { font-size: 1.0625rem; font-weight: 800; letter-spacing: -.02em; }
-.firm .cat { font-size: .75rem; font-weight: 700; letter-spacing: .02em; color: var(--pine-500); margin-left: .5rem; white-space: nowrap; }
-.firm p { margin: .3125rem 0 0; font-size: .875rem; color: var(--ink-60); }
-
-/* 기업 정보를 못 받아왔을 때 남는 포스터 문구. */
-.firm-fallback { margin: 0; font-weight: 700; letter-spacing: -.015em; }
-.firm-fallback .etc { font-weight: 400; color: var(--ink-60); }
-
-/* ── 진행 방식 — 행사 프로그램표 ─────────────────────────── */
-
-.h2 { font-size: clamp(1.5rem, 4.5vw, 1.875rem); font-weight: 900; letter-spacing: -.035em; margin: 0 0 2rem; }
-.h2 .thin { color: var(--pine-500); }
-
-.prog { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--rule); }
-
-.prog li { padding: 1.75rem 0; border-bottom: 1px solid var(--rule); }
-@media (min-width: 40rem) { .prog li { padding: 2rem 0; } }
-
-.prog-no { display: block; color: var(--pine-500); margin-bottom: .375rem; }
-.prog h3 { font-size: clamp(1.125rem, 3.4vw, 1.375rem); font-weight: 800; letter-spacing: -.025em; margin: 0 0 .5rem; }
-.prog p { margin: 0; color: var(--ink-60); max-width: 34rem; }
-
-.need {
-	display: inline-block;
-	vertical-align: .125em;
-	margin-left: .5rem;
-	background: var(--mint-50);
-	color: var(--pine-700);
-	font-size: .6875rem;
-	font-weight: 800;
-	letter-spacing: 0;
-	padding: .1875rem .5rem;
-	border-radius: 999px;
-}
-
-/* 정원처럼 확정된 값만 붙인다. 소요시간은 아직 정해지지 않아 넣지 않는다. */
-.need--calm { background: none; color: var(--ink-60); box-shadow: inset 0 0 0 1px var(--rule); }
-
-/* ── 신청 일정 ──────────────────────────────────────────── */
-
-.plan { list-style: none; margin: 0; padding: 0; }
-.plan li { display: grid; grid-template-columns: auto 1fr; gap: 1rem; }
-
-.dot { position: relative; width: .875rem; display: flex; justify-content: center; padding-top: .5rem; }
-.dot::before {
-	content: "";
-	width: .5rem; height: .5rem;
-	border-radius: 50%;
-	background: var(--paper);
-	border: 2px solid var(--mint-400);
-	z-index: 1;
-}
-/* 잇는 선. 마지막 항목에는 그리지 않는다 — 끝난 뒤로 이어지는 선은 거짓말이다. */
-.dot::after {
-	content: "";
-	position: absolute;
-	top: .875rem; bottom: -.5rem; left: 50%;
-	width: 2px; margin-left: -1px;
-	background: var(--rule);
-}
-.plan li:last-child .dot::after { display: none; }
-
-.step { padding: .25rem 0 1.5rem; }
-.step-when { font-size: .8125rem; font-weight: 700; color: var(--pine-500); letter-spacing: .02em; }
-.step-what { font-weight: 700; letter-spacing: -.015em; }
-.step-fine { display: block; font-size: .875rem; font-weight: 400; color: var(--ink-60); margin-top: .125rem; }
-
-/* 우리가 담당하는 단계. 여기만 진초록 카드가 되어 버튼을 직접 쥐고 있다 —
-   일정표가 '지금 당신 차례'를 가리키면서 그 자리에서 할 일을 건넨다. */
-.plan li.is-here .dot::before { background: var(--mint-400); box-shadow: 0 0 0 4px var(--mint-50); }
-.plan li.is-here .step {
-	background: var(--pine-900);
-	color: var(--paper);
-	border-radius: 1rem;
-	padding: 1.5rem;
-	margin-bottom: 1.5rem;
-}
-.plan li.is-here .step-when { color: var(--mint-400); }
-.plan li.is-here .step-fine { color: var(--mint-100); }
-.plan li.is-here .btn { margin-top: 1.125rem; }
-
 /* ══ 맺음 ═════════════════════════════════════════════════ */
 
 .closing { background: var(--pine-900); color: var(--paper); padding: 4rem 0 2.5rem; margin-top: 2rem; }
@@ -477,63 +340,42 @@ body {
 
 <header id="sitenav"></header>
 
-<section class="hero">
-
-	<div class="hero-art" aria-hidden="true">
-		<svg viewBox="0 0 420 300" fill="none" xmlns="http://www.w3.org/2000/svg">
-			<circle cx="238" cy="140" r="132" fill="#12463A"/>
-			<g stroke="#1A5A4A" stroke-width="5" stroke-linecap="round" fill="none">
-				<path d="M96 62a30 30 0 0 1 40 0"/><path d="M107 74a15 15 0 0 1 18 0"/>
-			</g>
-			<circle cx="116" cy="86" r="4.5" fill="#1A5A4A"/>
-			<rect x="316" y="42" width="64" height="42" rx="16" fill="#1A5A4A"/>
-			<path d="M334 84l-3 14 17-14z" fill="#1A5A4A"/>
-			<g fill="#0E3A30"><circle cx="334" cy="63" r="4"/><circle cx="348" cy="63" r="4"/><circle cx="362" cy="63" r="4"/></g>
-			<rect x="128" y="106" width="188" height="122" rx="12" fill="#1A5A4A"/>
-			<rect x="138" y="116" width="168" height="102" rx="7" fill="#0E3A30"/>
-			<g fill="#12463A">
-				<rect x="146" y="124" width="76" height="43" rx="6"/><rect x="228" y="124" width="70" height="43" rx="6"/>
-				<rect x="146" y="173" width="76" height="43" rx="6"/><rect x="228" y="173" width="70" height="43" rx="6"/>
-			</g>
-			<g fill="#1A5A4A">
-				<circle cx="184" cy="139" r="8"/><path d="M172 161a12 12 0 0 1 24 0z"/>
-				<circle cx="263" cy="139" r="8"/><path d="M251 161a12 12 0 0 1 24 0z"/>
-				<circle cx="184" cy="188" r="8"/><path d="M172 210a12 12 0 0 1 24 0z"/>
-				<circle cx="263" cy="188" r="8"/><path d="M251 210a12 12 0 0 1 24 0z"/>
-			</g>
-			<rect x="108" y="228" width="228" height="11" rx="5.5" fill="#1A5A4A"/>
-			<path d="M44 244h42l-5 30H49z" fill="#12463A"/>
-			<path d="M65 244c0-20-10-32-25-37 5 22 12 32 25 37z" fill="#1A5A4A"/>
-		</svg>
-	</div>
-
+<section class="band poster-band">
 	<div class="shell">
-
-		<!-- 사이트 메뉴는 위의 공용 바가 맡는다. 여기는 주최 표기와 남은 날짜만 남긴다 —
-		     같은 링크를 두 줄에 걸쳐 두면 어느 쪽을 눌러야 하는지 흐려진다. -->
-		<div class="top">
-			<span>EAST PEACE EDU</span>
-			<span class="top-div">|</span>
-			<span class="top-org">㈜동화인터내셔널</span>
+		<div class="poster-top">
 			<span class="dday" id="dday">2026. 8. 25.</span>
 		</div>
+		<!-- 인쇄물 그대로. 글자가 그림 안에 있으므로 alt에 핵심 사실을 담아
+		     화면낭독기와 검색엔진이 읽을 수 있게 한다. 자세한 내용은 행사 개요 페이지에 있다. -->
+		<picture>
+			<source srcset="poster.webp" type="image/webp">
+			<img class="poster" src="poster.jpg" width="1081" height="1455"
+			     alt="온라인 채용박람회 포스터. 2026년 8월 25일 화요일 10시부터 17시까지 ZOOM으로 진행합니다. 대학생·졸업생 대상, 참가비 무료. 기업 채용설명회, 1:1 채용 면접·상담, 그룹 상담이 열립니다. 자세한 내용은 행사 개요 페이지를 보세요.">
+		</picture>
+	</div>
+</section>
 
-		<div class="hero-grid">
-			<div>
-				<span class="tagline">참가비 전액 무료 · 사전신청제</span>
-				<h1><span>온라인 채용</span><span class="thin">박람회</span></h1>
-				<p class="lede">
-					<b>이동 없이, 집에서 바로.</b>
-					기업 채용설명회부터 1:1 면접·상담까지 하루에 끝내세요.
-				</p>
-			</div>
+<main>
 
-			<div class="stamp num">
-				<span class="stamp-yy">2026</span>
-				<span class="stamp-day">08.25<em>화</em></span>
-				<span class="stamp-hr">10:00 — 17:00 KST</span>
+	<!-- 포스터가 못 하는 것만 아래에 둔다. 일시·진행 방식·신청 일정은 포스터에 이미 있고
+	     행사 개요 페이지가 표로 다시 다루므로, 여기서 또 적으면 같은 말을 세 번 하게 된다. -->
+	<section class="band">
+		<div class="shell">
+			<h2 class="h2" id="firmsTitle">참여기업</h2>
+			<div id="firms">
+				<p class="firm-fallback">시큐아이 · 쎄트렉아이 · 키사이트테크놀로지스코리아
+					<span class="etc">등 국내 우수기업 참여</span></p>
 			</div>
 		</div>
+	</section>
+
+</main>
+
+<footer class="closing">
+	<div class="shell">
+		<span class="eyebrow">Book</span>
+		<h2>예약 시간을 지정해 주세요.</h2>
+		<p>1:1 면접·상담과 그룹 상담은 시간대마다 정원이 정해져 있습니다. 원하는 기업과 시간을 먼저 확보하세요.</p>
 
 		<!-- 서명 요소. 하루를 30분으로 자른 칸이 지금 얼마나 남았는지 실제로 물어와 칠한다. -->
 		<div class="rail">
@@ -554,131 +396,6 @@ body {
 				</p>
 				<a class="btn" href="book.html">시간 예약하기 <span class="arrow">→</span></a>
 			</div>
-		</div>
-
-	</div>
-</section>
-
-<main>
-
-	<!-- 기업이 먼저다. 학생은 '누가 오나'를 보고 관심 있는 곳을 고른 뒤에야 시간을 정한다.
-	     기업 정보를 못 받아오면 아래 포스터 문구가 그대로 남는다. -->
-	<section class="band">
-		<div class="shell">
-			<h2 class="h2" id="firmsTitle">참여기업</h2>
-			<div id="firms">
-				<p class="firm-fallback">시큐아이 · 쎄트렉아이 · 키사이트테크놀로지스코리아
-					<span class="etc">등 국내 우수기업 참여</span></p>
-			</div>
-		</div>
-	</section>
-
-	<section class="band">
-		<div class="shell">
-			<dl class="facts">
-				<div class="fact">
-					<dt>일시</dt>
-					<dd class="num">2026. 08. 25.<span class="fine">화요일 10:00 ~ 17:00</span></dd>
-				</div>
-				<div class="fact">
-					<dt>방식</dt>
-					<dd>온라인 ZOOM<span class="fine">PC · 모바일 참여 가능</span></dd>
-				</div>
-				<div class="fact">
-					<dt>대상</dt>
-					<dd>대학생 · 졸업생<span class="fine">취업 준비 중이라면 누구나</span></dd>
-				</div>
-				<div class="fact">
-					<dt>참가비</dt>
-					<dd>무료<span class="fine">전액 주최사 부담</span></dd>
-				</div>
-			</dl>
-
-		</div>
-	</section>
-
-	<section class="band">
-		<div class="shell">
-			<h2 class="h2">하루에 <span class="thin">세 가지</span>가 열립니다</h2>
-
-			<ol class="prog">
-				<li>
-					<span class="prog-no eyebrow num">01</span>
-					<h3>기업 채용설명회</h3>
-					<p>참여 기업이 채용 계획과 직무, 인재상을 직접 소개합니다. 관심 있는 기업을 골라 신청하세요.</p>
-				</li>
-				<li>
-					<span class="prog-no eyebrow num">02</span>
-					<h3>1:1 채용 면접 · 상담<span class="need">예약 필요</span></h3>
-					<p>현직 인사담당자와 일대일로 만나 실제 채용 면접 또는 진로 상담을 받습니다.</p>
-				</li>
-				<li>
-					<span class="prog-no eyebrow num">03</span>
-					<h3>그룹 상담<span class="need need--calm">2~5명</span><span class="need">예약 필요</span></h3>
-					<p>같은 기업을 지원하는 참가자들과 함께 궁금한 점을 묻고 답하는 소그룹 상담입니다.</p>
-				</li>
-			</ol>
-		</div>
-	</section>
-
-	<section class="band">
-		<div class="shell">
-			<h2 class="h2">신청 일정</h2>
-
-			<ol class="plan">
-				<li>
-					<span class="dot" aria-hidden="true"></span>
-					<div class="step">
-						<div class="step-when num">~ 8. 21. (금)</div>
-						<div class="step-what">참가 사전신청 · 희망 기업 선택</div>
-					</div>
-				</li>
-				<li>
-					<span class="dot" aria-hidden="true"></span>
-					<div class="step">
-						<div class="step-when num">~ 8. 21. (금)</div>
-						<div class="step-what">서류(이력서) 접수<span class="step-fine">해당 기업에 한함</span></div>
-					</div>
-				</li>
-				<li class="is-here">
-					<span class="dot" aria-hidden="true"></span>
-					<div class="step">
-						<div class="step-when num">~ 8. 24. (월)</div>
-						<div class="step-what">기업별 면접 · 상담 신청
-							<span class="step-fine">원하는 기업과 시간을 직접 고릅니다. 먼저 신청한 순서대로 배정됩니다.</span>
-						</div>
-						<a class="btn" href="book.html">시간 예약하기 <span class="arrow">→</span></a>
-					</div>
-				</li>
-				<li>
-					<span class="dot" aria-hidden="true"></span>
-					<div class="step">
-						<div class="step-when num">8. 24. (월) 18:00</div>
-						<div class="step-what">ZOOM 접속 링크 개별 안내<span class="step-fine">신청 시 남긴 연락처로 보내드립니다.</span></div>
-					</div>
-				</li>
-				<li>
-					<span class="dot" aria-hidden="true"></span>
-					<div class="step">
-						<div class="step-when num">8. 25. (화)</div>
-						<div class="step-what">온라인 채용박람회 진행</div>
-					</div>
-				</li>
-			</ol>
-		</div>
-	</section>
-
-</main>
-
-<footer class="closing">
-	<div class="shell">
-		<span class="eyebrow">Apply</span>
-		<h2>예약 시간을 지정해 주세요.</h2>
-		<p>1:1 면접·상담과 그룹 상담은 시간대마다 정원이 정해져 있습니다. 원하는 기업과 시간을 먼저 확보하세요.</p>
-
-		<div class="closing-act">
-			<a class="btn btn--big" href="book.html">면접 · 상담 시간 예약 <span class="arrow">→</span></a>
-			<a class="mine" href="my.html">이미 신청하셨다면 · 내 예약 확인</a>
 		</div>
 
 		<div class="colophon">
@@ -898,7 +615,11 @@ const companiesReady = (async function () {
 
 		// 이 페이지는 하루짜리 행사를 알린다. 다른 날짜의 부스(지난 행사·시험용)를 같이 그리면
 		// 축이 두 날의 합집합이 되고, 라벨은 HH:MM뿐이라 같은 시각이 두 번 나온다.
-		const booths = (await api('api/booths')).filter(b => b.eventDate === EVENT_DAY);
+		//
+		// 기업 설명회도 뺀다. 이 표의 이름이 '면접 · 상담 시간표'이고, 설명회는 자기 시간표가
+		// 따로 있다 — 섞이면 같은 기업이 두 줄로 나와 어느 쪽이 무엇인지 알 수 없다.
+		const booths = (await api('api/booths'))
+			.filter(b => b.eventDate === EVENT_DAY && b.kind === 'INTERVIEW');
 		if (!booths.length) {
 			return;
 		}
@@ -949,6 +670,5 @@ const companiesReady = (async function () {
 	});
 })();
 </script>
-
 </body>
 </html>

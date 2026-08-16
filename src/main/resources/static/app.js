@@ -47,10 +47,10 @@ async function api(path, options = {}) {
 /* 상단 메뉴. 여섯 페이지가 같은 줄을 쓰므로 한 곳에서 만든다 —
  * 복사해 두면 메뉴 하나 바꿀 때마다 여섯 곳을 고쳐야 하고 언젠가 한 곳을 빠뜨린다.
  *
- * 사전 참가 등록만 바깥(eastAI)으로 나간다. code는 그 행사를 가리키는 공개 코드이므로
- * 행사가 바뀌면 이 값을 바꾼다. */
-const PRE_REGISTER_URL = 'https://eastpeace.kr/conference-register.html?code=5f70f757';
-
+ * 사전 참가 등록은 메뉴에서 뺐다(요청). 되돌리려면 acts에 한 줄만 추가하면 된다:
+ *   add(acts, 'register', 'https://eastpeace.kr/conference-register.html?code=…',
+ *       '사전 참가 등록', true);
+ */
 function renderNav(current) {
 	const host = document.getElementById('sitenav');
 	if (!host) {
@@ -96,7 +96,6 @@ function renderNav(current) {
 	const acts = document.createElement('div');
 	acts.className = 'sitenav-acts';
 	add(acts, 'briefing', 'briefing.html', '기업 설명회');
-	add(acts, 'register', PRE_REGISTER_URL, '사전 참가 등록', true);
 	add(acts, 'docs', 'docs.html', '서류 등록');
 	const mine = document.createElement('a');
 	mine.className = 'sitenav-mine';
