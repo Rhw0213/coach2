@@ -64,6 +64,25 @@
 		<div id="boothError"></div>
 		<div id="boothList"></div>
 
+		<!-- 합격자 명단. 부스 목록의 '합격자' 버튼으로 연다. -->
+		<section id="approvalPanel" hidden>
+			<h2 id="approvalTitle"></h2>
+			<p class="lede" id="approvalLede"></p>
+			<form id="approvalForm">
+				<label>
+					<span>명단 붙여넣기 — 한 줄에 이름과 연락처</span>
+					<textarea name="text" rows="6" placeholder="홍길동 010-1234-5678&#10;김철수, 010-9876-5432"></textarea>
+				</label>
+				<div id="approvalError"></div>
+				<div class="actions">
+					<button class="btn btn--ghost" type="button" id="approvalClose">닫기</button>
+					<button class="btn" type="submit" id="approvalSave">명단 추가</button>
+				</div>
+			</form>
+			<div id="approvalResult"></div>
+			<div id="approvalList"></div>
+		</section>
+
 		<h2 id="formTitle">부스 추가</h2>
 		<div id="companyNotice"></div>
 		<form id="boothForm">
@@ -352,6 +371,18 @@ async function loadBooths() {
 
 		td.append(edit, toggle, link);
 
+		// 합격자 명단은 합격자 전용 부스에만 뜻이 있다. 아닌 부스에 버튼을 두면
+		// 명단을 넣어도 아무 효과가 없다는 것을 나중에야 알게 된다.
+		if (b.approvalRequired) {
+			const who = document.createElement('button');
+			who.type = 'button';
+			who.className = 'btn btn--ghost';
+			who.style.cssText = 'flex:none;padding:.375rem .75rem;font-size:.8125rem;margin-left:.375rem';
+			who.textContent = `합격자 ${b.approvedCount}명`;
+			who.addEventListener('click', () => openApprovals(b));
+			td.append(who);
+		}
+
 		// 삭제는 내린 부스에만 보인다. 서버도 같은 규칙으로 막지만, 누를 수 없어야 실수가 준다.
 		if (!b.active) {
 			const del = document.createElement('button');
@@ -408,6 +439,152 @@ async function loadBooths() {
 	table.append(tbody);
 	boothList.replaceChildren(wrapTable(table));
 }
+
+/* ── 합격자 명단 ────────────────────────────────────────────
+ *
+ * 링크 발송은 시스템이 하지 않는다(메일·문자 수단이 없다). 여기서 만들어진 링크를
+ * 주최측이 복사해 각 합격자에게 보낸다 — 링크를 보내는 것이 곧 합격 통보다.
+ */
+const approvalPanel = document.getElementById('approvalPanel');
+const approvalForm = document.getElementById('approvalForm');
+let approvalBooth = null;
+
+document.getElementById('approvalClose').addEventListener('click', () => {
+	approvalPanel.hidden = true;
+	approvalBooth = null;
+});
+
+async function openApprovals(b) {
+	approvalBooth = b;
+	approvalPanel.hidden = false;
+	approvalForm.reset();
+	document.getElementById('approvalResult').replaceChildren();
+	document.getElementById('approvalError').replaceChildren();
+	document.getElementById('approvalTitle').textContent = `${b.boothNo} ${b.companyName} · 서류 합격자`;
+	document.getElementById('approvalLede').textContent =
+		'여기 등록된 사람만 이 1:1 면접을 예약할 수 있습니다. 각자에게 링크를 복사해 보내주세요 — 링크를 보내는 것이 합격 통보입니다.';
+	approvalPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+	await loadApprovals();
+}
+
+async function loadApprovals() {
+	const box = document.getElementById('approvalList');
+	box.innerHTML = '<p class="empty">불러오는 중…</p>';
+	let list;
+	try {
+		list = await adminApi(`api/admin/booths/${approvalBooth.id}/approvals`);
+	} catch (e) {
+		box.replaceChildren();
+		showError(document.getElementById('approvalError'), e.message);
+		return;
+	}
+	if (!list.length) {
+		box.innerHTML = '<p class="empty">아직 등록된 합격자가 없습니다.</p>';
+		return;
+	}
+
+	const table = document.createElement('table');
+	table.className = 'admin-table';
+	table.innerHTML = '<thead><tr><th>이름</th><th>연락처</th><th>안내 링크</th><th></th></tr></thead>';
+	const tbody = document.createElement('tbody');
+
+	for (const a of list) {
+		const url = `${location.origin}${BASE}book.html?k=${a.token}`;
+		const tr = document.createElement('tr');
+
+		const linkCell = document.createElement('td');
+		const input = document.createElement('input');
+		input.value = url;
+		input.readOnly = true;
+		input.style.cssText = 'width:100%;font-size:.75rem';
+		// 클립보드가 막힌 환경에서도 직접 고를 수 있게 입력칸으로 둔다.
+		input.addEventListener('focus', () => input.select());
+		linkCell.append(input);
+
+		const actions = document.createElement('td');
+		const copy = document.createElement('button');
+		copy.type = 'button';
+		copy.className = 'btn btn--ghost';
+		copy.style.cssText = 'flex:none;padding:.375rem .75rem;font-size:.8125rem';
+		copy.textContent = '복사';
+		copy.addEventListener('click', async () => {
+			try {
+				await navigator.clipboard.writeText(url);
+				copy.textContent = '복사됨';
+				setTimeout(() => { copy.textContent = '복사'; }, 1500);
+			} catch {
+				input.focus();
+			}
+		});
+
+		const del = document.createElement('button');
+		del.type = 'button';
+		del.className = 'btn btn--danger';
+		del.style.cssText = 'flex:none;padding:.375rem .75rem;font-size:.8125rem;margin-left:.375rem';
+		del.textContent = '제외';
+		del.addEventListener('click', async () => {
+			del.disabled = true;
+			try {
+				// 이미 예약했다면 그 예약은 남는다 — 확정된 약속을 조용히 지우지 않는다.
+				await adminApi(`api/admin/approvals/${a.id}`, { method: 'DELETE' });
+				await loadApprovals();
+				loadBooths();
+			} catch (e) {
+				showError(document.getElementById('approvalError'), e.message);
+				del.disabled = false;
+			}
+		});
+
+		actions.append(copy, del);
+		tr.append(cell(a.name), cell(a.phone, 'num'), linkCell, actions);
+		tbody.append(tr);
+	}
+	table.append(tbody);
+	box.replaceChildren(wrapTable(table));
+}
+
+approvalForm.addEventListener('submit', async (event) => {
+	event.preventDefault();
+	const errorBox = document.getElementById('approvalError');
+	const resultBox = document.getElementById('approvalResult');
+	errorBox.replaceChildren();
+	resultBox.replaceChildren();
+
+	const save = document.getElementById('approvalSave');
+	save.disabled = true;
+	try {
+		const r = await adminApi(`api/admin/booths/${approvalBooth.id}/approvals`,
+			{ method: 'POST', body: JSON.stringify({ text: approvalForm.text.value }) });
+
+		// 몇 줄이 들어갔는지, 무엇이 걸렀는지 그대로 보여준다. 조용히 삼키면
+		// 명단에서 빠진 사람을 행사 당일에야 알게 된다.
+		const p = document.createElement('p');
+		p.className = 'notice';
+		p.textContent = `${r.added}명 추가`
+			+ (r.duplicated.length ? ` · 이미 있음 ${r.duplicated.length}줄` : '')
+			+ (r.unreadable.length ? ` · 읽지 못함 ${r.unreadable.length}줄` : '');
+		resultBox.append(p);
+
+		if (r.unreadable.length) {
+			const list = document.createElement('ul');
+			list.style.cssText = 'font-size:.8125rem;color:var(--ink-70);margin:.5rem 0 0;padding-left:1.25rem';
+			for (const line of r.unreadable) {
+				const li = document.createElement('li');
+				li.textContent = line;
+				list.append(li);
+			}
+			resultBox.append(list);
+		}
+
+		approvalForm.reset();
+		await loadApprovals();
+		loadBooths();
+	} catch (e) {
+		showError(errorBox, e.message);
+	} finally {
+		save.disabled = false;
+	}
+});
 
 function fillForm(b) {
 	boothForm.id.value = b.id;

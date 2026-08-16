@@ -25,6 +25,7 @@
 	<p class="lede">기업마다 상담 시간이 정해져 있습니다. 자리가 한정되어 있으니 원하는 시간을 먼저 확보하세요. 회원가입은 없습니다.</p>
 
 	<div id="ticket"></div>
+	<div id="linkNote"></div>
 
 	<h2>참가 기업</h2>
 	<div id="booths"><p class="empty">불러오는 중…</p></div>
@@ -41,15 +42,20 @@
 		<h2>상담 예약</h2>
 		<p class="when" id="sheetWhen"></p>
 
-		<label>
-			<span>이름</span>
-			<input name="name" required autocomplete="name" maxlength="40">
-		</label>
-		<label>
-			<span>연락처</span>
-			<input name="phone" required type="tel" inputmode="tel" autocomplete="tel"
-			       placeholder="010-1234-5678" maxlength="20">
-		</label>
+		<div id="whoFields">
+			<label>
+				<span>이름</span>
+				<input name="name" required autocomplete="name" maxlength="40">
+			</label>
+			<label>
+				<span>연락처</span>
+				<input name="phone" required type="tel" inputmode="tel" autocomplete="tel"
+				       placeholder="010-1234-5678" maxlength="20">
+			</label>
+		</div>
+		<!-- 개별 안내 링크로 들어온 경우. 이름·연락처는 명단에 적힌 것으로 정해져 있어
+		     고칠 수 없다 — 서버도 화면이 보낸 값을 쓰지 않는다. -->
+		<p id="whoFixed" class="lede" style="margin:0" hidden></p>
 
 		<div id="sheetError"></div>
 
@@ -74,7 +80,15 @@ const el = {
 	sheetError: document.getElementById('sheetError'),
 	sheetSubmit: document.getElementById('sheetSubmit'),
 	form: document.getElementById('bookForm'),
+	linkNote: document.getElementById('linkNote'),
+	whoFields: document.getElementById('whoFields'),
+	whoFixed: document.getElementById('whoFixed'),
 };
+
+/* 서류 합격자에게 개별로 보낸 링크(?k=…)로 들어온 경우. 그 사람이 누구이고 어느 기업의
+ * 1:1 면접인지가 토큰에 담겨 있으므로, 이름·연락처를 다시 묻지 않고 그 부스만 보여준다. */
+const linkToken = new URLSearchParams(location.search).get('k');
+let approval = null;
 
 let booths = [];
 let booth = null;
@@ -86,6 +100,16 @@ let bookedBoothIds = new Set();
 init();
 
 async function init() {
+	if (linkToken) {
+		try {
+			approval = await api('api/approvals/' + encodeURIComponent(linkToken));
+		} catch {
+			// 링크가 틀렸다고 예약 화면을 통째로 닫지는 않는다 — 그룹 상담은 누구나 잡을 수 있다.
+			showError(el.linkNote,
+				'안내 링크를 확인할 수 없습니다. 받으신 주소를 다시 확인해 주세요. 아래에서 일반 상담은 예약하실 수 있습니다.');
+		}
+	}
+
 	try {
 		booths = await api('api/booths');
 	} catch (e) {
@@ -93,8 +117,17 @@ async function init() {
 		return;
 	}
 	await loadMine();
+
+	if (approval) {
+		// 링크는 한 부스를 가리킨다. 다른 부스를 함께 보여주면 어디를 눌러야 하는지 흐려진다.
+		booths = booths.filter(b => b.id === approval.boothId);
+		showLinkNote();
+	}
+
 	if (!booths.length) {
-		el.booths.innerHTML = '<p class="empty">아직 등록된 부스가 없습니다.</p>';
+		el.booths.innerHTML = approval
+			? '<p class="empty">이 면접은 현재 예약을 받지 않습니다. 주최측에 문의해 주세요.</p>'
+			: '<p class="empty">아직 등록된 부스가 없습니다.</p>';
 		return;
 	}
 	// 하루짜리 행사다. 부스들이 같은 날이면 날짜를 한 번만 크게 말해준다.
@@ -105,6 +138,28 @@ async function init() {
 
 	renderBooths();
 	select(booths[0]);
+}
+
+/** 내가 누구로 잡히는지 먼저 보여준다. 연락처는 가려진 채로 온다 — 링크가 남의 손에
+ *  들어갔을 때 온전한 번호까지 넘겨주지 않기 위해서다. */
+function showLinkNote() {
+	const box = document.createElement('div');
+	box.className = 'ticket';
+	const who = document.createElement('p');
+	who.style.cssText = 'font-weight:700;margin:0 0 .25rem';
+	who.textContent = `${approval.name}님 · 서류 합격자 1:1 면접`;
+	const what = document.createElement('p');
+	what.style.cssText = 'margin:0;font-size:.875rem';
+	what.textContent = `${approval.boothNo} ${approval.companyName} · ${approval.phoneMasked}`;
+	box.append(who, what);
+	el.linkNote.replaceChildren(box);
+
+	el.whoFields.hidden = true;
+	// hidden만으로는 required가 살아 있어 제출이 막힌다. 검증에서 빼야 한다.
+	el.form.name.required = false;
+	el.form.phone.required = false;
+	el.whoFixed.hidden = false;
+	el.whoFixed.textContent = `${approval.name} · ${approval.phoneMasked} 으로 예약됩니다.`;
 }
 
 /** 확인 번호가 있으면 이미 잡은 부스를 미리 파악한다. 실패해도 예약을 막지 않는다 —
@@ -158,6 +213,8 @@ function renderBooths() {
 		hours.className = 'booth-meta';
 		hours.textContent = bookedBoothIds.has(b.id)
 			? '예약함'
+			: b.approvalRequired && !approval
+			? '서류 합격자 전용'
 			// 정원이 1이면 굳이 말하지 않는다 — 1:1이 기본이고, 그룹일 때만 알려주면 된다.
 			: `${b.openFrom.slice(0, 5)}–${b.openTo.slice(0, 5)} · ${b.slotMinutes}분`
 				+ (b.capacity > 1 ? ` · 그룹 ${b.capacity}명` : '');
@@ -180,6 +237,16 @@ function select(b) {
 	}
 	el.day.hidden = false;
 	el.dayTitle.textContent = `${b.boothNo} ${b.companyName} · ${dayLabel(b.eventDate)}`;
+
+	// 합격자 전용인데 링크 없이 들어왔다. 시간표를 보여주면 눌러보고 나서야 거절당한다.
+	if (b.approvalRequired && !approval) {
+		el.rail.replaceChildren();
+		const p = document.createElement('p');
+		p.className = 'empty';
+		p.textContent = '서류 합격자에게 개별로 보내드린 안내 링크로만 예약할 수 있습니다.';
+		el.rail.append(p);
+		return;
+	}
 
 	if (bookedBoothIds.has(b.id)) {
 		// 잡을 수 없는 시간을 초록으로 보여주면 눌러보고 실패한다. 아예 그리지 않는다.
@@ -295,8 +362,11 @@ el.form.addEventListener('submit', async (event) => {
 			body: JSON.stringify({
 				boothId: booth.id,
 				startTime: picked,
-				name: data.get('name'),
-				phone: data.get('phone'),
+				// 링크로 들어왔으면 이름·연락처를 보내지 않는다. 서버가 명단의 값을 쓰므로
+				// 여기서 보낸 값은 어차피 무시되는데, 담아 보내면 화면이 정한 것처럼 읽힌다.
+				name: approval ? null : data.get('name'),
+				phone: approval ? null : data.get('phone'),
+				approvalToken: linkToken,
 			}),
 		});
 		store.token = result.token;
