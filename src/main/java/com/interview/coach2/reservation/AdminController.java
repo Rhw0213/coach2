@@ -59,7 +59,7 @@ public class AdminController {
 	                             LocalDate eventDate, LocalTime openFrom, LocalTime openTo,
 	                             int slotMinutes, int capacity, boolean active,
 	                             boolean approvalRequired, BoothKind kind,
-	                             long approvedCount, String staffToken) {
+	                             long approvedCount, String staffToken, String applyToken) {
 	}
 
 	public record AdminReservationView(Long id, Long boothId, String companyName, String boothNo,
@@ -73,9 +73,9 @@ public class AdminController {
 	@Transactional
 	public List<AdminBoothView> listBooths() {
 		List<Booth> all = booths.findAll();
-		// 담당자 링크 기능이 생기기 전에 만들어진 부스에는 토큰이 없다.
+		// 담당자·신청 링크 기능이 생기기 전에 만들어진 부스에는 토큰이 없다.
 		// 주최측이 링크를 보러 오는 이 시점에 채운다(더티 체킹으로 저장된다).
-		all.forEach(Booth::ensureStaffToken);
+		all.forEach(Booth::ensureTokens);
 		return all.stream().map(this::toView).toList();
 	}
 
@@ -364,7 +364,7 @@ public class AdminController {
 		return new AdminBoothView(b.getId(), b.getCompanyName(), b.getBoothNo(), b.getNote(),
 			b.getEventDate(), b.getOpenFrom(), b.getOpenTo(), b.getSlotMinutes(), b.getCapacity(),
 			b.isActive(), b.isApprovalRequired(), b.getKind(),
-			approvals.countByBoothId(b.getId()), b.getStaffToken());
+			approvals.countByBoothId(b.getId()), b.getStaffToken(), b.getApplyToken());
 	}
 
 	private static <T> T required(T value, String field) {

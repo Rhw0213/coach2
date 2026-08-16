@@ -10,4 +10,6 @@ public interface BoothRepository extends JpaRepository<Booth, Long> {
 	List<Booth> findByActiveTrueOrderByBoothNoAsc();
 
 	Optional<Booth> findByStaffToken(String staffToken);
+
+	Optional<Booth> findByApplyToken(String applyToken);
 }

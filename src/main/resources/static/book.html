@@ -142,6 +142,12 @@ const el = {
 const linkToken = new URLSearchParams(location.search).get('k');
 let approval = null;
 
+/* 서류 합격자 전원에게 같이 보낸 신청 링크(?apply=…). 개별 링크와 달리 이 토큰은
+ * '어느 부스인가'만 말하고 '누구인가'는 말하지 않는다. 그래서 이름·연락처를 그대로 묻고,
+ * 합격자 명단과 맞는지는 서버가 확인한다. 링크를 사람 수만큼 나눠 보내지 않아도 된다. */
+const applyToken = new URLSearchParams(location.search).get('apply');
+let applyBooth = null;
+
 /* 특정 부스로 바로 들어온 경우(기업 설명회 시간표의 '신청' 등). 그 부스만 보여준다. */
 const wantBooth = Number(new URLSearchParams(location.search).get('booth')) || null;
 
@@ -165,6 +171,15 @@ async function init() {
 		}
 	}
 
+	if (applyToken && !approval) {
+		try {
+			applyBooth = await api('api/apply/' + encodeURIComponent(applyToken));
+		} catch {
+			showError(el.linkNote,
+				'신청 링크를 확인할 수 없습니다. 받으신 주소를 다시 확인해 주세요.');
+		}
+	}
+
 	try {
 		booths = await api('api/booths');
 	} catch (e) {
@@ -177,6 +192,9 @@ async function init() {
 		// 링크는 한 부스를 가리킨다. 다른 부스를 함께 보여주면 어디를 눌러야 하는지 흐려진다.
 		booths = booths.filter(b => b.id === approval.boothId);
 		showLinkNote();
+	} else if (applyBooth) {
+		booths = booths.filter(b => b.id === applyBooth.boothId);
+		showApplyNote();
 	} else if (wantBooth) {
 		booths = booths.filter(b => b.id === wantBooth);
 	} else {
@@ -235,6 +253,22 @@ function showLinkNote() {
 	el.whoFixed.textContent = `${approval.name} · ${approval.phoneMasked} 으로 예약됩니다.`;
 }
 
+/** 공용 신청 링크로 들어온 경우. 링크는 부스만 가리키므로 이름·연락처는 그대로 묻는다 —
+ *  대신 합격자 명단과 맞아야 한다는 것을 미리 말해준다. 눌러 보고 나서 거절당하면
+ *  자기가 합격자가 아닌 것인지 잘못 적은 것인지 알 수 없다. */
+function showApplyNote() {
+	const box = document.createElement('div');
+	box.className = 'ticket';
+	const who = document.createElement('p');
+	who.style.cssText = 'font-weight:700;margin:0 0 .25rem';
+	who.textContent = `${applyBooth.companyName} · 서류 합격자 1:1 면접`;
+	const what = document.createElement('p');
+	what.style.cssText = 'margin:0;font-size:.875rem';
+	what.textContent = '합격 안내에 적힌 이름과 연락처로 입력해 주세요. 명단과 맞아야 신청됩니다.';
+	box.append(who, what);
+	el.linkNote.replaceChildren(box);
+}
+
 /** 확인 번호가 있으면 이미 잡은 부스를 미리 파악한다. 실패해도 예약을 막지 않는다 —
  *  최종 판정은 어차피 서버가 한다. */
 async function loadMine() {
@@ -286,7 +320,8 @@ function renderBooths() {
 		hours.className = 'booth-meta';
 		hours.textContent = bookedBoothIds.has(b.id)
 			? '예약함'
-			: b.approvalRequired && !approval
+			// 신청 링크를 들고 들어왔으면 '전용'이라고만 적어둘 이유가 없다. 시간을 보여준다.
+			: b.approvalRequired && !approval && !(applyBooth && applyBooth.boothId === b.id)
 			? '서류 합격자 전용'
 			// 정원이 1이면 굳이 말하지 않는다 — 1:1이 기본이고, 그룹일 때만 알려주면 된다.
 			// 설명회는 정원 자체가 없으므로 그렇게 말한다. 정원 숫자를 보여주면 자리 경쟁이
@@ -315,11 +350,12 @@ function select(b) {
 	el.dayTitle.textContent = `${b.boothNo} ${b.companyName} · ${dayLabel(b.eventDate)}`;
 
 	// 합격자 전용인데 링크 없이 들어왔다. 시간표를 보여주면 눌러보고 나서야 거절당한다.
-	if (b.approvalRequired && !approval) {
+	// 공용 신청 링크로 그 부스에 들어왔으면 통과다 — 명단 확인은 제출할 때 서버가 한다.
+	if (b.approvalRequired && !approval && !(applyBooth && applyBooth.boothId === b.id)) {
 		el.rail.replaceChildren();
 		const p = document.createElement('p');
 		p.className = 'empty';
-		p.textContent = '서류 합격자에게 개별로 보내드린 안내 링크로만 예약할 수 있습니다.';
+		p.textContent = '서류 합격자에게 보내드린 신청 링크로만 예약할 수 있습니다.';
 		el.rail.append(p);
 		return;
 	}
@@ -460,6 +496,9 @@ el.form.addEventListener('submit', async (event) => {
 				// 체크가 없으면 FormData에 키 자체가 없다. 서버도 다시 본다.
 				agreed: data.get('agreed') !== null,
 				approvalToken: linkToken,
+				// 공용 링크로 들어온 경우에만 보낸다. 서버는 이 토큰이 그 부스의 것인지 보고,
+				// 맞으면 이름·연락처를 합격자 명단과 대조한다.
+				applyToken: applyBooth && applyBooth.boothId === booth.id ? applyToken : null,
 			}),
 		});
 		store.token = result.token;

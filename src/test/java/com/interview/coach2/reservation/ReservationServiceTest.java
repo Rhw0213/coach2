@@ -403,6 +403,89 @@ class ReservationServiceTest {
 		assertThat(visitors.count()).isZero();
 	}
 
+	// ── 합격자 전원에게 같이 보내는 신청 링크 ────────────────────
+	// 사람마다 다른 주소를 만들어 나눠 보내는 것이 실제로는 굴러가지 않는다.
+	// 링크는 문만 열고, 누구인지는 합격자 명단의 이름·연락처가 가린다.
+
+	private static ReservationService.Applicant who(String name, String phone) {
+		return new ReservationService.Applicant(name, phone, "건국대", "컴퓨터공학", "4학년", true);
+	}
+
+	@Test
+	void 공용_신청_링크로_명단에_있는_사람이_예약한다() {
+		Booth gated = approvalBooth();
+		approvals.save(new Approval(gated.getId(), "홍길동", "01012345678"));
+
+		service.book(gated.getId(), slot, who("홍길동", "010-1234-5678"), null, gated.getApplyToken());
+
+		assertThat(reservations.count()).isEqualTo(1);
+		assertThat(visitors.findAll()).singleElement()
+			.satisfies(v -> assertThat(v.getPhone()).isEqualTo("01012345678"));
+	}
+
+	@Test
+	void 공용_링크가_있어도_명단에_없으면_예약되지_않는다() {
+		Booth gated = approvalBooth();
+		approvals.save(new Approval(gated.getId(), "홍길동", "01012345678"));
+
+		assertThatThrownBy(() ->
+			service.book(gated.getId(), slot, who("김철수", "01099998888"), null, gated.getApplyToken()))
+			.isInstanceOf(ResponseStatusException.class)
+			.satisfies(e -> assertStatus(e, HttpStatus.FORBIDDEN));
+		assertThat(visitors.count()).isZero();
+	}
+
+	/** 번호는 맞는데 이름이 다르다. 명단 대조가 번호 하나로 뚫리면 남의 자리를 가져갈 수 있다. */
+	@Test
+	void 공용_링크로도_이름이_다르면_예약되지_않는다() {
+		Booth gated = approvalBooth();
+		approvals.save(new Approval(gated.getId(), "홍길동", "01012345678"));
+
+		assertThatThrownBy(() ->
+			service.book(gated.getId(), slot, who("김철수", "01012345678"), null, gated.getApplyToken()))
+			.isInstanceOf(ResponseStatusException.class)
+			.satisfies(e -> assertStatus(e, HttpStatus.FORBIDDEN));
+	}
+
+	/**
+	 * 링크 없이 이름·연락처만으로 통과되면, 남의 이름과 번호를 아는 사람이 신청을 눌러 보는
+	 * 것만으로 그 사람의 서류 합격 여부를 알아낼 수 있다. 링크가 그 오라클을 닫는다.
+	 */
+	@Test
+	void 공용_링크_없이_명단에_있어도_예약되지_않는다() {
+		Booth gated = approvalBooth();
+		approvals.save(new Approval(gated.getId(), "홍길동", "01012345678"));
+
+		assertThatThrownBy(() ->
+			service.book(gated.getId(), slot, who("홍길동", "01012345678"), null, null))
+			.isInstanceOf(ResponseStatusException.class)
+			.satisfies(e -> assertStatus(e, HttpStatus.FORBIDDEN));
+	}
+
+	@Test
+	void 다른_부스의_공용_링크로는_예약되지_않는다() {
+		Booth gated = approvalBooth();
+		Booth other = approvalBooth();
+		approvals.save(new Approval(gated.getId(), "홍길동", "01012345678"));
+
+		assertThatThrownBy(() ->
+			service.book(gated.getId(), slot, who("홍길동", "01012345678"), null, other.getApplyToken()))
+			.isInstanceOf(ResponseStatusException.class)
+			.satisfies(e -> assertStatus(e, HttpStatus.FORBIDDEN));
+	}
+
+	/** 공용 링크가 생겨도 이미 보낸 개별 링크는 그대로 살아 있어야 한다. */
+	@Test
+	void 개별_링크는_공용_링크가_생겨도_그대로_동작한다() {
+		Booth gated = approvalBooth();
+		Approval approved = approvals.save(new Approval(gated.getId(), "홍길동", "01012345678"));
+
+		service.book(gated.getId(), slot, who("가로채기", "01099998888"), approved.getToken(), null);
+
+		assertThat(visitors.findAll()).singleElement()
+			.satisfies(v -> assertThat(v.getName()).isEqualTo("홍길동"));
+	}
+
 	@Test
 	void 다른_부스의_링크로는_예약되지_않는다() {
 		Booth gated = approvalBooth();

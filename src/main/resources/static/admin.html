@@ -120,10 +120,10 @@
 			<label id="capacityBox"><span>한 시간대 정원 (명)</span>
 				<input name="capacity" type="number" required min="1" max="50" step="1" value="1"></label>
 			<p class="hint" id="capacityHint" hidden>기업 설명회는 인원 제한이 없습니다. 정원은 쓰이지 않습니다.</p>
-			<!-- 켜면 개별 안내 링크를 받은 서류 합격자만 예약할 수 있다. 끄면 누구나. -->
+			<!-- 켜면 합격자 명단에 있는 사람만 예약할 수 있다. 끄면 누구나. -->
 			<label class="check">
 				<input name="approvalRequired" type="checkbox">
-				<span>서류 합격자만 예약 (1:1 면접) — 켜면 합격자 명단에 등록된 사람에게 보낸 링크로만 예약됩니다</span>
+				<span>서류 합격자만 예약 (1:1 면접) — 켜면 '신청 링크'를 받고 합격자 명단에 이름·연락처가 있는 사람만 예약됩니다</span>
 			</label>
 			<div id="formError"></div>
 			<div class="actions">
@@ -315,6 +315,36 @@ function render(list) {
 	bookings.replaceChildren(wrapTable(table));
 }
 
+/**
+ * 눌러서 주소를 복사하는 버튼. 클립보드가 막힌 환경(비HTTPS·구형 브라우저)에서는
+ * 입력칸으로 떨어뜨려 직접 고를 수 있게 한다.
+ */
+function copyButton(td, label, url) {
+	const btn = document.createElement('button');
+	btn.type = 'button';
+	btn.className = 'btn btn--ghost';
+	btn.style.cssText = 'flex:none;padding:.375rem .75rem;font-size:.8125rem;margin-left:.375rem';
+	btn.textContent = label;
+	btn.addEventListener('click', async () => {
+		try {
+			await navigator.clipboard.writeText(url);
+			btn.textContent = '복사됨';
+		} catch {
+			const box = document.createElement('div');
+			box.className = 'staff-link';
+			const input = document.createElement('input');
+			input.value = url;
+			input.readOnly = true;
+			box.append(input);
+			td.append(box);
+			input.select();
+			return;
+		}
+		setTimeout(() => { btn.textContent = label; }, 1500);
+	});
+	return btn;
+}
+
 /** 표를 자기 스크롤 상자에 넣는다 — 좁은 화면에서 페이지가 통째로 밀리지 않게. */
 function wrapTable(table) {
 	const box = document.createElement('div');
@@ -406,37 +436,20 @@ async function loadBooths() {
 
 		// 담당자 링크 — 주최측이 복사해서 각 참가 기업에 전달한다.
 		// 이 링크로는 해당 부스 예약만 보이고 아무것도 바꿀 수 없다.
-		const link = document.createElement('button');
-		link.type = 'button';
-		link.className = 'btn btn--ghost';
-		link.style.cssText = 'flex:none;padding:.375rem .75rem;font-size:.8125rem;margin-left:.375rem';
-		link.textContent = '담당자 링크';
-		link.addEventListener('click', async () => {
-			const url = `${location.origin}${BASE}booth.html?k=${b.staffToken}`;
-			try {
-				await navigator.clipboard.writeText(url);
-				link.textContent = '복사됨';
-			} catch {
-				// 클립보드가 막힌 환경(비HTTPS·구형 브라우저)에서는 직접 고를 수 있게 보여준다
-				const box = document.createElement('div');
-				box.className = 'staff-link';
-				const input = document.createElement('input');
-				input.value = url;
-				input.readOnly = true;
-				box.append(input);
-				td.append(box);
-				input.select();
-				link.textContent = '담당자 링크';
-				return;
-			}
-			setTimeout(() => { link.textContent = '담당자 링크'; }, 1500);
-		});
+		const link = copyButton(td, '담당자 링크',
+			`${location.origin}${BASE}booth.html?k=${b.staffToken}`);
 
 		td.append(edit, toggle, link);
 
 		// 합격자 명단은 합격자 전용 부스에만 뜻이 있다. 아닌 부스에 버튼을 두면
 		// 명단을 넣어도 아무 효과가 없다는 것을 나중에야 알게 된다.
 		if (b.approvalRequired) {
+			// 합격자 전원에게 같이 보내는 링크. 사람마다 다른 주소를 만들어 나눠 보내는 것이
+			// 실제로는 굴러가지 않아서, 하나로 보내고 이름·연락처를 명단과 대조한다.
+			// 담당자 링크와 절대 섞으면 안 된다 — 그쪽은 예약자 연락처가 다 보인다.
+			td.append(copyButton(td, '신청 링크',
+				`${location.origin}${BASE}book.html?apply=${b.applyToken}`));
+
 			const who = document.createElement('button');
 			who.type = 'button';
 			who.className = 'btn btn--ghost';
@@ -519,7 +532,9 @@ async function loadBooths() {
 /* ── 합격자 명단 ────────────────────────────────────────────
  *
  * 링크 발송은 시스템이 하지 않는다(메일·문자 수단이 없다). 여기서 만들어진 링크를
- * 주최측이 복사해 각 합격자에게 보낸다 — 링크를 보내는 것이 곧 합격 통보다.
+ * 명단에 있는 사람만 그 부스를 예약할 수 있다. 링크는 두 가지다 — 부스 목록의
+ * '신청 링크' 하나를 전원에게 보내거나(이름·연락처를 명단과 대조한다), 아래 표의
+ * 개별 링크를 사람마다 따로 보내거나. 어느 쪽이든 보내는 것이 곧 합격 통보다.
  */
 const approvalPanel = document.getElementById('approvalPanel');
 const approvalForm = document.getElementById('approvalForm');
@@ -538,7 +553,8 @@ async function openApprovals(b) {
 	document.getElementById('approvalError').replaceChildren();
 	document.getElementById('approvalTitle').textContent = `${b.boothNo} ${b.companyName} · 서류 합격자`;
 	document.getElementById('approvalLede').textContent =
-		'여기 등록된 사람만 이 1:1 면접을 예약할 수 있습니다. 각자에게 링크를 복사해 보내주세요 — 링크를 보내는 것이 합격 통보입니다.';
+		'여기 등록된 사람만 이 1:1 면접을 예약할 수 있습니다. 부스 목록의 「신청 링크」 하나를 전원에게 보내면 됩니다 '
+		+ '— 이름과 연락처가 이 명단과 맞아야 신청됩니다. 사람마다 다른 주소로 보내고 싶으면 아래 개별 링크를 쓰세요.';
 	approvalPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
 	await loadApprovals();
 }
@@ -561,7 +577,7 @@ async function loadApprovals() {
 
 	const table = document.createElement('table');
 	table.className = 'admin-table';
-	table.innerHTML = '<thead><tr><th>이름</th><th>연락처</th><th>안내 링크</th><th></th></tr></thead>';
+	table.innerHTML = '<thead><tr><th>이름</th><th>연락처</th><th>개별 링크 (선택)</th><th></th></tr></thead>';
 	const tbody = document.createElement('tbody');
 
 	for (const a of list) {

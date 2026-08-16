@@ -168,6 +168,23 @@ class PublicApiContractTest {
 		assertThat(slots).doesNotContain("홍길동").doesNotContain("01011112222");
 	}
 
+	/**
+	 * 신청 링크와 담당자 링크는 둘 다 공개 목록에 실리면 안 된다. 신청 링크가 새면
+	 * 남의 이름·번호를 아는 사람이 서류 합격 여부를 떠볼 수 있고, 담당자 링크가 새면
+	 * 그 부스 예약자 연락처가 통째로 열린다.
+	 */
+	@Test
+	void 공개_부스_목록은_링크_토큰을_담지_않는다() throws Exception {
+		Booth booth = saveBooth();
+
+		String body = get("/api/booths").body();
+
+		assertThat(body).doesNotContain("staffToken").doesNotContain("applyToken");
+		assertThat(booth.getStaffToken()).isNotBlank();
+		assertThat(booth.getApplyToken()).isNotBlank();
+		assertThat(body).doesNotContain(booth.getStaffToken()).doesNotContain(booth.getApplyToken());
+	}
+
 	@Test
 	void 관리자_API는_시크릿_없이_열리지_않는다() throws Exception {
 		assertThat(get("/api/admin/booths").statusCode()).isEqualTo(401);

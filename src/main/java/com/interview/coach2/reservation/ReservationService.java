@@ -127,6 +127,16 @@ public class ReservationService {
 	}
 
 	public BookResult book(Long boothId, Instant startTime, Applicant who, String approvalToken) {
+		return book(boothId, startTime, who, approvalToken, null);
+	}
+
+	/**
+	 * approvalToken은 합격자 한 사람을 가리키는 개별 링크,
+	 * applyToken은 그 부스 합격자 전원에게 같이 보낸 신청 링크의 열쇠다.
+	 * 합격자 전용 부스는 둘 중 하나가 있어야 하고, 개별 링크가 있으면 그쪽이 이긴다.
+	 */
+	public BookResult book(Long boothId, Instant startTime, Applicant who,
+	                       String approvalToken, String applyToken) {
 		Booth booth = activeBooth(boothId);
 
 		// 동의가 먼저다. 동의 없이 받은 값은 저장할 근거가 없으므로 아무것도 조회하지 않는다.
@@ -138,9 +148,13 @@ public class ReservationService {
 		String rawPhone = who.phone();
 		if (booth.isApprovalRequired()) {
 			// 이름·연락처는 명단에 적힌 것을 쓴다. 화면이 보낸 값을 그대로 믿으면 남의 링크를
-			// 받아 자기 번호로 그 자리를 가져갈 수 있다. 토큰이 곧 그 사람이다.
-			// 학교·전공·학년은 명단에 없으므로 이 경우에도 신청서에서 받는다.
-			Approval approval = approvalFor(approvalToken, boothId);
+			// 받아 자기 번호로 그 자리를 가져갈 수 있다.
+			// 학교·전공·학년은 명단에 없으므로 어느 경로든 신청서에서 받는다.
+			Approval approval = hasText(approvalToken)
+				// 합격자 한 사람을 가리키는 개별 링크. 토큰이 곧 그 사람이다.
+				? approvalFor(approvalToken, boothId)
+				// 합격자 전원에게 같이 보낸 신청 링크. 문만 열고, 누구인지는 명단이 가린다.
+				: approvedFromList(booth, applyToken, who);
 			name = approval.getName();
 			rawPhone = approval.getPhone();
 		}
@@ -240,6 +254,17 @@ public class ReservationService {
 		reservation.cancel();
 	}
 
+	/** 공용 신청 링크가 가리키는 부스. 화면이 그 부스 하나만 보여주는 데 쓴다. */
+	@Transactional(readOnly = true)
+	public Booth boothByApplyToken(String applyToken) {
+		if (applyToken == null || applyToken.isBlank()) {
+			throw notFound("링크를 확인할 수 없습니다");
+		}
+		return booths.findByApplyToken(applyToken)
+			.filter(Booth::isActive)
+			.orElseThrow(() -> notFound("링크를 확인할 수 없습니다"));
+	}
+
 	/** 부스 담당자용. 토큰이 가리키는 부스와 그 부스의 유효한 예약만 돌려준다. */
 	@Transactional(readOnly = true)
 	public Booth boothByStaffToken(String staffToken) {
@@ -335,6 +360,37 @@ public class ReservationService {
 		return approvals.findByToken(token)
 			.filter(a -> a.isFor(boothId))
 			.orElseThrow(() -> forbidden("이 링크로는 이 면접을 예약할 수 없습니다. 안내받은 링크를 다시 확인해 주세요"));
+	}
+
+	/**
+	 * 공용 신청 링크로 들어온 경우. 링크가 문을 열고, 합격자 명단이 사람을 가린다.
+	 *
+	 * 링크부터 본다. 주소 없이 이름·연락처만으로 시도할 수 있게 두면, 남의 이름과 번호를
+	 * 아는 사람이 신청을 눌러 보는 것만으로 그 사람의 서류 합격 여부를 알아낼 수 있다.
+	 * 링크는 합격자에게만 나가므로 그 오라클이 바깥으로 열리지 않는다.
+	 *
+	 * 명단에 없을 때의 문구는 '없다'가 아니라 '확인되지 않는다'다 — 어느 쪽이 틀렸는지
+	 * (이름인지 번호인지, 애초에 명단에 없는지) 말하지 않는다.
+	 */
+	private Approval approvedFromList(Booth booth, String applyToken, Applicant who) {
+		if (!hasText(applyToken) || !applyToken.equals(booth.getApplyToken())) {
+			throw forbidden("서류 합격자에게 보내드린 신청 링크로만 예약할 수 있습니다");
+		}
+		String phone = PhoneNumbers.normalize(who.phone());
+		if (phone == null) {
+			throw badRequest("연락처를 확인해 주세요");
+		}
+		if (who.name() == null || who.name().isBlank()) {
+			throw badRequest("이름을 입력해 주세요");
+		}
+		return approvals.findByBoothIdAndPhone(booth.getId(), phone)
+			.filter(a -> sameName(a.getName(), who.name()))
+			.orElseThrow(() -> forbidden(
+				"서류 합격자 명단에서 확인되지 않습니다. 합격 안내에 적힌 이름과 연락처로 입력해 주세요"));
+	}
+
+	private static boolean hasText(String value) {
+		return value != null && !value.isBlank();
 	}
 
 	/**

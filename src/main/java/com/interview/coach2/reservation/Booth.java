@@ -94,6 +94,20 @@ public class Booth {
 	private String staffToken;
 
 	/**
+	 * 서류 합격자 모두에게 같이 보내는 신청 링크의 열쇠. 부스 하나에 하나다.
+	 *
+	 * 원래는 합격자마다 다른 링크(Approval.token)를 보내는 것이었는데, 수십 명에게
+	 * 각자 다른 주소를 보내는 일이 실제로는 굴러가지 않았다. 이 토큰은 문만 열고,
+	 * 본인 확인은 그 뒤에 합격자 명단의 이름·연락처 대조가 한다.
+	 *
+	 * 그래도 이 주소는 비밀이어야 한다. 공개되면 남의 이름과 번호를 아는 사람이
+	 * 신청을 시도해 보는 것만으로 그 사람의 서류 합격 여부를 알아낼 수 있다.
+	 * 담당자 토큰과 절대 같은 값을 쓰지 않는다 — 그쪽은 예약자 연락처가 다 보인다.
+	 */
+	@Column(unique = true)
+	private String applyToken;
+
+	/**
 	 * 기업 설명회는 인원 제한이 없다. 여럿이 함께 듣는 ZOOM 웨비나라 좌석이라는 것이 없고,
 	 * 요청도 '무제한'이다. capacity 값은 남아 있지만 설명회에서는 아무도 읽지 않는다.
 	 *
@@ -133,12 +147,16 @@ public class Booth {
 		this.capacity = capacity;
 		this.active = true;
 		this.staffToken = newToken();
+		this.applyToken = newToken();
 	}
 
-	/** 이 기능이 생기기 전에 만들어진 부스를 위한 보충. 관리자가 링크를 보러 올 때 채운다. */
-	public void ensureStaffToken() {
+	/** 이 토큰들이 생기기 전에 만들어진 부스를 위한 보충. 관리자가 링크를 보러 올 때 채운다. */
+	public void ensureTokens() {
 		if (staffToken == null || staffToken.isBlank()) {
 			this.staffToken = newToken();
+		}
+		if (applyToken == null || applyToken.isBlank()) {
+			this.applyToken = newToken();
 		}
 	}
 

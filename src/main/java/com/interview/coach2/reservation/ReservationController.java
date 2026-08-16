@@ -56,7 +56,7 @@ public class ReservationController {
 	 */
 	public record BookRequest(Long boothId, Instant startTime, String name, String phone,
 	                          String school, String major, String standing, Boolean agreed,
-	                          String approvalToken) {
+	                          String approvalToken, String applyToken) {
 	}
 
 	public record BookResponse(Long reservationId, String token, Instant startTime,
@@ -139,7 +139,7 @@ public class ReservationController {
 			request.boothId(), request.startTime(),
 			new ReservationService.Applicant(request.name(), request.phone(), request.school(),
 				request.major(), request.standing(), Boolean.TRUE.equals(request.agreed())),
-			request.approvalToken());
+			request.approvalToken(), request.applyToken());
 		Reservation r = result.reservation();
 		Booth booth = service.booth(r.getBoothId());
 		return new BookResponse(r.getId(), result.visitorToken(), r.getStartTime(),
@@ -198,6 +198,23 @@ public class ReservationController {
 	 * 링크는 문자로 돌아다니다 남의 손에 들어갈 수 있다. 그래서 연락처는 가려서 내려준다 —
 	 * 본인은 앞뒤 몇 자리로 자기 번호를 알아보고, 주운 사람은 온전한 번호를 얻지 못한다.
 	 */
+	/**
+	 * 합격자 전원에게 같이 보낸 신청 링크가 가리키는 부스.
+	 *
+	 * 여기서는 부스가 무엇인지만 알려준다 — 합격자 명단은 절대 내보내지 않는다.
+	 * 링크 하나로 명단을 열 수 있으면 그 링크를 받은 사람 전원이 서로의 이름과
+	 * 번호를 갖게 된다.
+	 */
+	public record ApplyView(Long boothId, String companyName, String boothNo, String note) {
+	}
+
+	@GetMapping("/apply/{applyToken}")
+	public ApplyView apply(@PathVariable String applyToken) {
+		Booth booth = service.boothByApplyToken(applyToken);
+		return new ApplyView(booth.getId(), booth.getCompanyName(), booth.getBoothNo(),
+			booth.getNote());
+	}
+
 	@GetMapping("/approvals/{token}")
 	public ApprovalView approval(@PathVariable String token) {
 		Approval approval = service.approvalByToken(token);
