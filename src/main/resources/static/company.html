@@ -13,7 +13,7 @@
 /* app.css의 조형을 따른다 — 각진 2px 모서리, 1px --rail 테두리, --paper 바탕.
    둥근 알약이나 들어올리는 hover를 쓰면 이 페이지만 다른 사이트에서 온 것처럼 보인다.
    특히 배경이 --field이므로 배지 바탕을 --field로 두면 아예 보이지 않는다. */
-.cat, .gated {
+.cat {
 	display: inline-block;
 	background: var(--paper);
 	border: 1px solid var(--rail);
@@ -25,7 +25,6 @@
 	white-space: nowrap;
 }
 .cat { color: var(--ink-70); vertical-align: .2em; margin-left: .5rem; }
-.gated { color: var(--pine); }
 
 /* 기업 기본정보 — 짧은 값들이라 표처럼 눕힌다. */
 .facts { display: grid; gap: 1rem; margin: 1.5rem 0 2.5rem; }
@@ -291,20 +290,17 @@ async function renderOne(id) {
 		left.append(title, when);
 		row.append(left);
 
-		// 합격자 전용은 개별 안내 링크로만 들어온다. 여기에 예약 버튼을 두면
-		// 누른 사람은 예약 화면까지 갔다가 거절당한다.
-		if (s.approvalRequired) {
-			const note = document.createElement('span');
-			note.className = 'gated';
-			note.textContent = '개별 안내 링크로 예약';
-			row.append(note);
-		} else {
-			const go = document.createElement('a');
-			go.className = 'btn';
-			go.href = 'book.html';
-			go.textContent = '시간 예약하기';
-			row.append(go);
-		}
+		// 합격자 전용도 여기서 막지 않는다. 문을 여는 것은 링크가 아니라 이름이다 —
+		// 합격자 명단에 있으면 그대로 신청된다(ReservationService.approvedFromList).
+		// 누가 신청할 수 있는지는 위 '서류 합격자 전용'과 예약 화면의 안내가 말한다.
+		//
+		// 고른 부스로 바로 데려간다. 여기까지 온 사람은 이미 기업과 자리를 정했는데
+		// 전체 목록으로 떨어뜨리면 같은 것을 한 번 더 찾아야 한다.
+		const go = document.createElement('a');
+		go.className = 'btn';
+		go.href = 'book.html?booth=' + encodeURIComponent(s.id);
+		go.textContent = '시간 예약하기';
+		row.append(go);
 		list.append(row);
 	}
 	out.append(list);
