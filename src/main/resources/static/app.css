@@ -460,6 +460,17 @@ textarea { display: block; resize: vertical; min-height: 4.5rem; line-height: 1.
 .admin-table td { padding: .75rem .75rem .75rem 0; border-bottom: 1px solid var(--rail); vertical-align: top; }
 .admin-table .num { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
 
+/* 표 안에서 종류를 가르는 띠. 머리글(th)을 세 번 반복하는 대신 이 줄 하나로 묶는다. */
+.admin-table .group-row {
+	padding-top: 1.25rem;
+	font-family: var(--mono);
+	font-size: .75rem;
+	letter-spacing: .08em;
+	font-weight: 700;
+	color: var(--pine);
+	border-bottom: 1px solid var(--ink-25);
+}
+
 .row { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
 
 @media (max-width: 30rem) {

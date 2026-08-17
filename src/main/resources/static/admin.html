@@ -558,6 +558,17 @@ function cell(text, cls) {
 	return td;
 }
 
+/** 표 안에서 종류를 가르는 띠 한 줄. colSpan을 줘야 열이 밀리지 않는다. */
+function groupRow(text, columns) {
+	const tr = document.createElement('tr');
+	const td = document.createElement('td');
+	td.colSpan = columns;
+	td.className = 'group-row';
+	td.textContent = text;
+	tr.append(td);
+	return tr;
+}
+
 async function loadBooths() {
 	boothError.innerHTML = '';
 	boothList.innerHTML = '<p class="empty">불러오는 중…</p>';
@@ -603,7 +614,25 @@ async function loadBooths() {
 	table.innerHTML = '<thead><tr><th>부스</th><th>기업</th><th>행사일</th><th>운영</th><th>상태</th><th></th></tr></thead>';
 	const tbody = document.createElement('tbody');
 
-	for (const b of list) {
+	// 세 종류가 한 표에 섞여 있으면 무엇을 보고 있는지 줄마다 다시 읽어야 한다.
+	// 표는 하나로 두고(머리글을 세 번 반복하지 않는다) 종류별 띠로 묶는다.
+	// 설명회를 먼저 가른다 — 설명회는 정원을 쓰지 않아서 정원으로 물으면 그룹으로 새어 들어간다.
+	const ordered = [];
+	for (const g of [
+			{ title: '1:1 면접 · 상담', has: b => b.kind !== 'BRIEFING' && b.capacity <= 1 },
+			{ title: '그룹 면접 (1:다)', has: b => b.kind !== 'BRIEFING' && b.capacity > 1 },
+			{ title: '기업 설명회', has: b => b.kind === 'BRIEFING' }]) {
+		const mine = list.filter(g.has);
+		if (mine.length) {
+			ordered.push({ groupTitle: `${g.title} · ${mine.length}개` }, ...mine);
+		}
+	}
+
+	for (const b of ordered) {
+		if (b.groupTitle) {
+			tbody.append(groupRow(b.groupTitle, 6));
+			continue;
+		}
 		const tr = document.createElement('tr');
 		const td = document.createElement('td');
 
@@ -716,9 +745,10 @@ async function loadBooths() {
 			cell(b.boothNo, 'num'),
 			cell(b.companyName + (b.note ? ' · ' + b.note : '')),
 			cell(b.eventDate, 'num'),
+			// 종류는 위의 띠가 말한다. 정원 숫자만 남긴다 — 그룹이라도 5명인지 20명인지는
+			// 띠가 말해주지 않는다.
 			cell(`${b.openFrom.slice(0, 5)}–${b.openTo.slice(0, 5)} · ${b.slotMinutes}분`
-				+ (b.kind === 'BRIEFING' ? ' · 설명회'
-					: b.capacity > 1 ? ` · 정원 ${b.capacity}명` : ''), 'num'),
+				+ (b.kind !== 'BRIEFING' && b.capacity > 1 ? ` · 정원 ${b.capacity}명` : ''), 'num'),
 			state,
 			td);
 		tbody.append(tr);
