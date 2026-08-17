@@ -267,6 +267,19 @@ function boothShape(b) {
 		: '1:1';
 }
 
+/**
+ * 이 화면이 무엇을 세 덩어리로 나누는지. 부스 목록과 예약 현황이 같은 기준을 쓴다 —
+ * 두 곳이 다르게 나누면 같은 부스가 표마다 다른 칸에 앉는다.
+ *
+ * 설명회를 먼저 가른다. 설명회는 정원을 쓰지 않아서(무제한) 정원 값에 아무 숫자나 남아
+ * 있을 수 있고, 정원으로 먼저 물으면 정원 200짜리 설명회가 그룹 면접으로 새어 들어간다.
+ */
+const KIND_GROUPS = [
+	{ title: '1:1 면접 · 상담', has: b => b.kind !== 'BRIEFING' && b.capacity <= 1 },
+	{ title: '그룹 면접 (1:다)', has: b => b.kind !== 'BRIEFING' && b.capacity > 1 },
+	{ title: '기업 설명회', has: b => b.kind === 'BRIEFING' },
+];
+
 function showCompanyHint() {
 	const hint = document.getElementById('companyHint');
 	const name = document.getElementById('companySelect').value;
@@ -346,33 +359,105 @@ async function loadDay() {
 	}
 }
 
+const PAGE_SIZE = 10;
+/* 종류별로 묶어둔 그날의 예약. 쪽은 이 순서 위에서 잘린다. */
+let dayRows = [];
+let dayPage = 1;
+
 function render(list) {
-	if (!list.length) {
+	// 시간 순으로 온 것을 종류별로 묶는다. 묶음 안에서는 시간 순 그대로다 —
+	// 현장에서 읽는 순서는 결국 시각이다.
+	dayRows = KIND_GROUPS.flatMap(g =>
+		list.filter(g.has).map(r => ({ ...r, group: g.title })));
+	dayPage = 1;
+	renderDayPage();
+}
+
+function renderDayPage() {
+	if (!dayRows.length) {
 		bookings.innerHTML = '<p class="empty">이 날은 예약이 없습니다.</p>';
 		return;
 	}
+	const pages = Math.ceil(dayRows.length / PAGE_SIZE);
+	dayPage = Math.min(Math.max(dayPage, 1), pages);
+	const slice = dayRows.slice((dayPage - 1) * PAGE_SIZE, dayPage * PAGE_SIZE);
+
 	const table = document.createElement('table');
 	table.className = 'admin-table';
-	// '구분'은 기업 바로 뒤다. 이 표는 1:1 면접·그룹 면접·설명회 신청이 시간 순으로
-	// 뒤섞여 들어오는데, 그것을 적지 않으면 같은 10시 두 줄이 무엇인지 알 수 없다.
+	// '구분'은 기업 바로 뒤다. 띠가 종류를 말하지만 이 칸은 정원까지 말하고(그룹 5명),
+	// 한 줄만 잘라 옮겨 적어도 그 줄이 무엇인지 남는다.
 	table.innerHTML = '<thead><tr><th>시각</th><th>부스</th><th>기업</th><th>구분</th><th>예약자</th>'
 		+ '<th>소속</th><th>연락처</th></tr></thead>';
 	const tbody = document.createElement('tbody');
-	for (const r of list) {
+
+	let lastGroup = null;
+	for (const r of slice) {
+		// 쪽이 종류 중간에서 잘려도 이 쪽이 무엇인지 알 수 있게, 쪽마다 다시 적는다.
+		if (r.group !== lastGroup) {
+			tbody.append(groupRow(r.group, 7));
+			lastGroup = r.group;
+		}
 		const tr = document.createElement('tr');
 		tr.append(
 			cell(hhmm(r.startTime) + ' · ' + r.slotMinutes + '분', 'num'),
 			cell(r.boothNo, 'num'),
 			cell(r.companyName),
 			cell(boothShape(r)),
-			cell(r.visitorName),
+			cell(r.visitorName, 'who'),
 			// 학교·전공·학년을 한 칸에 넣는다. 셋으로 나누면 표가 여덟 열이 되어 못 읽는다.
 			cell([r.visitorSchool, r.visitorMajor, r.visitorStanding].filter(Boolean).join(' · ')),
 			cell(r.visitorPhone, 'num'));
 		tbody.append(tr);
 	}
 	table.append(tbody);
-	bookings.replaceChildren(wrapTable(table));
+	bookings.replaceChildren(wrapTable(table), pager(pages));
+}
+
+/**
+ * 게시판식 쪽 번호.
+ *
+ * 지금 보고 있는 범위를 숫자로 함께 적는다 — 쪽 번호만 있으면 전체가 몇 건인지,
+ * 내가 어디쯤인지 알 수 없다. 행사 당일 담당자가 가장 먼저 묻는 것이 '몇 명 왔나'다.
+ */
+function pager(pages) {
+	const box = document.createElement('div');
+	box.className = 'pager';
+
+	if (pages > 1) {
+		const nav = document.createElement('div');
+		nav.className = 'pager-nav';
+		const add = (label, target, disabled, current) => {
+			const b = document.createElement('button');
+			b.type = 'button';
+			b.className = 'pager-btn' + (current ? ' pager-btn--on' : '');
+			b.textContent = label;
+			b.disabled = disabled;
+			if (current) {
+				b.setAttribute('aria-current', 'page');
+			}
+			b.addEventListener('click', () => {
+				dayPage = target;
+				renderDayPage();
+				// 쪽을 넘기면 표 맨 위로 돌아간다. 아래쪽에 머문 채 내용만 바뀌면
+				// 무엇이 달라졌는지 못 본다.
+				bookings.scrollIntoView({ behavior: 'smooth', block: 'start' });
+			});
+			nav.append(b);
+		};
+		add('‹', dayPage - 1, dayPage === 1);
+		for (let p = 1; p <= pages; p++) {
+			add(String(p), p, false, p === dayPage);
+		}
+		add('›', dayPage + 1, dayPage === pages);
+		box.append(nav);
+	}
+
+	const count = document.createElement('span');
+	count.className = 'pager-count';
+	count.textContent = `전체 ${dayRows.length}건 중 `
+		+ `${(dayPage - 1) * PAGE_SIZE + 1}–${Math.min(dayPage * PAGE_SIZE, dayRows.length)}`;
+	box.append(count);
+	return box;
 }
 
 /**
@@ -616,12 +701,8 @@ async function loadBooths() {
 
 	// 세 종류가 한 표에 섞여 있으면 무엇을 보고 있는지 줄마다 다시 읽어야 한다.
 	// 표는 하나로 두고(머리글을 세 번 반복하지 않는다) 종류별 띠로 묶는다.
-	// 설명회를 먼저 가른다 — 설명회는 정원을 쓰지 않아서 정원으로 물으면 그룹으로 새어 들어간다.
 	const ordered = [];
-	for (const g of [
-			{ title: '1:1 면접 · 상담', has: b => b.kind !== 'BRIEFING' && b.capacity <= 1 },
-			{ title: '그룹 면접 (1:다)', has: b => b.kind !== 'BRIEFING' && b.capacity > 1 },
-			{ title: '기업 설명회', has: b => b.kind === 'BRIEFING' }]) {
+	for (const g of KIND_GROUPS) {
 		const mine = list.filter(g.has);
 		if (mine.length) {
 			ordered.push({ groupTitle: `${g.title} · ${mine.length}개` }, ...mine);

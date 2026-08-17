@@ -217,7 +217,7 @@ function roster(reservations) {
 		const tr = document.createElement('tr');
 		tr.append(
 			cell(hhmm(r.startTime) + ' · ' + r.slotMinutes + '분', 'num'),
-			cell(r.visitorName),
+			cell(r.visitorName, 'who'),
 			// tel: 링크로 둔다 — 담당자가 현장에서 바로 걸 수 있어야 한다.
 			telCell(r.visitorPhone),
 			// 이 기능 이전에 잡힌 예약은 셋이 비어 있다. 빈 칸보다 '-'가 '안 받았다'를 말한다.

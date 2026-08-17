@@ -460,16 +460,42 @@ textarea { display: block; resize: vertical; min-height: 4.5rem; line-height: 1.
 .admin-table td { padding: .75rem .75rem .75rem 0; border-bottom: 1px solid var(--rail); vertical-align: top; }
 .admin-table .num { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
 
-/* 표 안에서 종류를 가르는 띠. 머리글(th)을 세 번 반복하는 대신 이 줄 하나로 묶는다. */
-.admin-table .group-row {
-	padding-top: 1.25rem;
-	font-family: var(--mono);
-	font-size: .75rem;
-	letter-spacing: .08em;
-	font-weight: 700;
-	color: var(--pine);
-	border-bottom: 1px solid var(--ink-25);
+/* 게시판식 쪽 넘김. 쪽이 스무 개를 넘어도 줄바꿈으로 흘러내리게 둔다 —
+   가로로 밀리면 좁은 화면에서 마지막 쪽을 누를 수 없다. */
+.pager { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; margin: 1rem 0 0; }
+.pager-nav { display: flex; flex-wrap: wrap; gap: .25rem; }
+.pager-btn {
+	min-width: 2rem;
+	padding: .375rem .5rem;
+	background: var(--paper);
+	border: 1px solid var(--rail);
+	border-radius: 2px;
+	font: inherit;
+	font-size: .8125rem;
+	font-variant-numeric: tabular-nums;
+	color: var(--ink-70);
+	cursor: pointer;
 }
+.pager-btn:hover:not(:disabled) { border-color: var(--ink-45); color: var(--ink); }
+.pager-btn:disabled { opacity: .35; cursor: default; }
+.pager-btn--on { background: var(--pine); border-color: var(--pine); color: var(--paper); font-weight: 700; }
+.pager-count { font-size: .8125rem; color: var(--ink-70); margin-left: auto; }
+
+/* 표 안에서 종류를 가르는 띠. 머리글(th)을 세 번 반복하는 대신 이 줄 하나로 묶는다.
+   본문(.875rem)보다 확실히 커야 한다 — 처음엔 .75rem 모노로 뒀더니 구분선이 아니라
+   각주처럼 읽혀서 세 덩어리가 갈린 것으로 안 보였다. 아래 굵은 초록 선이 실제 경계다. */
+.admin-table .group-row {
+	padding: 1.75rem .75rem .5rem 0;
+	font-size: 1.0625rem;
+	font-weight: 800;
+	letter-spacing: -.01em;
+	color: var(--ink);
+	border-bottom: 2px solid var(--pine);
+}
+.admin-table tr:first-child .group-row { padding-top: .5rem; }
+
+/* 표 한 줄에서 사람을 찾는다. 이름이 소속·연락처와 같은 무게면 눈이 걸릴 데가 없다. */
+.admin-table .who { font-weight: 700; font-size: .9375rem; letter-spacing: -.01em; }
 
 .row { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
 
