@@ -196,6 +196,33 @@ class BoothKindTest {
 			id, slot, ReservationStatus.RESERVED, 0)).isEqualTo(1);
 	}
 
+	/**
+	 * 관리자의 하루 목록에는 세 가지가 시간 순으로 뒤섞여 들어온다. 종류가 실리지 않으면
+	 * 표가 그것을 구분해 적을 수 없다 — 같은 10시 두 줄이 무엇인지 알 방법이 없어진다.
+	 */
+	@Test
+	void 관리자_예약_목록이_1대1인지_그룹인지_설명회인지_담는다() {
+		Long oneOnOne = admin.createBooth(request("a1", BoothKind.INTERVIEW)).id();
+		Long group = admin.createBooth(new AdminController.BoothRequest("동해기업", "a2", null,
+			Slots.today().plusDays(7), LocalTime.of(10, 0), LocalTime.of(17, 0),
+			30, 5, false, BoothKind.INTERVIEW)).id();
+		Long briefing = admin.createBooth(request("b1", BoothKind.BRIEFING)).id();
+
+		// 같은 사람은 같은 시각에 두 부스를 잡지 못한다. 슬롯을 어긋나게 둔다.
+		Booth b = booths.findById(oneOnOne).orElseThrow();
+		service.book(oneOnOne, Slots.forBooth(b).get(0), who("갑", "01011110001"), null);
+		service.book(group, Slots.forBooth(b).get(1), who("을", "01011110002"), null);
+		service.book(briefing, Slots.forBooth(b).get(2), who("병", "01011110003"), null);
+
+		assertThat(admin.reservationsOn(b.getEventDate()))
+			.extracting(AdminController.AdminReservationView::kind,
+				AdminController.AdminReservationView::capacity)
+			.containsExactlyInAnyOrder(
+				org.assertj.core.groups.Tuple.tuple(BoothKind.INTERVIEW, 1),
+				org.assertj.core.groups.Tuple.tuple(BoothKind.INTERVIEW, 5),
+				org.assertj.core.groups.Tuple.tuple(BoothKind.BRIEFING, 1));
+	}
+
 	/** 화면이 '인원 제한 없음'을 스스로 계산하지 않도록 서버가 알려준다. */
 	@Test
 	void 공개_부스_응답이_무제한_여부를_담는다() {

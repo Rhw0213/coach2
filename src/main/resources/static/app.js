@@ -140,7 +140,7 @@ function fullWhen(iso) {
  * 종류를 모르면(부스가 지워진 예약) 아무 말도 하지 않는다 — 그때 '1:1'이 기본값처럼
  * 찍히면 거짓말이 된다.
  *
- * 관리자 화면은 자기 kindLabel을 따로 쓴다. 표 한 칸에 들어가야 해서 말이 더 짧다. */
+ * 관리자 화면은 자기 boothShape()을 따로 쓴다. 표 한 칸에 들어가야 해서 말이 더 짧다. */
 function sessionLabel(s) {
 	if (!s || !s.kind) {
 		return '';

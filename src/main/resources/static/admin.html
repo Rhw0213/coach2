@@ -258,9 +258,11 @@ let mainEventDate = '';
 
 document.getElementById('companySelect').addEventListener('change', showCompanyHint);
 
-/** 이 부스가 무엇인지 한 마디로. 설명회에 '정원 1명'이라고 적으면 거짓말이 된다. */
+/** 이 부스가 무엇인지 한 마디로. 설명회에 '정원 1명'이라고 적으면 거짓말이 된다.
+ *  부스가 지워진 예약은 종류를 알 수 없다 — 그때 '1:1'로 떨어지면 없는 사실을 적게 된다. */
 function boothShape(b) {
-	return b.kind === 'BRIEFING' ? '설명회'
+	return !b.kind ? '-'
+		: b.kind === 'BRIEFING' ? '설명회'
 		: b.capacity > 1 ? `그룹 ${b.capacity}명`
 		: '1:1';
 }
@@ -351,7 +353,9 @@ function render(list) {
 	}
 	const table = document.createElement('table');
 	table.className = 'admin-table';
-	table.innerHTML = '<thead><tr><th>시각</th><th>부스</th><th>기업</th><th>예약자</th>'
+	// '구분'은 기업 바로 뒤다. 이 표는 1:1 면접·그룹 면접·설명회 신청이 시간 순으로
+	// 뒤섞여 들어오는데, 그것을 적지 않으면 같은 10시 두 줄이 무엇인지 알 수 없다.
+	table.innerHTML = '<thead><tr><th>시각</th><th>부스</th><th>기업</th><th>구분</th><th>예약자</th>'
 		+ '<th>소속</th><th>연락처</th></tr></thead>';
 	const tbody = document.createElement('tbody');
 	for (const r of list) {
@@ -360,6 +364,7 @@ function render(list) {
 			cell(hhmm(r.startTime) + ' · ' + r.slotMinutes + '분', 'num'),
 			cell(r.boothNo, 'num'),
 			cell(r.companyName),
+			cell(boothShape(r)),
 			cell(r.visitorName),
 			// 학교·전공·학년을 한 칸에 넣는다. 셋으로 나누면 표가 여덟 열이 되어 못 읽는다.
 			cell([r.visitorSchool, r.visitorMajor, r.visitorStanding].filter(Boolean).join(' · ')),

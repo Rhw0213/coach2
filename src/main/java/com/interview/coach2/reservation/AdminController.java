@@ -62,7 +62,12 @@ public class AdminController {
 	                             long approvedCount, String staffToken, String applyToken) {
 	}
 
+	/**
+	 * 하루 목록에는 1:1 면접·그룹 면접·기업 설명회가 시간 순으로 뒤섞여 들어온다.
+	 * kind·capacity가 없으면 표가 그것을 구분해 적을 수 없다 — 실제로 못 적고 있었다.
+	 */
 	public record AdminReservationView(Long id, Long boothId, String companyName, String boothNo,
+	                                   BoothKind kind, int capacity,
 	                                   Instant startTime, int slotMinutes,
 	                                   String visitorName, String visitorPhone,
 	                                   String visitorSchool, String visitorMajor,
@@ -351,6 +356,8 @@ public class AdminController {
 				r.getId(), r.getBoothId(),
 				booth == null ? "-" : booth.getCompanyName(),
 				booth == null ? "-" : booth.getBoothNo(),
+				booth == null ? null : booth.getKind(),
+				booth == null ? 0 : booth.getCapacity(),
 				r.getStartTime(), r.getSlotMinutes(),
 				visitor == null ? "-" : visitor.getName(),
 				visitor == null ? "-" : visitor.getPhone(),
