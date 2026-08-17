@@ -82,6 +82,23 @@ class StaffViewTest {
 			.doesNotContain("staffToken");
 	}
 
+	/**
+	 * 담당자는 자기 화면이 무엇의 명단인지 알아야 한다. 1:1 면접자 명단과 설명회 신청자
+	 * 명단은 현장에서 하는 일이 다른데, 이름만 늘어놓으면 둘이 같아 보인다.
+	 */
+	@Test
+	void 담당자_화면이_자리의_종류를_담는다() throws Exception {
+		Booth briefing = booths.save(new Booth("쎄트렉아이", "b1", null,
+			Slots.today().plusDays(7), LocalTime.of(10, 0), LocalTime.of(17, 0), 30));
+		briefing.setKind(BoothKind.BRIEFING);
+		booths.save(briefing);
+
+		assertThat(get("/api/staff/" + mine.getStaffToken()).body())
+			.contains("\"kind\":\"INTERVIEW\"").contains("\"capacity\":1");
+		assertThat(get("/api/staff/" + briefing.getStaffToken()).body())
+			.contains("\"kind\":\"BRIEFING\"");
+	}
+
 	@Test
 	void 잘못된_토큰은_404() throws Exception {
 		assertThat(get("/api/staff/deadbeef").statusCode()).isEqualTo(404);

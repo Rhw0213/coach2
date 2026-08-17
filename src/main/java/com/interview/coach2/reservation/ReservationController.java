@@ -250,9 +250,15 @@ public class ReservationController {
 	                               String visitorStanding, Instant bookedAt) {
 	}
 
+	/**
+	 * kind는 이 명단이 무엇의 신청자인가를 말한다. 토큰 하나가 부스 하나를 가리키므로
+	 * 여기 실린 사람들은 전부 같은 종류다 — 그래서 사람마다가 아니라 화면 제목에 적는다.
+	 * unlimited로 대신 판단하지 않는다. 그건 '좌석이 있나'지 '무엇을 하는 자리인가'가 아니다.
+	 */
 	public record StaffView(String companyName, String boothNo, String note,
 	                        LocalDate eventDate, LocalTime openFrom, LocalTime openTo,
-	                        int slotMinutes, int capacity, boolean active, boolean unlimited,
+	                        int slotMinutes, int capacity, BoothKind kind,
+	                        boolean active, boolean unlimited,
 	                        List<StaffReservation> reservations) {
 	}
 
@@ -275,8 +281,8 @@ public class ReservationController {
 
 		return new StaffView(booth.getCompanyName(), booth.getBoothNo(), booth.getNote(),
 			booth.getEventDate(), booth.getOpenFrom(), booth.getOpenTo(),
-			booth.getSlotMinutes(), booth.getCapacity(), booth.isActive(),
-			booth.isUnlimited(), rows);
+			booth.getSlotMinutes(), booth.getCapacity(), booth.getKind(),
+			booth.isActive(), booth.isUnlimited(), rows);
 	}
 
 	// unlimited는 kind로도 알 수 있지만 화면이 다시 계산하게 두지 않는다 — '설명회는 무제한'은
