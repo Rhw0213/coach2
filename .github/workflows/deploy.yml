@@ -94,10 +94,13 @@ jobs:
         # deploy가 실패했을 때야말로 eastAI 상태를 알아야 하므로 항상 돈다.
         if: always()
         run: |
+          # 인스턴스를 분리하면 주소가 바뀐다. 변수 하나로 갈아끼운다 —
+          # 안 넣으면 지금까지의 주소를 그대로 본다.
+          COACH2_URL="${{ vars.PUBLIC_URL || 'https://eastpeace.kr/reserve' }}"
           coach2_ok=false
           for i in $(seq 1 30); do
             body=$(curl -fsS --connect-timeout 5 --max-time 15 \
-                   "https://eastpeace.kr/reserve/health" 2>/dev/null) || body=""
+                   "$COACH2_URL/health" 2>/dev/null) || body=""
             # 상태코드만 보면 안 된다. nginx include가 아직 없으면 /reserve/health가
             # eastAI의 catch-all로 새는데, eastAI가 2xx를 주면 통과해버린다.
             if echo "$body" | grep -q '"app":"coach2"'; then
@@ -109,6 +112,8 @@ jobs:
           $coach2_ok && echo "✅ coach2 응답 정상" || echo "❌ coach2가 응답하지 않음"
 
           # coach2 실패 시 여기서 exit하면 안 된다 — 이 검사가 더 중요하다.
+          # ⚠ 인스턴스를 분리해 컷오버가 끝나면 아래 eastAI 검사를 지운다. 같은 호스트가
+          #    아니게 되므로, 남의 서비스 장애로 coach2 배포가 실패하게 된다.
           code=$(curl -sS -o /dev/null -w '%{http_code}' --connect-timeout 5 --max-time 15 \
                  "https://eastpeace.kr/" || echo 000)
           # eastAI 루트는 평소에 302를 준다(앱이 리다이렉트). 200을 요구하면 멀쩡한데도

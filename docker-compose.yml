@@ -66,7 +66,9 @@ services:
       # nginx가 /reserve/ 를 떼지 않고 그대로 넘긴다(proxy_pass 뒤 슬래시 없음).
       # 따라서 앱도 같은 prefix로 받아야 링크·리다이렉트·쿠키 경로가 맞는다.
       # 서브도메인으로 전환하면 이 값을 빈 문자열로 두고 nginx도 별도 server 블록으로 교체.
-      - SERVER_SERVLET_CONTEXT_PATH=${CONTEXT_PATH:-/reserve}
+      # 콜론 없는 ${VAR-기본값}이다. :- 로 두면 빈 문자열도 '미설정'으로 보고 /reserve 로
+      # 되돌려서, 서브도메인 전환(prefix 없음)이 조용히 실패한다 — 실제로 그랬다.
+      - SERVER_SERVLET_CONTEXT_PATH=${CONTEXT_PATH-/reserve}
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/coach2
       - SPRING_DATASOURCE_USERNAME=${DB_USERNAME:-coach2}
       - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD:?DB_PASSWORD 미설정 — .env를 확인할 것}

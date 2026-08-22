@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>행사 취소 안내 · 온라인 채용박람회</title>
+<meta name="robots" content="noindex">
+<!--
+  행사 취소 후 eastpeace.kr/reserve 로 들어오는 사람에게 보여주는 한 장.
+
+  앱도 DB도 필요 없다 — nginx가 이 파일만 내준다. 예약 시스템을 통째로 내린 뒤에도
+  포스터·QR·문자로 나간 주소는 회수되지 않으므로, 그 주소가 502를 뱉는 대신 사정을 말한다.
+
+  스타일을 안에 넣은 이유: app.css는 내려간 앱이 서비스하던 파일이라 더 이상 없다.
+  이 파일 하나로 완결되어야 한다.
+
+  ⚠ 아래 문구는 초안이다. 설치 전에 주최측이 읽고 고칠 것 —
+    특히 (1) '취소'인지 '연기'인지, (2) 개인정보 파기 문장을 실제 처리와 맞출 것.
+-->
+<style>
+:root {
+	--ink: #1C2024;
+	--ink-70: rgba(28, 32, 36, .70);
+	--field: #E4E7DF;
+	--paper: #FBFAF7;
+	--rail: #C7CBC1;
+	--pine: #1F5847;
+	--sans: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", Pretendard,
+		"Malgun Gothic", "Noto Sans KR", sans-serif;
+}
+* { box-sizing: border-box; }
+body {
+	margin: 0;
+	min-height: 100vh;
+	display: grid;
+	place-items: center;
+	padding: 2rem 1.25rem;
+	background: var(--field);
+	color: var(--ink);
+	font-family: var(--sans);
+	line-height: 1.7;
+	-webkit-text-size-adjust: 100%;
+}
+main {
+	width: 100%;
+	max-width: 34rem;
+	background: var(--paper);
+	border: 1px solid var(--rail);
+	border-top: 3px solid var(--pine);
+	border-radius: 2px;
+	padding: 2.5rem 2rem;
+}
+.eyebrow {
+	margin: 0 0 .5rem;
+	font-size: .75rem;
+	font-weight: 800;
+	letter-spacing: .12em;
+	color: var(--pine);
+}
+h1 { margin: 0 0 1.25rem; font-size: 1.5rem; letter-spacing: -.02em; }
+p { margin: 0 0 1rem; }
+p:last-child { margin-bottom: 0; }
+.muted { color: var(--ink-70); font-size: .9375rem; }
+hr { border: 0; border-top: 1px solid var(--rail); margin: 1.75rem 0; }
+a { color: var(--pine); }
+@media (max-width: 30rem) { main { padding: 2rem 1.25rem; } h1 { font-size: 1.25rem; } }
+</style>
+</head>
+<body>
+<main>
+	<p class="eyebrow">안내</p>
+	<h1>온라인 채용박람회가 취소되었습니다</h1>
+
+	<p>2026년 8월 25일에 예정되었던 온라인 채용박람회가 취소되어,
+	   사전 신청과 예약 조회를 모두 종료했습니다.</p>
+
+	<p>신청해 주신 분들께 죄송하다는 말씀을 드립니다.</p>
+
+	<hr>
+
+	<p class="muted">신청 과정에서 받은 이름·연락처·학교·전공 정보는
+	   수집 목적이 사라져 모두 파기했습니다. 별도로 보관하고 있는 자료는 없습니다.</p>
+
+	<p class="muted">문의: <a id="mail" href="#">이메일</a></p>
+</main>
+<script>
+/* 주소를 HTML에 통째로 적지 않는다 — 서류 등록 화면(docs.html)이 쓰던 것과 같은 방식이다. */
+var addr = 'eastedu2026' + '@' + 'gmail.com';
+var mail = document.getElementById('mail');
+mail.href = 'mailto:' + addr;
+mail.textContent = addr;
+</script>
+</body>
+</html>
